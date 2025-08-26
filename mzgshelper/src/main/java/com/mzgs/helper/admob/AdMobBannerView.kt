@@ -90,6 +90,13 @@ class AdMobBannerView @JvmOverloads constructor(
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     Log.e(TAG, "Banner failed to load: ${error.message}")
                     onAdFailedToLoad(error)
+                    
+                    // Auto-retry loading the banner after a delay
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                        Log.d(TAG, "Auto-retrying banner ad load after failure")
+                        val retryRequest = AdRequest.Builder().build()
+                        loadAd(retryRequest)
+                    }, 5000) // Retry after 5 seconds
                 }
                 
                 override fun onAdOpened() {

@@ -76,6 +76,16 @@ class AdMobNativeAdHelper(private val context: Context) {
             override fun onAdFailedToLoad(error: LoadAdError) {
                 Log.e(TAG, "Failed to load native ad: ${error.message}")
                 onAdFailedToLoad(error)
+                
+                // Auto-retry loading the native ad after a delay
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    Log.d(TAG, "Auto-retrying native ad load after failure")
+                    if (shouldRequestMultipleAds && numberOfAds > 1) {
+                        adLoader?.loadAds(AdRequest.Builder().build(), numberOfAds)
+                    } else {
+                        adLoader?.loadAd(AdRequest.Builder().build())
+                    }
+                }, 5000) // Retry after 5 seconds
             }
             
             override fun onAdClicked() {

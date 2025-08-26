@@ -76,6 +76,13 @@ class AdMobMRECView @JvmOverloads constructor(
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     Log.e(TAG, "MREC failed to load: ${error.message}")
                     onAdFailedToLoad(error)
+                    
+                    // Auto-retry loading the MREC after a delay
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                        Log.d(TAG, "Auto-retrying MREC ad load after failure")
+                        val retryRequest = AdRequest.Builder().build()
+                        loadAd(retryRequest)
+                    }, 5000) // Retry after 5 seconds
                 }
                 
                 override fun onAdOpened() {

@@ -4,7 +4,12 @@ import android.app.Activity
 import android.app.Application
 import android.content.Context
 import android.util.Log
+import android.os.Handler
+import android.os.Looper
 import com.google.android.gms.ads.*
+import java.util.concurrent.TimeUnit
+import kotlin.math.min
+import kotlin.math.pow
 import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import com.google.android.gms.ads.rewarded.RewardItem
@@ -24,6 +29,7 @@ class AdMobMediationManager(private val context: Context) {
     companion object {
         private const val TAG = "AdMobMediation"
         private var isInitialized = false
+        private const val MAX_RETRY_ATTEMPTS = 6 // Allow up to 6 retries for exponential backoff
         
         @Volatile
         private var INSTANCE: AdMobMediationManager? = null
@@ -32,6 +38,14 @@ class AdMobMediationManager(private val context: Context) {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: AdMobMediationManager(context.applicationContext).also { INSTANCE = it }
             }
+        }
+        
+        // Calculate exponential backoff delay
+        // AppLovin recommends exponentially higher delays up to a maximum delay (64 seconds)
+        private fun getRetryDelayMillis(retryAttempt: Int): Long {
+            // Calculate delay: 2^retryAttempt seconds, capped at 2^6 (64 seconds)
+            val exponent = min(6, retryAttempt)
+            return TimeUnit.SECONDS.toMillis(2.0.pow(exponent).toLong())
         }
     }
     
@@ -160,7 +174,8 @@ class AdMobMediationManager(private val context: Context) {
     fun loadInterstitialAd(
         adUnitId: String,
         onAdLoaded: () -> Unit = {},
-        onAdFailedToLoad: (LoadAdError) -> Unit = {}
+        onAdFailedToLoad: (LoadAdError) -> Unit = {},
+        retryAttempt: Int = 0
     ) {
         if (!canShowAds()) {
             Log.w(TAG, "Cannot request ads - consent not obtained")
@@ -184,15 +199,25 @@ class AdMobMediationManager(private val context: Context) {
             object : InterstitialAdLoadCallback() {
                 override fun onAdLoaded(ad: InterstitialAd) {
                     interstitialAd = ad
-                    Log.d(TAG, "Interstitial ad loaded")
+                    Log.d(TAG, "Interstitial ad loaded ${if (retryAttempt > 0) "(retry $retryAttempt)" else ""}")
                     setupInterstitialCallbacks(ad)
                     onAdLoaded()
                 }
                 
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     interstitialAd = null
-                    Log.e(TAG, "Failed to load interstitial: ${error.message}")
-                    onAdFailedToLoad(error)
+                    Log.e(TAG, "Failed to load interstitial: ${error.message} ${if (retryAttempt > 0) "(retry $retryAttempt)" else ""}")
+                    
+                    if (retryAttempt < MAX_RETRY_ATTEMPTS) {
+                        val delayMillis = getRetryDelayMillis(retryAttempt + 1)
+                        Log.d(TAG, "Retrying interstitial ad load (attempt ${retryAttempt + 1}/$MAX_RETRY_ATTEMPTS) after ${delayMillis/1000} seconds")
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            loadInterstitialAd(adUnitId, onAdLoaded, onAdFailedToLoad, retryAttempt + 1)
+                        }, delayMillis)
+                    } else {
+                        Log.e(TAG, "Max retry attempts reached for interstitial ad")
+                        onAdFailedToLoad(error)
+                    }
                 }
             }
         )
@@ -203,6 +228,14 @@ class AdMobMediationManager(private val context: Context) {
             override fun onAdDismissedFullScreenContent() {
                 Log.d(TAG, "Interstitial ad dismissed")
                 interstitialAd = null
+                // Auto-reload the interstitial ad
+                adConfig?.let { config ->
+                    val adUnitId = config.getEffectiveInterstitialAdUnitId()
+                    if (adUnitId.isNotEmpty()) {
+                        Log.d(TAG, "Auto-reloading interstitial ad")
+                        loadInterstitialAd(adUnitId)
+                    }
+                }
             }
             
             override fun onAdFailedToShowFullScreenContent(error: AdError) {
@@ -245,7 +278,8 @@ class AdMobMediationManager(private val context: Context) {
     fun loadRewardedAd(
         adUnitId: String,
         onAdLoaded: () -> Unit = {},
-        onAdFailedToLoad: (LoadAdError) -> Unit = {}
+        onAdFailedToLoad: (LoadAdError) -> Unit = {},
+        retryAttempt: Int = 0
     ) {
         if (!canShowAds()) {
             Log.w(TAG, "Cannot request ads - consent not obtained")
@@ -269,15 +303,25 @@ class AdMobMediationManager(private val context: Context) {
             object : RewardedAdLoadCallback() {
                 override fun onAdLoaded(ad: RewardedAd) {
                     rewardedAd = ad
-                    Log.d(TAG, "Rewarded ad loaded")
+                    Log.d(TAG, "Rewarded ad loaded ${if (retryAttempt > 0) "(retry $retryAttempt)" else ""}")
                     setupRewardedCallbacks(ad)
                     onAdLoaded()
                 }
                 
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     rewardedAd = null
-                    Log.e(TAG, "Failed to load rewarded ad: ${error.message}")
-                    onAdFailedToLoad(error)
+                    Log.e(TAG, "Failed to load rewarded ad: ${error.message} ${if (retryAttempt > 0) "(retry $retryAttempt)" else ""}")
+                    
+                    if (retryAttempt < MAX_RETRY_ATTEMPTS) {
+                        val delayMillis = getRetryDelayMillis(retryAttempt + 1)
+                        Log.d(TAG, "Retrying rewarded ad load (attempt ${retryAttempt + 1}/$MAX_RETRY_ATTEMPTS) after ${delayMillis/1000} seconds")
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            loadRewardedAd(adUnitId, onAdLoaded, onAdFailedToLoad, retryAttempt + 1)
+                        }, delayMillis)
+                    } else {
+                        Log.e(TAG, "Max retry attempts reached for rewarded ad")
+                        onAdFailedToLoad(error)
+                    }
                 }
             }
         )
@@ -288,6 +332,14 @@ class AdMobMediationManager(private val context: Context) {
             override fun onAdDismissedFullScreenContent() {
                 Log.d(TAG, "Rewarded ad dismissed")
                 rewardedAd = null
+                // Auto-reload the rewarded ad
+                adConfig?.let { config ->
+                    val adUnitId = config.getEffectiveRewardedAdUnitId()
+                    if (adUnitId.isNotEmpty()) {
+                        Log.d(TAG, "Auto-reloading rewarded ad")
+                        loadRewardedAd(adUnitId)
+                    }
+                }
             }
             
             override fun onAdFailedToShowFullScreenContent(error: AdError) {
@@ -336,7 +388,8 @@ class AdMobMediationManager(private val context: Context) {
     fun loadRewardedInterstitialAd(
         adUnitId: String,
         onAdLoaded: () -> Unit = {},
-        onAdFailedToLoad: (LoadAdError) -> Unit = {}
+        onAdFailedToLoad: (LoadAdError) -> Unit = {},
+        retryAttempt: Int = 0
     ) {
         if (!canShowAds()) {
             Log.w(TAG, "Cannot request ads - consent not obtained")
@@ -352,15 +405,25 @@ class AdMobMediationManager(private val context: Context) {
             object : RewardedInterstitialAdLoadCallback() {
                 override fun onAdLoaded(ad: RewardedInterstitialAd) {
                     rewardedInterstitialAd = ad
-                    Log.d(TAG, "Rewarded interstitial ad loaded")
+                    Log.d(TAG, "Rewarded interstitial ad loaded ${if (retryAttempt > 0) "(retry $retryAttempt)" else ""}")
                     setupRewardedInterstitialCallbacks(ad)
                     onAdLoaded()
                 }
                 
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     rewardedInterstitialAd = null
-                    Log.e(TAG, "Failed to load rewarded interstitial: ${error.message}")
-                    onAdFailedToLoad(error)
+                    Log.e(TAG, "Failed to load rewarded interstitial: ${error.message} ${if (retryAttempt > 0) "(retry $retryAttempt)" else ""}")
+                    
+                    if (retryAttempt < MAX_RETRY_ATTEMPTS) {
+                        val delayMillis = getRetryDelayMillis(retryAttempt + 1)
+                        Log.d(TAG, "Retrying rewarded interstitial ad load (attempt ${retryAttempt + 1}/$MAX_RETRY_ATTEMPTS) after ${delayMillis/1000} seconds")
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            loadRewardedInterstitialAd(adUnitId, onAdLoaded, onAdFailedToLoad, retryAttempt + 1)
+                        }, delayMillis)
+                    } else {
+                        Log.e(TAG, "Max retry attempts reached for rewarded interstitial ad")
+                        onAdFailedToLoad(error)
+                    }
                 }
             }
         )
@@ -371,6 +434,14 @@ class AdMobMediationManager(private val context: Context) {
             override fun onAdDismissedFullScreenContent() {
                 Log.d(TAG, "Rewarded interstitial dismissed")
                 rewardedInterstitialAd = null
+                // Auto-reload the rewarded interstitial ad
+                adConfig?.let { config ->
+                    val adUnitId = config.getEffectiveRewardedInterstitialAdUnitId()
+                    if (adUnitId.isNotEmpty()) {
+                        Log.d(TAG, "Auto-reloading rewarded interstitial ad")
+                        loadRewardedInterstitialAd(adUnitId)
+                    }
+                }
             }
             
             override fun onAdFailedToShowFullScreenContent(error: AdError) {
