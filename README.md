@@ -97,6 +97,50 @@ class MainActivity : AppCompatActivity() {
 
 ### Banner Ads in Compose
 
+**Multiple Banner Formats Available:**
+- Standard Banner (320x50)
+- Large Banner (320x100)
+- MREC/Medium Rectangle (300x250)
+- Full Banner (468x60)
+- Leaderboard (728x90)
+- Adaptive Banners (flexible sizing)
+
+**Using BannerAdHelper for different formats:**
+
+```kotlin
+// Create banner helper
+val bannerHelper = BannerAdHelper(context)
+
+// Standard banner (320x50)
+bannerHelper.createStandardBanner(
+    adUnitId = "YOUR_BANNER_AD_UNIT_ID",
+    container = frameLayout,
+    onAdLoaded = { Log.d("Banner", "Loaded") }
+)
+
+// MREC (300x250)
+bannerHelper.createMREC(
+    adUnitId = "YOUR_MREC_AD_UNIT_ID",
+    container = frameLayout,
+    onAdLoaded = { Log.d("MREC", "Loaded") }
+)
+
+// Adaptive banner
+bannerHelper.createAdaptiveBanner(
+    adUnitId = "YOUR_BANNER_AD_UNIT_ID",
+    container = frameLayout,
+    onAdLoaded = { Log.d("Adaptive", "Loaded") }
+)
+
+// Inline adaptive banner (for scrollable content)
+bannerHelper.createInlineAdaptiveBanner(
+    adUnitId = "YOUR_BANNER_AD_UNIT_ID",
+    container = frameLayout,
+    maxHeight = 90, // Optional max height
+    onAdLoaded = { Log.d("Inline", "Loaded") }
+)
+```
+
 **Create a Composable for Banner Ads:**
 
 ```kotlin
@@ -165,6 +209,71 @@ fun HomeScreen() {
             adUnitId = "YOUR_BANNER_AD_UNIT_ID",
             modifier = Modifier.align(Alignment.BottomCenter)
         )
+    }
+}
+```
+
+### MREC (Medium Rectangle) Ads
+
+MREC ads are 300x250 dp banner ads, perfect for content breaks and inline placements.
+
+**Using AdMobMRECView:**
+
+```kotlin
+@Composable
+fun MRECAd(
+    adUnitId: String,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    var mrecView: AdMobMRECView? by remember { mutableStateOf(null) }
+    
+    DisposableEffect(Unit) {
+        onDispose {
+            mrecView?.destroy()
+        }
+    }
+    
+    AndroidView(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(250.dp),
+        factory = { ctx ->
+            AdMobMRECView(ctx).apply {
+                mrecView = this
+                loadMREC(
+                    adUnitId = adUnitId,
+                    onAdLoaded = {
+                        Log.d("MREC", "Ad loaded")
+                    },
+                    onAdFailedToLoad = { error ->
+                        Log.e("MREC", "Failed: ${error.message}")
+                    }
+                )
+            }
+        }
+    )
+}
+
+// Usage in your screen
+@Composable
+fun ContentScreen() {
+    LazyColumn {
+        item { 
+            // Your content
+        }
+        
+        item {
+            // MREC ad between content
+            MRECAd(
+                adUnitId = "YOUR_MREC_AD_UNIT_ID",
+                modifier = Modifier.padding(vertical = 16.dp)
+            )
+        }
+        
+        item {
+            // More content
+        }
     }
 }
 ```

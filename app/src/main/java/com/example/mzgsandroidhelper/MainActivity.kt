@@ -6,8 +6,11 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -17,9 +20,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import android.widget.FrameLayout
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.example.mzgsandroidhelper.ui.theme.MzgsAndroidHelperTheme
@@ -359,6 +365,16 @@ fun AdMobTestScreen() {
                 NativeAdCard()
             }
             
+            // Banner Ads Section
+            item {
+                BannerAdsCard()
+            }
+            
+            // MREC Ad Section  
+            item {
+                MRECAdCard()
+            }
+            
             // Ad configuration info
             item {
                 Card(
@@ -541,6 +557,236 @@ fun NativeAdCard() {
     }
 }
 
+
+@Composable
+fun BannerAdsCard() {
+    val context = LocalContext.current
+    var selectedBannerType by remember { mutableStateOf(BannerAdHelper.BannerType.BANNER) }
+    var isBannerLoaded by remember { mutableStateOf(false) }
+    var bannerHelper: BannerAdHelper? by remember { mutableStateOf(null) }
+    
+    Card(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                "Banner Ads",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            
+            Text(
+                "Multiple banner formats available",
+                style = MaterialTheme.typography.bodySmall
+            )
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Banner type selector
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(BannerAdHelper.BannerType.values().toList()) { type ->
+                    FilterChip(
+                        selected = selectedBannerType == type,
+                        onClick = { 
+                            selectedBannerType = type
+                            isBannerLoaded = false
+                        },
+                        label = { 
+                            Text(
+                                text = type.name.replace("_", " "),
+                                fontSize = 12.sp
+                            )
+                        }
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Show size info
+            Text(
+                text = BannerAdHelper(context).getBannerSizeInfo(selectedBannerType),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Load button
+            Button(
+                onClick = {
+                    if (bannerHelper == null) {
+                        bannerHelper = BannerAdHelper(context)
+                    }
+                    isBannerLoaded = true
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Load ${selectedBannerType.name.replace("_", " ")} Banner")
+            }
+            
+            // Banner display area
+            if (isBannerLoaded) {
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Container with specific sizing for adaptive banners
+                val isAdaptive = selectedBannerType in listOf(
+                    BannerAdHelper.BannerType.ADAPTIVE_BANNER,
+                    BannerAdHelper.BannerType.INLINE_ADAPTIVE,
+                    BannerAdHelper.BannerType.ANCHORED_ADAPTIVE
+                )
+                
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .then(
+                            if (selectedBannerType == BannerAdHelper.BannerType.MEDIUM_RECTANGLE) {
+                                Modifier.height(250.dp)
+                            } else if (selectedBannerType == BannerAdHelper.BannerType.LEADERBOARD) {
+                                Modifier.height(90.dp)
+                            } else {
+                                Modifier.wrapContentHeight()
+                            }
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    AndroidView(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .wrapContentHeight(),
+                        factory = { ctx ->
+                            FrameLayout(ctx).apply {
+                                // Post to ensure layout is measured
+                                post {
+                                    bannerHelper?.createBannerView(
+                                        adUnitId = AdMobConfig.TEST_BANNER_AD_UNIT_ID,
+                                        bannerType = selectedBannerType,
+                                        container = this,
+                                        maxHeight = if (selectedBannerType == BannerAdHelper.BannerType.INLINE_ADAPTIVE) 150 else 0,
+                                        onAdLoaded = {
+                                            Log.d("BannerAds", "${selectedBannerType} loaded successfully")
+                                        },
+                                        onAdFailedToLoad = { error ->
+                                            Log.e("BannerAds", "${selectedBannerType} failed: ${error.message}")
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MRECAdCard() {
+    val context = LocalContext.current
+    var isMRECLoaded by remember { mutableStateOf(false) }
+    var mrecView: AdMobMRECView? by remember { mutableStateOf(null) }
+    
+    Card(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                "MREC (Medium Rectangle) Ad",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            
+            Text(
+                "300x250 dp - Perfect for content breaks",
+                style = MaterialTheme.typography.bodySmall
+            )
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = {
+                        isMRECLoaded = true
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Load MREC")
+                }
+                
+                if (isMRECLoaded) {
+                    Button(
+                        onClick = {
+                            mrecView?.refreshAd()
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Refresh")
+                    }
+                }
+            }
+            
+            // MREC display area
+            if (isMRECLoaded) {
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // MREC container with border for visibility
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(250.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
+                ) {
+                    AndroidView(
+                        modifier = Modifier.fillMaxSize(),
+                        factory = { ctx ->
+                            AdMobMRECView(ctx).apply {
+                                mrecView = this
+                                loadMREC(
+                                    adUnitId = AdMobConfig.TEST_BANNER_AD_UNIT_ID, // MREC uses banner test ID
+                                    onAdLoaded = {
+                                        Log.d("MREC", "MREC ad loaded")
+                                    },
+                                    onAdFailedToLoad = { error ->
+                                        Log.e("MREC", "Failed to load: ${error.message}")
+                                    }
+                                )
+                            }
+                        },
+                        update = { view ->
+                            // Handle lifecycle if needed
+                        }
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Text(
+                    "MREC ads are ideal for placement within content",
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+    }
+    
+    // Cleanup
+    DisposableEffect(Unit) {
+        onDispose {
+            mrecView?.destroy()
+        }
+    }
+}
 
 @Composable
 fun HelperFunctionsCard() {

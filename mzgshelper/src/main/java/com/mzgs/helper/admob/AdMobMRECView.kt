@@ -7,20 +7,25 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import com.google.android.gms.ads.*
 
-class AdMobBannerView @JvmOverloads constructor(
+/**
+ * MREC (Medium Rectangle) Ad View
+ * Standard size: 300x250 dp
+ * Can be placed inline with content or in dedicated ad spaces
+ */
+class AdMobMRECView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0
 ) : FrameLayout(context, attrs, defStyleAttr) {
     
     companion object {
-        private const val TAG = "AdMobBannerView"
+        private const val TAG = "AdMobMRECView"
+        const val MREC_WIDTH = 300
+        const val MREC_HEIGHT = 250
     }
     
     private var adView: AdView? = null
-    private var adSize: AdSize = AdSize.BANNER
     private var adUnitId: String? = null
-    private var isAdaptive: Boolean = false
     
     init {
         layoutParams = ViewGroup.LayoutParams(
@@ -29,10 +34,17 @@ class AdMobBannerView @JvmOverloads constructor(
         )
     }
     
-    fun loadBanner(
+    /**
+     * Load MREC ad
+     * @param adUnitId Your MREC ad unit ID
+     * @param onAdLoaded Callback when ad loads successfully
+     * @param onAdFailedToLoad Callback when ad fails to load
+     * @param onAdOpened Callback when ad is opened
+     * @param onAdClosed Callback when ad is closed
+     * @param onAdClicked Callback when ad is clicked
+     */
+    fun loadMREC(
         adUnitId: String,
-        adSize: AdSize = AdSize.BANNER,
-        isAdaptive: Boolean = true,
         onAdLoaded: () -> Unit = {},
         onAdFailedToLoad: (LoadAdError) -> Unit = {},
         onAdOpened: () -> Unit = {},
@@ -45,88 +57,98 @@ class AdMobBannerView @JvmOverloads constructor(
         }
         
         this.adUnitId = adUnitId
-        this.isAdaptive = isAdaptive
         
+        // Clear any existing ad
         removeAllViews()
         adView?.destroy()
         
+        // Create new ad view
         adView = AdView(context).apply {
             this.adUnitId = adUnitId
-            
-            if (isAdaptive) {
-                // Calculate adaptive ad size properly
-                val display = context.resources.displayMetrics
-                val screenWidth = display.widthPixels
-                // Calculate width in dp
-                val adWidth = (screenWidth / display.density).toInt()
-                // Ensure minimum width of 320dp for adaptive banners
-                val finalWidth = adWidth.coerceAtLeast(320)
-                
-                this@AdMobBannerView.adSize = AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(context, finalWidth)
-                this.setAdSize(this@AdMobBannerView.adSize)
-            } else {
-                this@AdMobBannerView.adSize = adSize
-                this.setAdSize(adSize)
-            }
+            setAdSize(AdSize.MEDIUM_RECTANGLE) // 300x250
             
             adListener = object : AdListener() {
                 override fun onAdLoaded() {
-                    Log.d(TAG, "Banner ad loaded")
+                    Log.d(TAG, "MREC ad loaded")
                     onAdLoaded()
                 }
                 
                 override fun onAdFailedToLoad(error: LoadAdError) {
-                    Log.e(TAG, "Banner failed to load: ${error.message}")
+                    Log.e(TAG, "MREC failed to load: ${error.message}")
                     onAdFailedToLoad(error)
                 }
                 
                 override fun onAdOpened() {
-                    Log.d(TAG, "Banner ad opened")
+                    Log.d(TAG, "MREC ad opened")
                     onAdOpened()
                 }
                 
                 override fun onAdClosed() {
-                    Log.d(TAG, "Banner ad closed")
+                    Log.d(TAG, "MREC ad closed")
                     onAdClosed()
                 }
                 
                 override fun onAdClicked() {
-                    Log.d(TAG, "Banner ad clicked")
+                    Log.d(TAG, "MREC ad clicked")
                     onAdClicked()
                 }
                 
                 override fun onAdImpression() {
-                    Log.d(TAG, "Banner ad impression")
+                    Log.d(TAG, "MREC ad impression")
                 }
             }
         }
         
-        addView(adView)
+        // Center the MREC in its container
+        val params = LayoutParams(
+            LayoutParams.WRAP_CONTENT,
+            LayoutParams.WRAP_CONTENT
+        ).apply {
+            gravity = android.view.Gravity.CENTER
+        }
         
+        addView(adView, params)
+        
+        // Load the ad
         val adRequest = AdRequest.Builder().build()
         adView?.loadAd(adRequest)
     }
     
+    /**
+     * Check if MREC is loaded
+     */
+    fun isLoaded(): Boolean {
+        return adView != null
+    }
+    
+    /**
+     * Pause the MREC ad
+     */
     fun pause() {
         adView?.pause()
     }
     
+    /**
+     * Resume the MREC ad
+     */
     fun resume() {
         adView?.resume()
     }
     
+    /**
+     * Destroy the MREC ad
+     */
     fun destroy() {
         adView?.destroy()
         adView = null
     }
     
+    /**
+     * Refresh the MREC ad
+     */
     fun refreshAd() {
         adUnitId?.let { id ->
-            loadBanner(
-                adUnitId = id,
-                adSize = adSize,
-                isAdaptive = isAdaptive
-            )
+            loadMREC(adUnitId = id)
         }
     }
     
