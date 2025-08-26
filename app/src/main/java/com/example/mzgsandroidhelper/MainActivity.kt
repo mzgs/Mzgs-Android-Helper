@@ -33,6 +33,8 @@ import com.google.android.gms.ads.AdSize
 import com.google.android.ump.ConsentDebugSettings
 import com.mzgs.helper.MzgsHelper
 import com.mzgs.helper.admob.*
+import com.mzgs.helper.applovin.AppLovinConfig
+import com.mzgs.helper.applovin.AppLovinMediationManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -73,6 +75,23 @@ class MainActivity : ComponentActivity() {
             }
         )
         
+        // Initialize AppLovin MAX
+        val appLovinConfig = AppLovinConfig(
+            sdkKey = "sTOrf_0s7y7dzVqfTPRR0Ck_synT0Xrs0DgfChVKedyc7nGgAi6BwrAnnxEoT3dTHJ7T0dpfFmGNXX3hE9u9_2",
+            enableTestMode = true,
+            verboseLogging = true,
+            creativeDebuggerEnabled = true,
+            showAdsInDebug = true
+        )
+        
+        val appLovinManager = AppLovinMediationManager.getInstance(this)
+        appLovinManager.initialize(
+            config = appLovinConfig,
+            onInitComplete = {
+                Log.d("MainActivity", "AppLovin MAX initialized successfully")
+            }
+        )
+        
         setContent {
             MzgsAndroidHelperTheme {
                 AdMobTestScreen()
@@ -87,6 +106,7 @@ fun AdMobTestScreen() {
     val context = LocalContext.current
     val activity = context as? Activity
     val adManager = remember { AdMobMediationManager.getInstance(context) }
+    val appLovinManager = remember { AppLovinMediationManager.getInstance(context) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     
@@ -141,6 +161,73 @@ fun AdMobTestScreen() {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // AppLovin MAX Debugger button at the top
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.tertiary
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            "AppLovin MAX Tools",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onTertiary
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    appLovinManager.showMediationDebugger()
+                                },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.onTertiary,
+                                    contentColor = MaterialTheme.colorScheme.tertiary
+                                )
+                            ) {
+                                Text("Open MAX Debugger")
+                            }
+                            
+                            Button(
+                                onClick = {
+                                    appLovinManager.showCreativeDebugger()
+                                },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.onTertiary,
+                                    contentColor = MaterialTheme.colorScheme.tertiary
+                                )
+                            ) {
+                                Text("Creative Debugger")
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "Use MAX Debugger to verify mediation setup and test ads",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onTertiary
+                        )
+                        
+                        // Show AppLovin initialization status
+                        if (appLovinManager.isReady()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                "✓ AppLovin MAX is initialized",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onTertiary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+            
             // Helper functions section
             item {
                 HelperFunctionsCard()

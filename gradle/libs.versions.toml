@@ -1,5 +1,7 @@
 [versions]
 agp = "8.12.1"
+applovinSdk = "13.3.1"
+googleAdapter = "24.5.0.0"
 gson = "2.13.1"
 jsoup = "1.21.2"
 kotlin = "2.2.10"
@@ -23,6 +25,8 @@ userMessagingPlatform = "3.2.0"
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-lifecycle-process = { module = "androidx.lifecycle:lifecycle-process", version.ref = "lifecycleRuntimeKtx" }
 androidx-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "materialIconsExtended" }
+applovin-sdk = { module = "com.applovin:applovin-sdk", version.ref = "applovinSdk" }
+google-adapter = { module = "com.applovin.mediation:google-adapter", version.ref = "googleAdapter" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }

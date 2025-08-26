@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
 }
 
 android {
@@ -30,6 +31,12 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+    buildFeatures {
+        compose = true
+    }
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.21"
+    }
 }
 
 dependencies {
@@ -37,6 +44,15 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
+    
+    // Compose dependencies
+    implementation(platform(libs.androidx.compose.bom))
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-graphics")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.foundation:foundation")
+    implementation("androidx.compose.runtime:runtime")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -49,26 +65,23 @@ dependencies {
     // Google Play In-App Review API
     implementation(libs.review)
     implementation(libs.review.ktx)
-    // AppLovin MAX SDK
-    implementation("com.applovin:applovin-sdk:+")
+    // AppLovin MAX SDK - Latest stable version
+    implementation(libs.applovin.sdk)
 
     // Google AdMob Adapter for AppLovin MAX
-    implementation("com.applovin.mediation:google-adapter:+")
+    implementation(libs.google.adapter)
 
     // Google Mobile Ads SDK (required by the adapter)
     implementation(libs.play.services.ads)
 
-    // Note: AdMob mediation adapters are configured through AppLovin MAX dashboard
-    // These adapters are included via AppLovin MAX SDK automatically
-
     // Unity Ads Adapter for AppLovin MAX
-    implementation("com.applovin.mediation:unityads-adapter:+")
-
-    // Fyber (Digital Turbine Exchange) Adapter for AppLovin MAX
-    implementation("com.applovin.mediation:fyber-adapter:+")
+    implementation("com.applovin.mediation:unityads-adapter:4.16.1.0")
 
     // Facebook/Meta Audience Network Adapter for AppLovin MAX
-    implementation("com.applovin.mediation:facebook-adapter:+")
+    implementation("com.applovin.mediation:facebook-adapter:6.20.0.0")
+
+    implementation("com.applovin.mediation:fyber-adapter:+")
+    implementation("com.applovin.mediation:vungle-adapter:+")
 
     // Google User Messaging Platform for consent management
     implementation(libs.user.messaging.platform)

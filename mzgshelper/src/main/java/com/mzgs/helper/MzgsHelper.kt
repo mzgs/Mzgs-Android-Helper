@@ -1,6 +1,7 @@
 package com.mzgs.helper
 
 import android.Manifest
+import android.app.Application
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
@@ -10,12 +11,21 @@ import android.os.Build
 import android.util.Log
 import android.widget.Toast
 import androidx.annotation.RequiresPermission
+import com.mzgs.helper.admob.AdMobConfig
+import com.mzgs.helper.admob.AdMobMediationManager
+import com.mzgs.helper.applovin.AppLovinConfig
+import com.mzgs.helper.applovin.AppLovinMediationManager
 import java.text.SimpleDateFormat
 import java.util.*
 
 object MzgsHelper {
     
     private const val TAG = "MzgsHelper"
+    
+    enum class AdNetwork {
+        ADMOB,
+        APPLOVIN_MAX
+    }
     
     fun showToast(context: Context, message: String, duration: Int = Toast.LENGTH_SHORT) {
         Toast.makeText(context, message, duration).show()
@@ -93,6 +103,86 @@ object MzgsHelper {
         } catch (e: Exception) {
             Log.e(TAG, "Error checking debug mode", e)
             false
+        }
+    }
+    
+    fun initializeAdMob(
+        context: Context,
+        config: AdMobConfig,
+        onInitComplete: () -> Unit = {}
+    ) {
+        Log.d(TAG, "Initializing AdMob mediation")
+        val manager = AdMobMediationManager.getInstance(context)
+        manager.initialize(config, onInitComplete)
+    }
+    
+    fun initializeAppLovinMAX(
+        context: Context,
+        config: AppLovinConfig,
+        onInitComplete: () -> Unit = {}
+    ) {
+        Log.d(TAG, "Initializing AppLovin MAX mediation")
+        val manager = AppLovinMediationManager.getInstance(context)
+        manager.initialize(config, onInitComplete)
+    }
+    
+    fun getAdMobManager(context: Context): AdMobMediationManager {
+        return AdMobMediationManager.getInstance(context)
+    }
+    
+    fun getAppLovinManager(context: Context): AppLovinMediationManager {
+        return AppLovinMediationManager.getInstance(context)
+    }
+    
+    fun initializeAdNetwork(
+        context: Context,
+        network: AdNetwork,
+        adMobConfig: AdMobConfig? = null,
+        appLovinConfig: AppLovinConfig? = null,
+        onInitComplete: () -> Unit = {}
+    ) {
+        when (network) {
+            AdNetwork.ADMOB -> {
+                if (adMobConfig == null) {
+                    Log.e(TAG, "AdMob config is required for AdMob initialization")
+                    return
+                }
+                initializeAdMob(context, adMobConfig, onInitComplete)
+            }
+            AdNetwork.APPLOVIN_MAX -> {
+                if (appLovinConfig == null) {
+                    Log.e(TAG, "AppLovin config is required for AppLovin MAX initialization")
+                    return
+                }
+                initializeAppLovinMAX(context, appLovinConfig, onInitComplete)
+            }
+        }
+    }
+    
+    fun initializeBothNetworks(
+        context: Context,
+        adMobConfig: AdMobConfig,
+        appLovinConfig: AppLovinConfig,
+        onBothInitComplete: () -> Unit = {}
+    ) {
+        var adMobInitialized = false
+        var appLovinInitialized = false
+        
+        fun checkBothInitialized() {
+            if (adMobInitialized && appLovinInitialized) {
+                Log.d(TAG, "Both ad networks initialized successfully")
+                onBothInitComplete()
+            }
+        }
+        
+        initializeAdMob(context, adMobConfig) {
+            adMobInitialized = true
+            checkBothInitialized()
+        }
+        
+        initializeAppLovinMAX(context, appLovinConfig) {
+            appLovinInitialized = true
+            checkBothInitialized()
         }
     }
 

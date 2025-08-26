@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/applovin_native_ad_container"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@android:color/white"
+        android:orientation="vertical"
+        android:padding="10dp">
+
+        <!-- Ad attribution -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@android:color/darker_gray"
+            android:paddingLeft="3dp"
+            android:paddingRight="3dp"
+            android:text="Ad"
+            android:textColor="@android:color/white"
+            android:textSize="10sp" />
+
+        <!-- Main content container -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="5dp"
+            android:orientation="horizontal">
+
+            <!-- Icon -->
+            <ImageView
+                android:id="@+id/applovin_native_icon_image_view"
+                android:layout_width="50dp"
+                android:layout_height="50dp"
+                android:layout_marginEnd="10dp"
+                android:adjustViewBounds="true"
+                android:scaleType="fitCenter" />
+
+            <!-- Title and advertiser -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/applovin_native_title_text_view"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:lines="1"
+                    android:textColor="@android:color/black"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/applovin_native_advertiser_text_view"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:lines="1"
+                    android:textColor="@android:color/darker_gray"
+                    android:textSize="12sp" />
+                
+            </LinearLayout>
+
+            <!-- Options icon -->
+            <ImageView
+                android:id="@+id/applovin_native_options_view"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_gravity="center_vertical" />
+
+        </LinearLayout>
+
+        <!-- Body text -->
+        <TextView
+            android:id="@+id/applovin_native_body_text_view"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="5dp"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:textColor="@android:color/black"
+            android:textSize="14sp" />
+
+        <!-- Media view container -->
+        <FrameLayout
+            android:id="@+id/applovin_native_media_content_view"
+            android:layout_width="match_parent"
+            android:layout_height="200dp"
+            android:layout_gravity="center"
+            android:layout_marginTop="5dp" />
+
+        <!-- Star rating (optional) -->
+        <LinearLayout
+            android:id="@+id/applovin_native_star_rating_view"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="5dp"
+            android:orientation="horizontal"
+            android:visibility="gone" />
+
+        <!-- Call to action button -->
+        <Button
+            android:id="@+id/applovin_native_call_to_action_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="5dp"
+            android:background="@android:color/holo_blue_light"
+            android:text="Learn More"
+            android:textAllCaps="true"
+            android:textColor="@android:color/white"
+            android:textSize="14sp" />
+
+    </LinearLayout>
+
+</FrameLayout>
