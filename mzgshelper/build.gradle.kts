@@ -24,11 +24,11 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "17"
     }
 }
 
@@ -58,11 +58,8 @@ dependencies {
     // Google Mobile Ads SDK (required by the adapter)
     implementation(libs.play.services.ads)
 
-    // AdMob Mediation dependencies for fallback
-    implementation(libs.facebook)
-    implementation(libs.unity)
-    implementation(libs.fyber)
-    implementation(libs.applovin)
+    // Note: AdMob mediation adapters are configured through AppLovin MAX dashboard
+    // These adapters are included via AppLovin MAX SDK automatically
 
     // Unity Ads Adapter for AppLovin MAX
     implementation("com.applovin.mediation:unityads-adapter:+")
