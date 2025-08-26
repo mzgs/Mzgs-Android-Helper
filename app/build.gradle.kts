@@ -50,6 +50,11 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    
+    // Google Mobile Ads SDK (required for using AdMob classes in app module)
+    implementation(libs.play.services.ads)
+    implementation(libs.user.messaging.platform)
+    
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

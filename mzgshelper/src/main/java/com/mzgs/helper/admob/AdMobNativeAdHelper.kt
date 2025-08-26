@@ -7,6 +7,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
 import com.google.android.gms.ads.AdListener
 import com.google.android.gms.ads.AdLoader
@@ -103,6 +104,19 @@ class AdMobNativeAdHelper(private val context: Context) {
             }
         }
         
+        // Handle MediaView - ensure it's visible and properly sized
+        adView.mediaView?.let { mediaView ->
+            // MediaView will automatically display images or video from the ad
+            // Set minimum height to meet video requirements (120dp minimum)
+            if (mediaView.layoutParams != null) {
+                val minHeightPx = (120 * context.resources.displayMetrics.density).toInt()
+                if (mediaView.layoutParams.height < minHeightPx) {
+                    mediaView.layoutParams.height = (200 * context.resources.displayMetrics.density).toInt()
+                }
+            }
+            mediaView.visibility = View.VISIBLE
+        }
+        
         adView.callToActionView?.let { view ->
             if (nativeAd.callToAction == null) {
                 view.visibility = View.INVISIBLE
@@ -191,6 +205,89 @@ class AdMobNativeAdHelper(private val context: Context) {
         
         container.removeAllViews()
         container.addView(adView)
+        
+        return adView
+    }
+    
+    fun createDefaultNativeAdView(nativeAd: NativeAd): NativeAdView {
+        val layoutId = context.resources.getIdentifier(
+            "native_ad_layout",
+            "layout",
+            context.packageName
+        )
+        
+        val adView = if (layoutId != 0) {
+            LayoutInflater.from(context).inflate(layoutId, null) as NativeAdView
+        } else {
+            // Fallback to programmatic creation if layout not found
+            createProgrammaticNativeAdView(nativeAd)
+        }
+        
+        // Set up view references
+        adView.headlineView = adView.findViewById(context.resources.getIdentifier("ad_headline", "id", context.packageName))
+        adView.bodyView = adView.findViewById(context.resources.getIdentifier("ad_body", "id", context.packageName))
+        adView.callToActionView = adView.findViewById(context.resources.getIdentifier("ad_call_to_action", "id", context.packageName))
+        adView.iconView = adView.findViewById(context.resources.getIdentifier("ad_app_icon", "id", context.packageName))
+        adView.priceView = adView.findViewById(context.resources.getIdentifier("ad_price", "id", context.packageName))
+        adView.starRatingView = adView.findViewById(context.resources.getIdentifier("ad_stars", "id", context.packageName))
+        adView.storeView = adView.findViewById(context.resources.getIdentifier("ad_store", "id", context.packageName))
+        adView.advertiserView = adView.findViewById(context.resources.getIdentifier("ad_advertiser", "id", context.packageName))
+        adView.mediaView = adView.findViewById(context.resources.getIdentifier("ad_media", "id", context.packageName))
+        
+        populateNativeAdView(nativeAd, adView)
+        
+        return adView
+    }
+    
+    private fun createProgrammaticNativeAdView(nativeAd: NativeAd): NativeAdView {
+        val adView = NativeAdView(context)
+        val linearLayout = android.widget.LinearLayout(context).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(20, 20, 20, 20)
+        }
+        
+        // Add headline
+        val headline = TextView(context).apply {
+            textSize = 18f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+        }
+        linearLayout.addView(headline)
+        adView.headlineView = headline
+        
+        // Add body
+        val body = TextView(context).apply {
+            textSize = 14f
+            setPadding(0, 10, 0, 10)
+        }
+        linearLayout.addView(body)
+        adView.bodyView = body
+        
+        // Add MediaView with proper minimum size (120dp x 120dp minimum)
+        val mediaView = MediaView(context).apply {
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                (200 * context.resources.displayMetrics.density).toInt() // 200dp height
+            ).apply {
+                setMargins(0, 20, 0, 20)
+            }
+        }
+        linearLayout.addView(mediaView)
+        adView.mediaView = mediaView
+        
+        // Add call to action button
+        val button = Button(context).apply {
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, 10, 0, 0)
+            }
+        }
+        linearLayout.addView(button)
+        adView.callToActionView = button
+        
+        adView.addView(linearLayout)
+        populateNativeAdView(nativeAd, adView)
         
         return adView
     }
