@@ -2,6 +2,7 @@ package com.mzgs.helper
 
 import android.Manifest
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -70,5 +71,29 @@ object MzgsHelper {
         }
     }
     
+    /**
+     * Checks if the application is running in debug mode.
+     * 
+     * @param context The application context
+     * @return true if the app is debuggable (debug build), false otherwise (release build)
+     * 
+     * This is useful for:
+     * - Showing debug information only in development
+     * - Disabling ads during development
+     * - Enabling verbose logging in debug builds
+     * - Any debug-only functionality
+     * 
+     * Note: This checks the FLAG_DEBUGGABLE flag which is automatically set by Android
+     * based on the build type (debug vs release) in your build.gradle
+     */
+    fun isDebugMode(context: Context): Boolean {
+        return try {
+            val applicationInfo = context.applicationInfo
+            (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        } catch (e: Exception) {
+            Log.e(TAG, "Error checking debug mode", e)
+            false
+        }
+    }
 
 }

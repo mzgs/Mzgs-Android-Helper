@@ -1,6 +1,7 @@
 package com.mzgs.helper.admob
 
 import android.app.Activity
+import android.app.Application
 import android.content.Context
 import android.util.Log
 import com.google.android.gms.ads.*
@@ -17,6 +18,8 @@ import com.google.android.ump.ConsentRequestParameters
 import com.google.android.ump.UserMessagingPlatform
 
 class AdMobMediationManager(private val context: Context) {
+    
+    private var adConfig: AdMobConfig? = null
     
     companion object {
         private const val TAG = "AdMobMediation"
@@ -37,6 +40,15 @@ class AdMobMediationManager(private val context: Context) {
     private var rewardedInterstitialAd: RewardedInterstitialAd? = null
     private val consentInformation: ConsentInformation = UserMessagingPlatform.getConsentInformation(context)
     
+    fun initialize(
+        config: AdMobConfig,
+        onInitComplete: () -> Unit = {}
+    ) {
+        this.adConfig = config
+        initialize(config.testDeviceIds, onInitComplete)
+    }
+    
+    @Deprecated("Use initialize(config: AdMobConfig) instead", ReplaceWith("initialize(config, onInitComplete)"))
     fun initialize(
         testDeviceIds: List<String> = emptyList(),
         onInitComplete: () -> Unit = {}
@@ -59,6 +71,19 @@ class AdMobMediationManager(private val context: Context) {
             
             initializationStatus.adapterStatusMap.forEach { (adapterClass, status) ->
                 Log.d(TAG, "Adapter: $adapterClass, Status: ${status.initializationState}, Latency: ${status.latency}ms")
+            }
+            
+            // Initialize App Open Ad Manager if configured
+            adConfig?.let { config ->
+                if (config.enableAppOpenAd && config.getEffectiveAppOpenAdUnitId().isNotEmpty()) {
+                    val application = context.applicationContext as? Application
+                    if (application != null) {
+                        AppOpenAdManager.initialize(application, config)
+                        Log.d(TAG, "App Open Ad Manager initialized automatically")
+                    } else {
+                        Log.w(TAG, "Could not initialize App Open Ad Manager - context is not Application")
+                    }
+                }
             }
             
             onInitComplete()
@@ -142,6 +167,14 @@ class AdMobMediationManager(private val context: Context) {
             return
         }
         
+        // Check debug flag
+        adConfig?.let { config ->
+            if (!config.shouldShowInterstitials(context)) {
+                Log.d(TAG, "Interstitial ads disabled in debug mode")
+                return
+            }
+        }
+        
         val adRequest = AdRequest.Builder().build()
         
         InterstitialAd.load(
@@ -192,6 +225,14 @@ class AdMobMediationManager(private val context: Context) {
     }
     
     fun showInterstitialAd(activity: Activity): Boolean {
+        // Check debug flag
+        adConfig?.let { config ->
+            if (!config.shouldShowInterstitials(context)) {
+                Log.d(TAG, "Interstitial ads disabled in debug mode")
+                return false
+            }
+        }
+        
         return if (interstitialAd != null) {
             interstitialAd?.show(activity)
             true
@@ -209,6 +250,14 @@ class AdMobMediationManager(private val context: Context) {
         if (!canShowAds()) {
             Log.w(TAG, "Cannot request ads - consent not obtained")
             return
+        }
+        
+        // Check debug flag
+        adConfig?.let { config ->
+            if (!config.shouldShowRewardedAds(context)) {
+                Log.d(TAG, "Rewarded ads disabled in debug mode")
+                return
+            }
         }
         
         val adRequest = AdRequest.Builder().build()
@@ -264,6 +313,14 @@ class AdMobMediationManager(private val context: Context) {
         activity: Activity,
         onUserEarnedReward: (RewardItem) -> Unit
     ): Boolean {
+        // Check debug flag
+        adConfig?.let { config ->
+            if (!config.shouldShowRewardedAds(context)) {
+                Log.d(TAG, "Rewarded ads disabled in debug mode")
+                return false
+            }
+        }
+        
         return if (rewardedAd != null) {
             rewardedAd?.show(activity) { reward ->
                 Log.d(TAG, "User earned reward: ${reward.amount} ${reward.type}")
@@ -360,5 +417,20 @@ class AdMobMediationManager(private val context: Context) {
     fun resetConsent() {
         consentInformation.reset()
         Log.d(TAG, "Consent information reset")
+    }
+    
+    fun getConfig(): AdMobConfig? = adConfig
+    
+    fun updateConfig(config: AdMobConfig) {
+        this.adConfig = config
+        
+        // Update App Open Ad Manager if needed
+        if (config.enableAppOpenAd) {
+            val application = context.applicationContext as? Application
+            if (application != null && AppOpenAdManager.getInstance() == null) {
+                AppOpenAdManager.initialize(application, config)
+                Log.d(TAG, "App Open Ad Manager initialized after config update")
+            }
+        }
     }
 }

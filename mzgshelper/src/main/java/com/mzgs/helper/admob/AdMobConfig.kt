@@ -1,6 +1,7 @@
 package com.mzgs.helper.admob
 
 import com.google.android.gms.ads.AdSize
+import com.mzgs.helper.MzgsHelper
 
 data class AdMobConfig(
     val appId: String? = null,
@@ -9,8 +10,17 @@ data class AdMobConfig(
     val rewardedAdUnitId: String = "",
     val rewardedInterstitialAdUnitId: String = "",
     val nativeAdUnitId: String = "",
+    val appOpenAdUnitId: String = "",
+    val enableAppOpenAd: Boolean = false,
     val testDeviceIds: List<String> = emptyList(),
-    val enableTestMode: Boolean = false
+    val enableTestMode: Boolean = false,
+    // Debug-only flags (only work when BuildConfig.DEBUG is true)
+    val showAdsInDebug: Boolean = true,  // Master switch for all ads in debug mode
+    val showInterstitialsInDebug: Boolean = true,  // Control interstitials in debug
+    val showAppOpenAdInDebug: Boolean = true,  // Control app open ads in debug
+    val showBannersInDebug: Boolean = true,  // Control banner ads in debug
+    val showNativeAdsInDebug: Boolean = true,  // Control native ads in debug
+    val showRewardedAdsInDebug: Boolean = true  // Control rewarded ads in debug
 ) {
     companion object {
         const val TEST_BANNER_AD_UNIT_ID = "ca-app-pub-3940256099942544/6300978111"
@@ -18,6 +28,7 @@ data class AdMobConfig(
         const val TEST_REWARDED_AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917"
         const val TEST_REWARDED_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/5354046379"
         const val TEST_NATIVE_AD_UNIT_ID = "ca-app-pub-3940256099942544/2247696110"
+        const val TEST_APP_OPEN_AD_UNIT_ID = "ca-app-pub-3940256099942544/9257395921"
         
         fun createTestConfig(): AdMobConfig {
             return AdMobConfig(
@@ -26,6 +37,8 @@ data class AdMobConfig(
                 rewardedAdUnitId = TEST_REWARDED_AD_UNIT_ID,
                 rewardedInterstitialAdUnitId = TEST_REWARDED_INTERSTITIAL_AD_UNIT_ID,
                 nativeAdUnitId = TEST_NATIVE_AD_UNIT_ID,
+                appOpenAdUnitId = TEST_APP_OPEN_AD_UNIT_ID,
+                enableAppOpenAd = true,
                 enableTestMode = true
             )
         }
@@ -49,6 +62,49 @@ data class AdMobConfig(
     
     fun getEffectiveNativeAdUnitId(): String {
         return if (enableTestMode) TEST_NATIVE_AD_UNIT_ID else nativeAdUnitId
+    }
+    
+    fun getEffectiveAppOpenAdUnitId(): String {
+        return if (enableTestMode) TEST_APP_OPEN_AD_UNIT_ID else appOpenAdUnitId
+    }
+    
+    // Debug control methods - these only affect DEBUG builds
+    fun shouldShowAds(context: android.content.Context): Boolean {
+        // In release mode, always show ads
+        if (!MzgsHelper.isDebugMode(context)) return true
+        
+        // In debug mode, check the master switch
+        return showAdsInDebug
+    }
+    
+    fun shouldShowInterstitials(context: android.content.Context): Boolean {
+        if (!shouldShowAds(context)) return false
+        if (!MzgsHelper.isDebugMode(context)) return true
+        return showInterstitialsInDebug
+    }
+    
+    fun shouldShowAppOpenAd(context: android.content.Context): Boolean {
+        if (!shouldShowAds(context)) return false
+        if (!MzgsHelper.isDebugMode(context)) return enableAppOpenAd
+        return enableAppOpenAd && showAppOpenAdInDebug
+    }
+    
+    fun shouldShowBanners(context: android.content.Context): Boolean {
+        if (!shouldShowAds(context)) return false
+        if (!MzgsHelper.isDebugMode(context)) return true
+        return showBannersInDebug
+    }
+    
+    fun shouldShowNativeAds(context: android.content.Context): Boolean {
+        if (!shouldShowAds(context)) return false
+        if (!MzgsHelper.isDebugMode(context)) return true
+        return showNativeAdsInDebug
+    }
+    
+    fun shouldShowRewardedAds(context: android.content.Context): Boolean {
+        if (!shouldShowAds(context)) return false
+        if (!MzgsHelper.isDebugMode(context)) return true
+        return showRewardedAdsInDebug
     }
 }
 

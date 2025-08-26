@@ -41,12 +41,35 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
-        // Initialize AdMob
+        // Configure AdMob with App Open Ads
+        // For testing, use the createTestConfig() which has all test ad unit IDs
+        val adConfig = AdMobConfig.createTestConfig().copy(
+            enableAppOpenAd = true, // Enable app open ads (will auto-initialize AppOpenAdManager)
+            testDeviceIds = listOf("YOUR_TEST_DEVICE_ID"), // Add your test device ID if needed
+            
+            // Debug-only flags (these only work in DEBUG builds, ignored in RELEASE)
+            showAdsInDebug = true,  // Master switch - set to false to disable ALL ads in debug
+            showInterstitialsInDebug = true,  // Control interstitial ads in debug
+            showAppOpenAdInDebug = true,  // Control app open ads in debug  
+            showBannersInDebug = true,  // Control banner ads in debug
+            showNativeAdsInDebug = true,  // Control native ads in debug
+            showRewardedAdsInDebug = true  // Control rewarded ads in debug
+        )
+        
+        // For production, use:
+        // val adConfig = AdMobConfig(
+        //     appId = "YOUR_APP_ID",
+        //     appOpenAdUnitId = "YOUR_APP_OPEN_AD_UNIT_ID",
+        //     enableAppOpenAd = true,
+        //     enableTestMode = false
+        // )
+        
+        // Initialize AdMob with config - App Open Ad Manager will be initialized automatically
         val adManager = AdMobMediationManager.getInstance(this)
         adManager.initialize(
-            testDeviceIds = listOf("YOUR_TEST_DEVICE_ID"),
+            config = adConfig,
             onInitComplete = {
-                Log.d("MainActivity", "AdMob initialized")
+                Log.d("MainActivity", "AdMob initialized with all configured features")
             }
         )
         
@@ -121,6 +144,11 @@ fun AdMobTestScreen() {
             // Helper functions section
             item {
                 HelperFunctionsCard()
+            }
+            
+            // App Open Ad Test Section
+            item {
+                AppOpenAdTestCard()
             }
             
             // Consent status
@@ -784,6 +812,68 @@ fun MRECAdCard() {
     DisposableEffect(Unit) {
         onDispose {
             mrecView?.destroy()
+        }
+    }
+}
+
+@Composable
+fun AppOpenAdTestCard() {
+    val context = LocalContext.current
+    
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                "App Open Ad Test",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            
+            Text(
+                "Test app open ads manually",
+                style = MaterialTheme.typography.bodySmall
+            )
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = {
+                        AppOpenAdManager.getInstance()?.showAdManually()
+                            ?: Log.e("AppOpenAdTest", "AppOpenAdManager not initialized")
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Show App Open Ad")
+                }
+                
+                Button(
+                    onClick = {
+                        AppOpenAdManager.getInstance()?.let { manager ->
+                            manager.fetchAd(context)
+                            Log.d("AppOpenAdTest", "Fetching new app open ad")
+                        } ?: Log.e("AppOpenAdTest", "AppOpenAdManager not initialized")
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Fetch Ad")
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Text(
+                "Note: Go to home and return to test automatic display",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onErrorContainer
+            )
         }
     }
 }

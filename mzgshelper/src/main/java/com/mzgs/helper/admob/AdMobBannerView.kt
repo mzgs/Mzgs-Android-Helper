@@ -3,6 +3,7 @@ package com.mzgs.helper.admob
 import android.content.Context
 import android.util.AttributeSet
 import android.util.Log
+import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import com.google.android.gms.ads.*
@@ -39,9 +40,20 @@ class AdMobBannerView @JvmOverloads constructor(
         onAdClosed: () -> Unit = {},
         onAdClicked: () -> Unit = {}
     ) {
-        if (!AdMobMediationManager.getInstance(context).canShowAds()) {
+        val adManager = AdMobMediationManager.getInstance(context)
+        
+        if (!adManager.canShowAds()) {
             Log.w(TAG, "Cannot show ads - consent not obtained")
             return
+        }
+        
+        // Check debug flag from config
+        adManager.getConfig()?.let { config ->
+            if (!config.shouldShowBanners(context)) {
+                Log.d(TAG, "Banner ads disabled in debug mode")
+                visibility = View.GONE
+                return
+            }
         }
         
         this.adUnitId = adUnitId

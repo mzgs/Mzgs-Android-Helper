@@ -39,9 +39,19 @@ class AdMobNativeAdHelper(private val context: Context) {
         shouldRequestMultipleAds: Boolean = false,
         numberOfAds: Int = 1
     ) {
-        if (!AdMobMediationManager.getInstance(context).canShowAds()) {
+        val adManager = AdMobMediationManager.getInstance(context)
+        
+        if (!adManager.canShowAds()) {
             Log.w(TAG, "Cannot show ads - consent not obtained")
             return
+        }
+        
+        // Check debug flag from config
+        adManager.getConfig()?.let { config ->
+            if (!config.shouldShowNativeAds(context)) {
+                Log.d(TAG, "Native ads disabled in debug mode")
+                return
+            }
         }
         
         val builder = AdLoader.Builder(context, adUnitId)
