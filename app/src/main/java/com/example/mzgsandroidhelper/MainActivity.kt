@@ -32,6 +32,7 @@ import com.example.mzgsandroidhelper.ui.theme.MzgsAndroidHelperTheme
 import com.google.android.gms.ads.AdSize
 import com.google.android.ump.ConsentDebugSettings
 import com.mzgs.helper.MzgsHelper
+import com.mzgs.helper.SimpleSplashHelper
 import com.mzgs.helper.admob.*
 import com.mzgs.helper.applovin.AppLovinConfig
 import com.mzgs.helper.applovin.AppLovinMediationManager
@@ -43,6 +44,25 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
+        // Initialize Simple Splash Screen with progress
+        SimpleSplashHelper.Builder(this)
+            .setDuration(6000) // Show splash for 3 seconds
+            .showProgress(true) // Show progress bar
+            .onComplete { 
+                Log.d("MainActivity", "Splash screen completed")
+                initializeAds()
+            }
+            .build()
+            .show()
+        
+        setContent {
+            MzgsAndroidHelperTheme {
+                AdMobTestScreen()
+            }
+        }
+    }
+    
+    private fun initializeAds() {
         // Configure AdMob with App Open Ads
         // For testing, use the createTestConfig() which has all test ad unit IDs
         val adConfig = AdMobConfig.createTestConfig().copy(
@@ -91,12 +111,6 @@ class MainActivity : ComponentActivity() {
                 Log.d("MainActivity", "AppLovin MAX initialized successfully")
             }
         )
-        
-        setContent {
-            MzgsAndroidHelperTheme {
-                AdMobTestScreen()
-            }
-        }
     }
 }
 
@@ -231,6 +245,11 @@ fun AdMobTestScreen() {
             // Helper functions section
             item {
                 HelperFunctionsCard()
+            }
+            
+            // Splash Screen Test Section  
+            item {
+                SplashScreenTestCard()
             }
             
             // App Open Ad Test Section
@@ -960,6 +979,107 @@ fun AppOpenAdTestCard() {
                 "Note: Go to home and return to test automatic display",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onErrorContainer
+            )
+        }
+    }
+}
+
+@Composable
+fun SplashScreenTestCard() {
+    val context = LocalContext.current
+    val activity = context as? ComponentActivity
+    
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                "Splash Screen Test",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            
+            Text(
+                "Test different splash screen configurations",
+                style = MaterialTheme.typography.bodySmall
+            )
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = {
+                        activity?.let { act ->
+                            // Test with 2 second splash with progress
+                            SimpleSplashHelper.Builder(act)
+                                .setDuration(2000)
+                                .showProgress(true)
+                                .onComplete { 
+                                    Log.d("SplashTest", "2 second splash completed")
+                                }
+                                .build()
+                                .show()
+                        }
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("2s Splash")
+                }
+                
+                Button(
+                    onClick = {
+                        activity?.let { act ->
+                            // Test with 5 second splash without progress
+                            SimpleSplashHelper.Builder(act)
+                                .setDuration(5000)
+                                .showProgress(false)
+                                .onComplete { 
+                                    Log.d("SplashTest", "5 second splash completed")
+                                    MzgsHelper.showToast(context, "Splash completed!")
+                                }
+                                .build()
+                                .show()
+                        }
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("5s No Progress")
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Button(
+                onClick = {
+                    activity?.let { act ->
+                        // Test 3 second splash with progress
+                        SimpleSplashHelper.Builder(act)
+                            .setDuration(3000)
+                            .showProgress(true)
+                            .onComplete { 
+                                Log.d("SplashTest", "3 second splash completed")
+                            }
+                            .build()
+                            .show()
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Test 3s with Progress")
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Text(
+                "Note: Splash screen already shown on app start (3s)",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer
             )
         }
     }
