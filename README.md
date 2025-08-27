@@ -1,5 +1,5 @@
 # Mzgs-Android-Helper
-Android helper library with utility tools and AdMob mediation support
+Android helper library with utility tools and comprehensive ad mediation support (AdMob & AppLovin MAX)
 
 ## Features
 
@@ -8,6 +8,7 @@ Android helper library with utility tools and AdMob mediation support
 - 🎯 Support for all ad formats (Banner, Interstitial, Rewarded, Native, App Open)
 - 🔐 Built-in UMP consent management
 - 🚀 AppLovin MAX mediation adapters included
+- 🔄 Dual mediation support (AdMob + AppLovin MAX)
 
 ## Installation
 
@@ -20,6 +21,23 @@ dependencies {
     implementation(project(":mzgshelper"))
 }
 ```
+
+## Ad Networks Support
+
+This library provides complete implementation for both **AdMob** and **AppLovin MAX** mediation platforms. You can choose to use either one or both in your application.
+
+### Supported Ad Formats
+
+| Ad Format | AdMob | AppLovin MAX |
+|-----------|--------|---------------|
+| Banner (320x50) | ✅ | ✅ |
+| Large Banner (320x100) | ✅ | ✅ |
+| MREC (300x250) | ✅ | ✅ |
+| Adaptive Banner | ✅ | ✅ |
+| Interstitial | ✅ | ✅ |
+| Rewarded Video | ✅ | ✅ |
+| Native Ads | ✅ | ✅ |
+| App Open Ads | ✅ | ✅ |
 
 ## AdMob Mediation Usage
 
@@ -619,6 +637,288 @@ fun MainScreen() {
 }
 ```
 
+## AppLovin MAX Mediation Usage
+
+### Initial Setup
+
+1. **Initialize AppLovin MAX in your Application class:**
+
+```kotlin
+class MyApplication : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        
+        // Initialize AppLovin MAX
+        val appLovinManager = AppLovinMediationManager.getInstance(this)
+        appLovinManager.initialize(
+            onInitComplete = {
+                Log.d("AppLovin", "MAX SDK initialized")
+            }
+        )
+        
+        // Optional: Initialize App Open Ads
+        AppLovinAppOpenAdManager.initialize(
+            application = this,
+            adUnitId = "YOUR_APPLOVIN_APP_OPEN_AD_UNIT_ID"
+        )
+    }
+}
+```
+
+### AppLovin Banner Ads
+
+```kotlin
+@Composable
+fun AppLovinBanner(
+    adUnitId: String,
+    modifier: Modifier = Modifier,
+    bannerSize: MaxAdFormat = MaxAdFormat.BANNER
+) {
+    val context = LocalContext.current
+    
+    AndroidView(
+        modifier = modifier.fillMaxWidth(),
+        factory = { ctx ->
+            AppLovinBannerView(ctx).apply {
+                loadBanner(
+                    adUnitId = adUnitId,
+                    bannerSize = bannerSize,
+                    onAdLoaded = { Log.d("AppLovin", "Banner loaded") },
+                    onAdFailedToLoad = { error ->
+                        Log.e("AppLovin", "Banner failed: ${error.message}")
+                    }
+                )
+            }
+        }
+    )
+}
+```
+
+### AppLovin MREC Ads
+
+```kotlin
+@Composable
+fun AppLovinMREC(
+    adUnitId: String,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    
+    AndroidView(
+        modifier = modifier
+            .width(300.dp)
+            .height(250.dp),
+        factory = { ctx ->
+            AppLovinMRECView(ctx).apply {
+                loadMREC(
+                    adUnitId = adUnitId,
+                    onAdLoaded = { Log.d("AppLovin", "MREC loaded") }
+                )
+            }
+        }
+    )
+}
+```
+
+### AppLovin Interstitial Ads
+
+```kotlin
+@Composable
+fun AppLovinInterstitialScreen() {
+    val context = LocalContext.current
+    val activity = context as? Activity
+    val manager = remember { AppLovinMediationManager.getInstance(context) }
+    var isAdLoaded by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(Unit) {
+        manager.loadInterstitialAd(
+            adUnitId = "YOUR_APPLOVIN_INTERSTITIAL_AD_UNIT_ID",
+            onAdLoaded = { isAdLoaded = true },
+            onAdFailedToLoad = { error ->
+                Log.e("AppLovin", "Failed: ${error.message}")
+            }
+        )
+    }
+    
+    Button(
+        onClick = {
+            activity?.let {
+                if (manager.isInterstitialReady()) {
+                    manager.showInterstitialAd(it)
+                    // Load next ad
+                    manager.loadInterstitialAd("YOUR_APPLOVIN_INTERSTITIAL_AD_UNIT_ID")
+                }
+            }
+        },
+        enabled = isAdLoaded
+    ) {
+        Text("Show AppLovin Interstitial")
+    }
+}
+```
+
+### AppLovin Rewarded Ads
+
+```kotlin
+@Composable
+fun AppLovinRewardedAdScreen(
+    onRewardEarned: (reward: MaxReward) -> Unit
+) {
+    val context = LocalContext.current
+    val activity = context as? Activity
+    val manager = remember { AppLovinMediationManager.getInstance(context) }
+    var isAdLoaded by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(Unit) {
+        manager.loadRewardedAd(
+            adUnitId = "YOUR_APPLOVIN_REWARDED_AD_UNIT_ID",
+            onAdLoaded = { isAdLoaded = true }
+        )
+    }
+    
+    Button(
+        onClick = {
+            activity?.let {
+                if (manager.isRewardedAdReady()) {
+                    manager.showRewardedAd(
+                        activity = it,
+                        onUserEarnedReward = { reward ->
+                            onRewardEarned(reward)
+                            // Load next ad
+                            manager.loadRewardedAd("YOUR_APPLOVIN_REWARDED_AD_UNIT_ID")
+                        }
+                    )
+                }
+            }
+        },
+        enabled = isAdLoaded
+    ) {
+        Text("Watch AppLovin Ad for Reward")
+    }
+}
+```
+
+### AppLovin Native Ads
+
+```kotlin
+@Composable
+fun AppLovinNativeAd(
+    adUnitId: String,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val nativeHelper = remember { AppLovinNativeAdHelper(context) }
+    var nativeAdView by remember { mutableStateOf<MaxNativeAdView?>(null) }
+    
+    LaunchedEffect(Unit) {
+        nativeHelper.loadNativeAd(
+            adUnitId = adUnitId,
+            templateType = AppLovinNativeAdHelper.TemplateType.MEDIUM,
+            onAdLoaded = { adView ->
+                nativeAdView = adView
+            },
+            onAdFailedToLoad = { error ->
+                Log.e("AppLovin", "Native failed: ${error.message}")
+            }
+        )
+    }
+    
+    DisposableEffect(Unit) {
+        onDispose {
+            nativeHelper.destroy()
+        }
+    }
+    
+    nativeAdView?.let { adView ->
+        AndroidView(
+            modifier = modifier.fillMaxWidth(),
+            factory = { adView }
+        )
+    }
+}
+```
+
+### AppLovin Configuration
+
+```kotlin
+// Create AppLovin configuration
+val appLovinConfig = AppLovinConfig(
+    bannerAdUnitId = "YOUR_BANNER_ID",
+    mrecAdUnitId = "YOUR_MREC_ID",
+    interstitialAdUnitId = "YOUR_INTERSTITIAL_ID",
+    rewardedAdUnitId = "YOUR_REWARDED_ID",
+    nativeAdUnitId = "YOUR_NATIVE_ID",
+    appOpenAdUnitId = "YOUR_APP_OPEN_ID"
+)
+
+// Use test configuration for development
+val testConfig = AppLovinConfig.createTestConfig()
+```
+
+### AppLovin Banner Helper
+
+The library includes a comprehensive banner helper for AppLovin:
+
+```kotlin
+val bannerHelper = AppLovinBannerHelper(context)
+
+// Standard banner
+bannerHelper.createStandardBanner(
+    adUnitId = "YOUR_BANNER_ID",
+    container = frameLayout
+)
+
+// MREC
+bannerHelper.createMREC(
+    adUnitId = "YOUR_MREC_ID",
+    container = frameLayout
+)
+
+// Adaptive banner
+bannerHelper.createAdaptiveBanner(
+    adUnitId = "YOUR_BANNER_ID",
+    container = frameLayout
+)
+
+// Clean up
+bannerHelper.destroy()
+```
+
+## Choosing Between AdMob and AppLovin MAX
+
+Both ad networks are fully supported. Here's a quick comparison:
+
+| Feature | AdMob | AppLovin MAX |
+|---------|--------|---------------|
+| Google ecosystem integration | ✅ Excellent | ❌ Limited |
+| Mediation partners | ✅ Many | ✅ Many |
+| eCPM optimization | ✅ Good | ✅ Excellent |
+| Real-time analytics | ✅ Yes | ✅ Yes |
+| A/B testing | ✅ Yes | ✅ Yes |
+| User privacy controls | ✅ UMP/CMP | ✅ Built-in |
+
+### Using Both Networks
+
+You can use both networks in your app for maximum monetization:
+
+```kotlin
+class MyApplication : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        
+        // Initialize both networks
+        val adMobManager = AdMobMediationManager.getInstance(this)
+        val appLovinManager = AppLovinMediationManager.getInstance(this)
+        
+        // Initialize AdMob
+        adMobManager.initialize()
+        
+        // Initialize AppLovin
+        appLovinManager.initialize()
+    }
+}
+```
+
 ## General Helper Functions
 
 ### Show Toast
@@ -653,10 +953,15 @@ Add these to your `AndroidManifest.xml`:
 <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
 <application>
-    <!-- AdMob App ID (required) -->
+    <!-- AdMob App ID (required for AdMob) -->
     <meta-data
         android:name="com.google.android.gms.ads.APPLICATION_ID"
         android:value="YOUR_ADMOB_APP_ID" />
+    
+    <!-- AppLovin SDK Key (required for AppLovin MAX) -->
+    <meta-data
+        android:name="applovin.sdk.key"
+        android:value="YOUR_APPLOVIN_SDK_KEY" />
 </application>
 ```
 
@@ -669,6 +974,7 @@ If using ProGuard/R8, the library includes consumer rules automatically. No addi
 - Minimum SDK: 24 (Android 7.0)
 - Target SDK: 36 (Android 14)
 - Google Mobile Ads SDK: 24.5.0
+- AppLovin MAX SDK: Latest version
 
 ## License
 
