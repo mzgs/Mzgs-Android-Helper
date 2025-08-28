@@ -16,6 +16,34 @@ import com.applovin.mediation.ads.MaxAdView
 
 @Composable
 fun AppLovinMRECView(
+    modifier: Modifier = Modifier,
+    backgroundColor: Color = Color.Transparent,
+    onAdLoaded: () -> Unit = {},
+    onAdFailedToLoad: (MaxError) -> Unit = {},
+    onAdClicked: () -> Unit = {},
+    onAdExpanded: () -> Unit = {},
+    onAdCollapsed: () -> Unit = {}
+) {
+    // Get the effective MREC ad unit ID from config
+    val adUnitId = AppLovinMediationManager.getConfig()?.getEffectiveMrecAdUnitId() ?: ""
+    if (adUnitId.isEmpty()) {
+        Log.e("AppLovinMRECView", "No MREC ad unit ID configured")
+        return
+    }
+    AppLovinMRECView(
+        adUnitId = adUnitId,
+        modifier = modifier,
+        backgroundColor = backgroundColor,
+        onAdLoaded = onAdLoaded,
+        onAdFailedToLoad = onAdFailedToLoad,
+        onAdClicked = onAdClicked,
+        onAdExpanded = onAdExpanded,
+        onAdCollapsed = onAdCollapsed
+    )
+}
+
+@Composable
+fun AppLovinMRECView(
     adUnitId: String,
     modifier: Modifier = Modifier,
     backgroundColor: Color = Color.Transparent,

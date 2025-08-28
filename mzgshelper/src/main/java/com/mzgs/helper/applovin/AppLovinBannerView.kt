@@ -19,6 +19,30 @@ import com.applovin.mediation.ads.MaxAdView
 
 @Composable
 fun AppLovinBannerView(
+    modifier: Modifier = Modifier,
+    backgroundColor: Color = Color.Transparent,
+    onAdLoaded: () -> Unit = {},
+    onAdFailedToLoad: (MaxError) -> Unit = {},
+    onAdClicked: () -> Unit = {}
+) {
+    // Get the effective banner ad unit ID from config
+    val adUnitId = AppLovinMediationManager.getConfig()?.getEffectiveBannerAdUnitId() ?: ""
+    if (adUnitId.isEmpty()) {
+        Log.e("AppLovinBannerView", "No banner ad unit ID configured")
+        return
+    }
+    AppLovinBannerView(
+        adUnitId = adUnitId,
+        modifier = modifier,
+        backgroundColor = backgroundColor,
+        onAdLoaded = onAdLoaded,
+        onAdFailedToLoad = onAdFailedToLoad,
+        onAdClicked = onAdClicked
+    )
+}
+
+@Composable
+fun AppLovinBannerView(
     adUnitId: String,
     modifier: Modifier = Modifier,
     backgroundColor: Color = Color.Transparent,

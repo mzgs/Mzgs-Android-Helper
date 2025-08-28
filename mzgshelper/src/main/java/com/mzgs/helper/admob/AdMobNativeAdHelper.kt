@@ -28,6 +28,28 @@ class AdMobNativeAdHelper(private val context: Context) {
     private var adLoader: AdLoader? = null
     
     fun loadNativeAd(
+        onAdLoaded: (NativeAd) -> Unit = {},
+        onAdFailedToLoad: (LoadAdError) -> Unit = {},
+        onAdClicked: () -> Unit = {},
+        mediaAspectRatio: Int = NativeAdOptions.NATIVE_MEDIA_ASPECT_RATIO_LANDSCAPE,
+        requestMultipleImages: Boolean = false,
+        returnUrlsForImageAssets: Boolean = false,
+        requestCustomMuteThisAd: Boolean = false,
+        shouldRequestMultipleAds: Boolean = false,
+        numberOfAds: Int = 1
+    ) {
+        val adManager = AdMobMediationManager.getInstance(context)
+        val adUnitId = adManager.getConfig()?.getEffectiveNativeAdUnitId() ?: ""
+        if (adUnitId.isEmpty()) {
+            Log.e(TAG, "No native ad unit ID configured")
+            return
+        }
+        loadNativeAd(adUnitId, onAdLoaded, onAdFailedToLoad, onAdClicked, mediaAspectRatio, 
+                     requestMultipleImages, returnUrlsForImageAssets, requestCustomMuteThisAd,
+                     shouldRequestMultipleAds, numberOfAds)
+    }
+    
+    fun loadNativeAd(
         adUnitId: String,
         onAdLoaded: (NativeAd) -> Unit = {},
         onAdFailedToLoad: (LoadAdError) -> Unit = {},
@@ -41,8 +63,9 @@ class AdMobNativeAdHelper(private val context: Context) {
     ) {
         val adManager = AdMobMediationManager.getInstance(context)
         
-        if (!adManager.canShowAds()) {
-            Log.w(TAG, "Cannot show ads - consent not obtained")
+        // Check if we can show any type of ads (personalized or non-personalized)
+        if (!adManager.canShowAds() && !adManager.canShowNonPersonalizedAds()) {
+            Log.w(TAG, "Cannot show any type of ads")
             return
         }
         

@@ -3,6 +3,7 @@ package com.mzgs.helper.applovin
 import android.app.Activity
 import android.app.Application
 import android.content.Context
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -16,44 +17,38 @@ import com.applovin.sdk.AppLovinSdk
 import com.applovin.sdk.AppLovinSdkConfiguration
 import com.applovin.sdk.AppLovinSdkInitializationConfiguration
 import com.applovin.sdk.AppLovinSdkSettings
+import java.lang.ref.WeakReference
 import java.util.concurrent.TimeUnit
 import kotlin.math.min
 import kotlin.math.pow
 
-class AppLovinMediationManager(private val context: Context) {
+object AppLovinMediationManager : Application.ActivityLifecycleCallbacks {
     
+    private const val TAG = "AppLovinMediation"
+    private var isInitialized = false
+    private const val MAX_RETRY_ATTEMPTS = 6
+    
+    private var contextRef: WeakReference<Context>? = null
+    private var currentActivityRef: WeakReference<Activity>? = null
     private var appLovinConfig: AppLovinConfig? = null
     private var maxSdk: AppLovinSdk? = null
-    
-    companion object {
-        private const val TAG = "AppLovinMediation"
-        private var isInitialized = false
-        private const val MAX_RETRY_ATTEMPTS = 6
-        
-        @Volatile
-        private var INSTANCE: AppLovinMediationManager? = null
-        
-        fun getInstance(context: Context): AppLovinMediationManager {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: AppLovinMediationManager(context.applicationContext).also { INSTANCE = it }
-            }
-        }
-        
-        private fun getRetryDelayMillis(retryAttempt: Int): Long {
-            val exponent = min(6, retryAttempt)
-            return TimeUnit.SECONDS.toMillis(2.0.pow(exponent).toLong())
-        }
-    }
-    
     private var interstitialAd: MaxInterstitialAd? = null
     private var rewardedAd: MaxRewardedAd? = null
     private var appOpenAd: MaxAppOpenAd? = null
     
-    fun initialize(
-        config: AppLovinConfig,
-        onInitComplete: () -> Unit = {}
-    ) {
+    @JvmStatic
+    fun init(context: Context, config: AppLovinConfig, onInitComplete: () -> Unit = {}) {
+        this.contextRef = WeakReference(context.applicationContext)
         this.appLovinConfig = config
+        
+        // If context is an activity, store it as current activity
+        if (context is Activity) {
+            this.currentActivityRef = WeakReference(context)
+        }
+        
+        // Register activity lifecycle callbacks to track current activity
+        val application = context.applicationContext as? Application
+        application?.registerActivityLifecycleCallbacks(this)
         
         if (isInitialized) {
             Log.d(TAG, "AppLovin MAX already initialized")
@@ -65,7 +60,6 @@ class AppLovinMediationManager(private val context: Context) {
         val initConfig = AppLovinSdkInitializationConfiguration.builder(config.sdkKey, context)
             .setMediationProvider(AppLovinMediationProvider.MAX)
             .setTestDeviceAdvertisingIds(config.testDeviceAdvertisingIds)
-            // Note: setInitializationAdUnitIds is not available in current SDK version
             .build()
         
         // Initialize SDK with configuration
@@ -73,113 +67,139 @@ class AppLovinMediationManager(private val context: Context) {
             maxSdk = AppLovinSdk.getInstance(context)
             
             // Settings are configured during initialization through the builder
-            // Log current settings for debugging
             Log.d(TAG, "Verbose Logging: ${config.verboseLogging}")
             Log.d(TAG, "Mute Audio: ${config.muteAudio}")
             Log.d(TAG, "Creative Debugger: ${config.creativeDebuggerEnabled}")
             
             isInitialized = true
             Log.d(TAG, "AppLovin MAX SDK initialized")
+            // Note: isTestModeEnabled is not available in current SDK version
             Log.d(TAG, "Country Code: ${sdkConfig.countryCode}")
             Log.d(TAG, "Consent Dialog State: ${sdkConfig.consentDialogState}")
-            Log.d(TAG, "Is Testing Enabled: ${sdkConfig.isTestModeEnabled}")
             
-            if (config.enableAppOpenAd && config.getEffectiveAppOpenAdUnitId().isNotEmpty()) {
-                val application = context.applicationContext as? Application
-                if (application != null) {
-                    AppLovinAppOpenAdManager.initialize(application, config)
-                    Log.d(TAG, "App Open Ad Manager initialized automatically")
-                } else {
-                    Log.w(TAG, "Could not initialize App Open Ad Manager - context is not Application")
-                }
+            // Initialize App Open Ad if configured
+            if (config.enableAppOpenAd) {
+                initializeAppOpenAd(config.appOpenAdUnitId)
             }
             
             onInitComplete()
         }
     }
     
-    // Privacy and Consent Management (Updated for 2025 compliance)
-    fun setHasUserConsent(hasUserConsent: Boolean) {
-        AppLovinPrivacySettings.setHasUserConsent(hasUserConsent, context)
-        Log.d(TAG, "GDPR user consent set to: $hasUserConsent")
+    // Backward compatibility - getInstance returns this object
+    @JvmStatic
+    fun getInstance(context: Context): AppLovinMediationManager {
+        if (this.contextRef?.get() == null) {
+            this.contextRef = WeakReference(context.applicationContext)
+        }
+        return this
     }
     
-    fun setIsAgeRestrictedUser(isAgeRestrictedUser: Boolean) {
-        // Note: setIsAgeRestrictedUser is deprecated in newer SDK versions
-        // Use setHasUserConsent instead for COPPA compliance
-        Log.d(TAG, "Age restricted user set to: $isAgeRestrictedUser (Note: Using consent mechanism)")
-        if (isAgeRestrictedUser) {
-            // For age-restricted users, we should not show personalized ads
-            setHasUserConsent(false)
+    @JvmStatic
+    fun initialize(config: AppLovinConfig, onInitComplete: () -> Unit = {}) {
+        contextRef?.get()?.let {
+            init(it, config, onInitComplete)
+        } ?: Log.e(TAG, "Context not set. Call init() first")
+    }
+    
+    @JvmStatic
+    fun setPrivacySettings(
+        hasUserConsent: Boolean? = null,
+        isAgeRestrictedUser: Boolean? = null,
+        doNotSell: Boolean? = null
+    ) {
+        hasUserConsent?.let {
+            AppLovinPrivacySettings.setHasUserConsent(it, contextRef?.get())
+            Log.d(TAG, "Set user consent: $it")
+        }
+        
+        isAgeRestrictedUser?.let {
+            // Note: Age restricted user setting is handled differently in newer SDK versions
+            Log.d(TAG, "Age restricted user setting: $it")
+        }
+        
+        doNotSell?.let {
+            AppLovinPrivacySettings.setDoNotSell(it, contextRef?.get())
+            Log.d(TAG, "Set do not sell: $it")
         }
     }
     
-    fun setDoNotSell(doNotSell: Boolean) {
-        AppLovinPrivacySettings.setDoNotSell(doNotSell, context)
-        Log.d(TAG, "CCPA do not sell set to: $doNotSell")
+    @JvmStatic
+    fun showMediationDebugger() {
+        maxSdk?.showMediationDebugger()
     }
     
-    // Get current privacy settings
-    fun hasUserConsent(): Boolean? {
-        return AppLovinPrivacySettings.hasUserConsent(context)
+    @JvmStatic
+    fun showCreativeDebugger() {
+        maxSdk?.showCreativeDebugger()
     }
     
-    fun isAgeRestrictedUser(): Boolean? {
-        // Note: isAgeRestrictedUser is deprecated, returning based on consent status
-        val hasConsent = hasUserConsent()
-        return if (hasConsent != null) !hasConsent else null
+    @JvmStatic
+    fun getCountryCode(): String? {
+        return maxSdk?.configuration?.countryCode
     }
     
-    fun isDoNotSell(): Boolean? {
-        return AppLovinPrivacySettings.isDoNotSell(context)
+    @JvmStatic
+    fun getConsentDialogState(): AppLovinSdkConfiguration.ConsentDialogState? {
+        return maxSdk?.configuration?.consentDialogState
     }
     
-    // Set user segment for better ad targeting
-    fun setUserSegment(segment: String?) {
-        // Note: userSegment is not directly available in current SDK
-        Log.d(TAG, "User segment set to: $segment (stored for future use)")
+    @JvmStatic
+    fun isTablet(): Boolean {
+        // Check if device is tablet using screen size
+        val context = contextRef?.get() ?: return false
+        val configuration = context.resources.configuration
+        val screenLayout = configuration.screenLayout and android.content.res.Configuration.SCREENLAYOUT_SIZE_MASK
+        return screenLayout >= android.content.res.Configuration.SCREENLAYOUT_SIZE_LARGE
     }
     
-    // Get current user segment
-    fun getUserSegment(): String? {
-        // Note: userSegment is not directly available in current SDK
-        return null
-    }
-    
-    // Set custom data for the SDK
-    fun setCustomData(key: String, value: String?) {
-        // Custom data can be set on individual ad units
-        Log.d(TAG, "Custom data set: $key = $value")
-    }
-    
-    // Check if user is in GDPR region (EEA)
-    fun isUserInGDPRRegion(): Boolean {
-        val configuration = maxSdk?.configuration
-        return configuration?.countryCode?.let { countryCode ->
-            // EEA country codes
-            val eeaCountries = setOf(
-                "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR",
-                "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL",
-                "PL", "PT", "RO", "SK", "SI", "ES", "SE", "GB", "IS", "LI", "NO"
-            )
+    @JvmStatic
+    fun isUserInEEA(): Boolean {
+        // List of EEA country codes
+        val eeaCountries = setOf(
+            "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR",
+            "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL",
+            "PL", "PT", "RO", "SK", "SI", "ES", "SE", "IS", "LI", "NO"
+        )
+        
+        return getCountryCode()?.let { countryCode ->
             eeaCountries.contains(countryCode.uppercase())
         } ?: false
     }
     
+    @JvmStatic
+    fun loadInterstitialAd(
+        onAdLoaded: () -> Unit = {},
+        onAdFailedToLoad: (MaxError) -> Unit = {}
+    ) {
+        val effectiveAdUnitId = appLovinConfig?.getEffectiveInterstitialAdUnitId() ?: ""
+        if (effectiveAdUnitId.isEmpty()) {
+            Log.e(TAG, "No interstitial ad unit ID configured")
+            return
+        }
+        loadInterstitialAd(effectiveAdUnitId, onAdLoaded, onAdFailedToLoad)
+    }
+    
+    @JvmStatic
     fun loadInterstitialAd(
         adUnitId: String,
         onAdLoaded: () -> Unit = {},
         onAdFailedToLoad: (MaxError) -> Unit = {},
         retryAttempt: Int = 0
     ) {
+        val ctx = contextRef?.get() ?: run {
+            Log.e(TAG, "Context not set. Call init() first")
+            return
+        }
+        
         appLovinConfig?.let { config ->
-            if (!config.shouldShowInterstitials(context)) {
+            if (!config.shouldShowInterstitials(ctx)) {
                 Log.d(TAG, "Interstitial ads disabled in debug mode")
                 return
             }
         }
         
-        interstitialAd = MaxInterstitialAd(adUnitId, context)
+        interstitialAd = MaxInterstitialAd(adUnitId, ctx)
         
         interstitialAd?.apply {
             setListener(object : MaxAdListener {
@@ -210,6 +230,7 @@ class AppLovinMediationManager(private val context: Context) {
                 
                 override fun onAdHidden(ad: MaxAd) {
                     Log.d(TAG, "Interstitial ad hidden")
+                    // Auto-reload the interstitial ad
                     appLovinConfig?.let { config ->
                         val effectiveAdUnitId = config.getEffectiveInterstitialAdUnitId()
                         if (effectiveAdUnitId.isNotEmpty()) {
@@ -224,8 +245,7 @@ class AppLovinMediationManager(private val context: Context) {
                 }
                 
                 override fun onAdDisplayFailed(ad: MaxAd, error: MaxError) {
-                    Log.e(TAG, "Failed to display interstitial: ${error.message}")
-                    interstitialAd?.loadAd()
+                    Log.e(TAG, "Failed to display interstitial ad: ${error.message}")
                 }
             })
             
@@ -233,16 +253,28 @@ class AppLovinMediationManager(private val context: Context) {
         }
     }
     
+    @JvmStatic
+    fun showInterstitialAd(): Boolean {
+        val activity = currentActivityRef?.get()
+        if (activity == null) {
+            Log.e(TAG, "No current activity available to show interstitial ad")
+            return false
+        }
+        return showInterstitialAd(activity)
+    }
+    
+    @JvmStatic
     fun showInterstitialAd(activity: Activity): Boolean {
+        // Check debug flag
         appLovinConfig?.let { config ->
-            if (!config.shouldShowInterstitials(context)) {
+            if (!config.shouldShowInterstitials(activity)) {
                 Log.d(TAG, "Interstitial ads disabled in debug mode")
                 return false
             }
         }
         
         return if (interstitialAd?.isReady == true) {
-            interstitialAd?.showAd()
+            interstitialAd?.showAd(activity)
             true
         } else {
             Log.w(TAG, "Interstitial ad not ready")
@@ -250,20 +282,39 @@ class AppLovinMediationManager(private val context: Context) {
         }
     }
     
+    @JvmStatic
+    fun loadRewardedAd(
+        onAdLoaded: () -> Unit = {},
+        onAdFailedToLoad: (MaxError) -> Unit = {}
+    ) {
+        val effectiveAdUnitId = appLovinConfig?.getEffectiveRewardedAdUnitId() ?: ""
+        if (effectiveAdUnitId.isEmpty()) {
+            Log.e(TAG, "No rewarded ad unit ID configured")
+            return
+        }
+        loadRewardedAd(effectiveAdUnitId, onAdLoaded, onAdFailedToLoad)
+    }
+    
+    @JvmStatic
     fun loadRewardedAd(
         adUnitId: String,
         onAdLoaded: () -> Unit = {},
         onAdFailedToLoad: (MaxError) -> Unit = {},
         retryAttempt: Int = 0
     ) {
+        val ctx = contextRef?.get() ?: run {
+            Log.e(TAG, "Context not set. Call init() first")
+            return
+        }
+        
         appLovinConfig?.let { config ->
-            if (!config.shouldShowRewardedAds(context)) {
+            if (!config.shouldShowRewardedAds(ctx)) {
                 Log.d(TAG, "Rewarded ads disabled in debug mode")
                 return
             }
         }
         
-        rewardedAd = MaxRewardedAd.getInstance(adUnitId, context)
+        rewardedAd = MaxRewardedAd.getInstance(adUnitId, ctx)
         
         rewardedAd?.apply {
             setListener(object : MaxRewardedAdListener {
@@ -294,6 +345,7 @@ class AppLovinMediationManager(private val context: Context) {
                 
                 override fun onAdHidden(ad: MaxAd) {
                     Log.d(TAG, "Rewarded ad hidden")
+                    // Auto-reload the rewarded ad
                     appLovinConfig?.let { config ->
                         val effectiveAdUnitId = config.getEffectiveRewardedAdUnitId()
                         if (effectiveAdUnitId.isNotEmpty()) {
@@ -309,195 +361,201 @@ class AppLovinMediationManager(private val context: Context) {
                 
                 override fun onAdDisplayFailed(ad: MaxAd, error: MaxError) {
                     Log.e(TAG, "Failed to display rewarded ad: ${error.message}")
-                    rewardedAd?.loadAd()
                 }
-                
                 
                 override fun onUserRewarded(ad: MaxAd, reward: MaxReward) {
                     Log.d(TAG, "User rewarded: ${reward.amount} ${reward.label}")
                 }
+                
+                // Note: onRewardedVideoStarted and onRewardedVideoCompleted are not in MaxRewardedAdListener
             })
             
             loadAd()
         }
     }
     
+    @JvmStatic
+    fun showRewardedAd(
+        onUserRewarded: (MaxReward) -> Unit = {}
+    ): Boolean {
+        val activity = currentActivityRef?.get()
+        if (activity == null) {
+            Log.e(TAG, "No current activity available to show rewarded ad")
+            return false
+        }
+        return showRewardedAd(activity, onUserRewarded)
+    }
+    
+    @JvmStatic
     fun showRewardedAd(
         activity: Activity,
-        onUserRewarded: (MaxReward) -> Unit
+        onUserRewarded: (MaxReward) -> Unit = {}
     ): Boolean {
+        // Check debug flag
         appLovinConfig?.let { config ->
-            if (!config.shouldShowRewardedAds(context)) {
+            if (!config.shouldShowRewardedAds(activity)) {
                 Log.d(TAG, "Rewarded ads disabled in debug mode")
                 return false
             }
         }
         
-        return if (rewardedAd?.isReady == true) {
-            rewardedAd?.apply {
-                setListener(object : MaxRewardedAdListener {
-                    override fun onAdLoaded(ad: MaxAd) {}
-                    override fun onAdLoadFailed(adUnitId: String, error: MaxError) {}
-                    override fun onAdDisplayed(ad: MaxAd) {}
-                    override fun onAdHidden(ad: MaxAd) {
-                        appLovinConfig?.let { config ->
-                            val effectiveAdUnitId = config.getEffectiveRewardedAdUnitId()
-                            if (effectiveAdUnitId.isNotEmpty()) {
-                                loadRewardedAd(effectiveAdUnitId)
-                            }
+        if (rewardedAd?.isReady == true) {
+            // Set up one-time reward listener
+            rewardedAd?.setListener(object : MaxRewardedAdListener {
+                override fun onUserRewarded(ad: MaxAd, reward: MaxReward) {
+                    Log.d(TAG, "User rewarded: ${reward.amount} ${reward.label}")
+                    onUserRewarded(reward)
+                    
+                    // Reload ad after reward
+                    appLovinConfig?.let { config ->
+                        val effectiveAdUnitId = config.getEffectiveRewardedAdUnitId()
+                        if (effectiveAdUnitId.isNotEmpty()) {
+                            loadRewardedAd(effectiveAdUnitId)
                         }
                     }
-                    override fun onAdClicked(ad: MaxAd) {}
-                    override fun onAdDisplayFailed(ad: MaxAd, error: MaxError) {}
-                    override fun onUserRewarded(ad: MaxAd, reward: MaxReward) {
-                        onUserRewarded(reward)
+                }
+                override fun onAdLoaded(ad: MaxAd) {}
+                override fun onAdLoadFailed(adUnitId: String, error: MaxError) {}
+                override fun onAdDisplayed(ad: MaxAd) {}
+                override fun onAdHidden(ad: MaxAd) {
+                    // Reload ad after hidden
+                    appLovinConfig?.let { config ->
+                        val effectiveAdUnitId = config.getEffectiveRewardedAdUnitId()
+                        if (effectiveAdUnitId.isNotEmpty()) {
+                            loadRewardedAd(effectiveAdUnitId)
+                        }
                     }
-                })
-                showAd()
-            }
-            true
+                }
+                override fun onAdClicked(ad: MaxAd) {}
+                override fun onAdDisplayFailed(ad: MaxAd, error: MaxError) {}
+            })
+            
+            rewardedAd?.showAd(activity)
+            return true
         } else {
             Log.w(TAG, "Rewarded ad not ready")
-            false
+            return false
         }
     }
     
-    fun loadAppOpenAd(
-        adUnitId: String,
-        onAdLoaded: () -> Unit = {},
-        onAdFailedToLoad: (MaxError) -> Unit = {},
-        retryAttempt: Int = 0
-    ) {
-        appLovinConfig?.let { config ->
-            if (!config.shouldShowAppOpenAd(context)) {
-                Log.d(TAG, "App open ads disabled")
-                return
-            }
+    private fun initializeAppOpenAd(adUnitId: String) {
+        if (adUnitId.isEmpty()) {
+            Log.w(TAG, "App Open Ad unit ID is empty")
+            return
         }
         
-        appOpenAd = MaxAppOpenAd(adUnitId, context)
-        
-        appOpenAd?.apply {
-            setListener(object : MaxAdListener {
+        contextRef?.get()?.let { ctx ->
+            appOpenAd = MaxAppOpenAd(adUnitId, ctx)
+            appOpenAd?.setListener(object : MaxAdListener {
                 override fun onAdLoaded(ad: MaxAd) {
-                    Log.d(TAG, "App open ad loaded ${if (retryAttempt > 0) "(retry $retryAttempt)" else ""}")
-                    onAdLoaded()
+                    Log.d(TAG, "App Open Ad loaded")
                 }
                 
                 override fun onAdLoadFailed(adUnitId: String, error: MaxError) {
-                    Log.e(TAG, "Failed to load app open ad: ${error.message} ${if (retryAttempt > 0) "(retry $retryAttempt)" else ""}")
-                    
-                    if (retryAttempt < MAX_RETRY_ATTEMPTS) {
-                        val delayMillis = getRetryDelayMillis(retryAttempt + 1)
-                        Log.d(TAG, "Retrying app open ad load (attempt ${retryAttempt + 1}/$MAX_RETRY_ATTEMPTS) after ${delayMillis/1000} seconds")
-                        Handler(Looper.getMainLooper()).postDelayed({
-                            loadAppOpenAd(adUnitId, onAdLoaded, onAdFailedToLoad, retryAttempt + 1)
-                        }, delayMillis)
-                    } else {
-                        Log.e(TAG, "Max retry attempts reached for app open ad")
-                        appOpenAd = null
-                        onAdFailedToLoad(error)
-                    }
+                    Log.e(TAG, "Failed to load App Open Ad: ${error.message}")
+                    // Retry after delay
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        appOpenAd?.loadAd()
+                    }, 30000) // Retry after 30 seconds
                 }
                 
                 override fun onAdDisplayed(ad: MaxAd) {
-                    Log.d(TAG, "App open ad displayed")
+                    Log.d(TAG, "App Open Ad displayed")
                 }
                 
                 override fun onAdHidden(ad: MaxAd) {
-                    Log.d(TAG, "App open ad hidden")
-                    appOpenAd = null
-                    appLovinConfig?.let { config ->
-                        val effectiveAdUnitId = config.getEffectiveAppOpenAdUnitId()
-                        if (effectiveAdUnitId.isNotEmpty()) {
-                            Log.d(TAG, "Auto-reloading app open ad")
-                            loadAppOpenAd(effectiveAdUnitId)
-                        }
-                    }
+                    Log.d(TAG, "App Open Ad hidden")
+                    appOpenAd?.loadAd() // Reload for next time
                 }
                 
                 override fun onAdClicked(ad: MaxAd) {
-                    Log.d(TAG, "App open ad clicked")
+                    Log.d(TAG, "App Open Ad clicked")
                 }
                 
                 override fun onAdDisplayFailed(ad: MaxAd, error: MaxError) {
-                    Log.e(TAG, "Failed to display app open ad: ${error.message}")
-                    appOpenAd?.loadAd()
+                    Log.e(TAG, "Failed to display App Open Ad: ${error.message}")
+                    appOpenAd?.loadAd() // Reload for next time
                 }
             })
             
-            loadAd()
+            appOpenAd?.loadAd()
         }
     }
     
-    fun showAppOpenAd(activity: Activity): Boolean {
-        appLovinConfig?.let { config ->
-            if (!config.shouldShowAppOpenAd(context)) {
-                Log.d(TAG, "App open ads disabled")
-                return false
-            }
+    @JvmStatic
+    fun showAppOpenAd(): Boolean {
+        val activity = currentActivityRef?.get()
+        if (activity == null) {
+            Log.e(TAG, "No current activity available to show app open ad")
+            return false
         }
-        
+        return showAppOpenAd(activity)
+    }
+    
+    @JvmStatic
+    fun showAppOpenAd(activity: Activity): Boolean {
         return if (appOpenAd?.isReady == true) {
             appOpenAd?.showAd()
             true
         } else {
-            Log.w(TAG, "App open ad not ready")
+            Log.w(TAG, "App Open Ad not ready")
             false
         }
     }
     
+    @JvmStatic
+    fun isInitialized(): Boolean = isInitialized
+    
+    @JvmStatic
     fun isInterstitialReady(): Boolean = interstitialAd?.isReady == true
     
-    fun isRewardedAdReady(): Boolean = rewardedAd?.isReady == true
+    @JvmStatic
+    fun isRewardedReady(): Boolean = rewardedAd?.isReady == true
     
+    @JvmStatic
     fun isAppOpenAdReady(): Boolean = appOpenAd?.isReady == true
     
+    @JvmStatic
     fun getConfig(): AppLovinConfig? = appLovinConfig
     
+    @JvmStatic
     fun updateConfig(config: AppLovinConfig) {
         this.appLovinConfig = config
         
-        if (config.enableAppOpenAd) {
-            val application = context.applicationContext as? Application
-            if (application != null && AppLovinAppOpenAdManager.getInstance() == null) {
-                AppLovinAppOpenAdManager.initialize(application, config)
-                Log.d(TAG, "App Open Ad Manager initialized after config update")
-            }
+        // Re-initialize App Open Ad if needed
+        if (config.enableAppOpenAd && config.appOpenAdUnitId.isNotEmpty()) {
+            initializeAppOpenAd(config.appOpenAdUnitId)
         }
     }
     
-    fun showMediationDebugger() {
-        maxSdk?.showMediationDebugger()
+    // Calculate exponential backoff delay
+    private fun getRetryDelayMillis(retryAttempt: Int): Long {
+        val exponent = min(6, retryAttempt)
+        return TimeUnit.SECONDS.toMillis(2.0.pow(exponent).toLong())
     }
     
-    fun showCreativeDebugger() {
-        maxSdk?.showCreativeDebugger()
+    // Activity Lifecycle Callbacks
+    override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
+    
+    override fun onActivityStarted(activity: Activity) {}
+    
+    override fun onActivityResumed(activity: Activity) {
+        currentActivityRef = WeakReference(activity)
     }
     
-    // Get device info for testing
-    fun getTestDeviceInfo(): String {
-        val sb = StringBuilder()
-        sb.append("AppLovin Test Device Info:\n")
-        sb.append("SDK Version: ${AppLovinSdk.VERSION}\n")
-        sb.append("SDK Key: ${appLovinConfig?.sdkKey ?: "Not set"}\n")
-        sb.append("Is Initialized: $isInitialized\n")
-        
-        maxSdk?.configuration?.let { config ->
-            sb.append("Country Code: ${config.countryCode}\n")
-            sb.append("Test Mode Enabled: ${config.isTestModeEnabled}\n")
+    override fun onActivityPaused(activity: Activity) {
+        if (currentActivityRef?.get() == activity) {
+            currentActivityRef = null
         }
-        
-        sb.append("\nTo enable test ads:\n")
-        sb.append("1. Add your device's advertising ID to testDeviceAdvertisingIds\n")
-        sb.append("2. Enable test mode in AppLovin dashboard\n")
-        sb.append("3. Use Mediation Debugger to verify integration\n")
-        
-        return sb.toString()
     }
     
-    // Check if SDK is ready for ad requests
-    fun isReady(): Boolean {
-        return isInitialized && maxSdk != null
+    override fun onActivityStopped(activity: Activity) {}
+    
+    override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
+    
+    override fun onActivityDestroyed(activity: Activity) {
+        if (currentActivityRef?.get() == activity) {
+            currentActivityRef = null
+        }
     }
 }

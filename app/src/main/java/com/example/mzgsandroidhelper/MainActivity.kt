@@ -42,20 +42,29 @@ import kotlinx.coroutines.launch
 import androidx.lifecycle.lifecycleScope
 
 class MainActivity : ComponentActivity() {
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
         // Initialize Remote context
         Remote.init(this)
+        initAdmob()
         
         // Initialize Simple Splash Screen with progress
         SimpleSplashHelper.Builder(this)
-            .setDuration(6000) // Show splash for 3 seconds
+            .setDuration(Remote.getLong("splash_time",9000))
             .showProgress(true) // Show progress bar
             .onComplete { 
                 Log.d("MainActivity", "Splash screen completed")
-                initializeAds()
+                
+                // Show interstitial ad if ready
+                if (AdMobMediationManager.isInterstitialReady()) {
+                    Log.d("MainActivity", "Showing interstitial ad after splash")
+                    AdMobMediationManager.showInterstitialAd()
+                } else {
+                    Log.d("MainActivity", "Interstitial ad not ready after splash")
+                }
             }
             .build()
             .show()
@@ -87,11 +96,13 @@ class MainActivity : ComponentActivity() {
             showRewardedAdsInDebug = true
         )
         
-        val adManager = AdMobMediationManager.getInstance(this)
-        adManager.initialize(
+        AdMobMediationManager.init(
+            context = this,
             config = adConfig,
             onInitComplete = {
                 Log.d("MainActivity", "AdMob initialized with all configured features")
+                // Load interstitial ad immediately so it's ready after splash
+                AdMobMediationManager.loadInterstitialAd()
             }
         )
     }
@@ -110,8 +121,8 @@ class MainActivity : ComponentActivity() {
             showAdsInDebug = true
         )
         
-        val appLovinManager = AppLovinMediationManager.getInstance(this)
-        appLovinManager.initialize(
+        AppLovinMediationManager.init(
+            context = this,
             config = appLovinConfig,
             onInitComplete = {
                 Log.d("MainActivity", "AppLovin MAX initialized successfully")
@@ -159,14 +170,18 @@ fun AdMobTestScreen() {
     // Request consent on first launch
     LaunchedEffect(activity) {
         activity?.let { act ->
-            adManager.requestConsentInfo(
-                activity = act,
+            // Set the current activity for AdMob operations
+            adManager.setCurrentActivity(act)
+            
+            adManager.requestConsentInfoUpdate(
+                underAgeOfConsent = false,
                 debugGeography = ConsentDebugSettings.DebugGeography.DEBUG_GEOGRAPHY_EEA,
-                onConsentReady = {
+                testDeviceHashedId = null,
+                onConsentInfoUpdateSuccess = {
                     consentStatus = "Consent obtained"
                     Log.d("Consent", "Ready to show ads")
                 },
-                onConsentError = { error ->
+                onConsentInfoUpdateFailure = { error: String ->
                     consentStatus = "Consent error: $error"
                     Log.e("Consent", error)
                 }
@@ -185,12 +200,12 @@ fun AdMobTestScreen() {
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
-            // Banner ad at bottom
+            // Banner ad at bottom - uses config's banner ad unit ID
             AdMobBanner(
-                adUnitId = AdMobConfig.TEST_BANNER_AD_UNIT_ID,
                 isAdaptive = true,
                 modifier = Modifier.fillMaxWidth()
             )
+
         }
     ) { paddingValues ->
         LazyColumn(
@@ -254,7 +269,7 @@ fun AdMobTestScreen() {
                         )
                         
                         // Show AppLovin initialization status
-                        if (appLovinManager.isReady()) {
+                        if (appLovinManager.isInitialized()) {
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 "✓ AppLovin MAX is initialized",
@@ -335,7 +350,6 @@ fun AdMobTestScreen() {
                             Button(
                                 onClick = {
                                     adManager.loadInterstitialAd(
-                                        adUnitId = AdMobConfig.TEST_INTERSTITIAL_AD_UNIT_ID,
                                         onAdLoaded = {
                                             interstitialLoaded = true
                                             scope.launch {
@@ -400,7 +414,6 @@ fun AdMobTestScreen() {
                             Button(
                                 onClick = {
                                     adManager.loadRewardedAd(
-                                        adUnitId = AdMobConfig.TEST_REWARDED_AD_UNIT_ID,
                                         onAdLoaded = {
                                             rewardedLoaded = true
                                             scope.launch {
@@ -471,7 +484,6 @@ fun AdMobTestScreen() {
                             Button(
                                 onClick = {
                                     adManager.loadRewardedInterstitialAd(
-                                        adUnitId = AdMobConfig.TEST_REWARDED_INTERSTITIAL_AD_UNIT_ID,
                                         onAdLoaded = {
                                             rewardedInterstitialLoaded = true
                                             scope.launch {
@@ -559,6 +571,24 @@ fun AdMobTestScreen() {
             }
         }
     }
+}
+
+@Composable
+fun AdMobBanner(
+    modifier: Modifier = Modifier,
+    isAdaptive: Boolean = true
+) {
+    // Get the effective banner ad unit ID from config
+    val adUnitId = AdMobMediationManager.getConfig()?.getEffectiveBannerAdUnitId() ?: ""
+    if (adUnitId.isEmpty()) {
+        Log.e("AdMobBanner", "No banner ad unit ID configured")
+        return
+    }
+    AdMobBanner(
+        adUnitId = adUnitId,
+        modifier = modifier,
+        isAdaptive = isAdaptive
+    )
 }
 
 @Composable

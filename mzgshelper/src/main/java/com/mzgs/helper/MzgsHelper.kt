@@ -271,6 +271,13 @@ object Remote {
     }
 
     /**
+     * Get long value from remote config
+     */
+    fun getLong(key: String, default: Long = 0L): Long {
+        return if (app?.has(key) == true) app!!.optLong(key, default) else default
+    }
+
+    /**
      * Get string array from remote config
      */
     fun getStringArray(key: String, default: List<String> = listOf()): List<String> {

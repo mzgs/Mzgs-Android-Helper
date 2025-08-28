@@ -42,8 +42,9 @@ class AdMobBannerView @JvmOverloads constructor(
     ) {
         val adManager = AdMobMediationManager.getInstance(context)
         
-        if (!adManager.canShowAds()) {
-            Log.w(TAG, "Cannot show ads - consent not obtained")
+        // Check if we can show any type of ads (personalized or non-personalized)
+        if (!adManager.canShowAds() && !adManager.canShowNonPersonalizedAds()) {
+            Log.w(TAG, "Cannot show any type of ads")
             return
         }
         
@@ -94,7 +95,7 @@ class AdMobBannerView @JvmOverloads constructor(
                     // Auto-retry loading the banner after a delay
                     android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                         Log.d(TAG, "Auto-retrying banner ad load after failure")
-                        val retryRequest = AdRequest.Builder().build()
+                        val retryRequest = AdMobMediationManager.getInstance(context).createAdRequest()
                         loadAd(retryRequest)
                     }, 5000) // Retry after 5 seconds
                 }
@@ -122,7 +123,7 @@ class AdMobBannerView @JvmOverloads constructor(
         
         addView(adView)
         
-        val adRequest = AdRequest.Builder().build()
+        val adRequest = adManager.createAdRequest()
         adView?.loadAd(adRequest)
     }
     

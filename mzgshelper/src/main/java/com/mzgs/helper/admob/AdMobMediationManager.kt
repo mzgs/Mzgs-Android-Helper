@@ -22,45 +22,38 @@ import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAdLoa
 import com.google.android.ump.ConsentDebugSettings
 import com.google.android.ump.ConsentInformation
 import com.google.android.ump.ConsentRequestParameters
+import com.google.android.ump.FormError
 import com.google.android.ump.UserMessagingPlatform
+import java.lang.ref.WeakReference
 
-class AdMobMediationManager(private val context: Context) {
+object AdMobMediationManager : Application.ActivityLifecycleCallbacks {
     
+    private const val TAG = "AdMobMediation"
+    private var isInitialized = false
+    private const val MAX_RETRY_ATTEMPTS = 6 // Allow up to 6 retries for exponential backoff
+    
+    private var contextRef: WeakReference<Context>? = null
+    private var currentActivityRef: WeakReference<Activity>? = null
     private var adConfig: AdMobConfig? = null
-    
-    companion object {
-        private const val TAG = "AdMobMediation"
-        private var isInitialized = false
-        private const val MAX_RETRY_ATTEMPTS = 6 // Allow up to 6 retries for exponential backoff
-        
-        @Volatile
-        private var INSTANCE: AdMobMediationManager? = null
-        
-        fun getInstance(context: Context): AdMobMediationManager {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: AdMobMediationManager(context.applicationContext).also { INSTANCE = it }
-            }
-        }
-        
-        // Calculate exponential backoff delay
-        // AppLovin recommends exponentially higher delays up to a maximum delay (64 seconds)
-        private fun getRetryDelayMillis(retryAttempt: Int): Long {
-            // Calculate delay: 2^retryAttempt seconds, capped at 2^6 (64 seconds)
-            val exponent = min(6, retryAttempt)
-            return TimeUnit.SECONDS.toMillis(2.0.pow(exponent).toLong())
-        }
-    }
-    
     private var interstitialAd: InterstitialAd? = null
     private var rewardedAd: RewardedAd? = null
     private var rewardedInterstitialAd: RewardedInterstitialAd? = null
-    private val consentInformation: ConsentInformation = UserMessagingPlatform.getConsentInformation(context)
+    private var consentInformation: ConsentInformation? = null
     
-    fun initialize(
-        config: AdMobConfig,
-        onInitComplete: () -> Unit = {}
-    ) {
+    @JvmStatic
+    fun init(context: Context, config: AdMobConfig, onInitComplete: () -> Unit = {}) {
+        this.contextRef = WeakReference(context.applicationContext)
         this.adConfig = config
+        this.consentInformation = UserMessagingPlatform.getConsentInformation(context)
+        
+        // If context is an activity, store it as current activity
+        if (context is Activity) {
+            this.currentActivityRef = WeakReference(context)
+        }
+        
+        // Register activity lifecycle callbacks to track current activity
+        val application = context.applicationContext as? Application
+        application?.registerActivityLifecycleCallbacks(this)
         
         if (isInitialized) {
             Log.d(TAG, "AdMob already initialized")
@@ -78,18 +71,16 @@ class AdMobMediationManager(private val context: Context) {
             isInitialized = true
             Log.d(TAG, "AdMob SDK initialized")
             
-            initializationStatus.adapterStatusMap.forEach { (adapterClass, status) ->
-                Log.d(TAG, "Adapter: $adapterClass, Status: ${status.initializationState}, Latency: ${status.latency}ms")
+            initializationStatus.adapterStatusMap.forEach { (className, status) ->
+                Log.d(TAG, "Adapter: $className, Status: ${status.initializationState}, Latency: ${status.latency}ms")
             }
             
-            // Initialize App Open Ad Manager if configured
-            if (config.enableAppOpenAd && config.getEffectiveAppOpenAdUnitId().isNotEmpty()) {
+            // Initialize App Open Ad if configured
+            if (config.enableAppOpenAd) {
                 val application = context.applicationContext as? Application
                 if (application != null) {
                     AppOpenAdManager.initialize(application, config)
-                    Log.d(TAG, "App Open Ad Manager initialized automatically")
-                } else {
-                    Log.w(TAG, "Could not initialize App Open Ad Manager - context is not Application")
+                    Log.d(TAG, "App Open Ad Manager initialized")
                 }
             }
             
@@ -97,111 +88,224 @@ class AdMobMediationManager(private val context: Context) {
         }
     }
     
-    @Deprecated("Use initialize(config: AdMobConfig) instead", ReplaceWith("initialize(config, onInitComplete)"))
-    fun initialize(
-        testDeviceIds: List<String> = emptyList(),
-        onInitComplete: () -> Unit = {}
-    ) {
-        // Create a default config with the provided test device IDs
-        val config = AdMobConfig(
-            testDeviceIds = testDeviceIds
-        )
-        initialize(config, onInitComplete)
+    // Backward compatibility - getInstance returns this object
+    @JvmStatic
+    fun getInstance(context: Context): AdMobMediationManager {
+        if (this.contextRef?.get() == null) {
+            this.contextRef = WeakReference(context.applicationContext)
+        }
+        return this
     }
     
-    fun requestConsentInfo(
-        activity: Activity,
-        debugGeography: Int = ConsentDebugSettings.DebugGeography.DEBUG_GEOGRAPHY_DISABLED,
+    @JvmStatic
+    fun initialize(config: AdMobConfig, onInitComplete: () -> Unit = {}) {
+        contextRef?.get()?.let {
+            init(it, config, onInitComplete)
+        } ?: Log.e(TAG, "Context not set. Call init() first")
+    }
+    
+    @JvmStatic
+    fun setCurrentActivity(activity: Activity?) {
+        activity?.let {
+            currentActivityRef = WeakReference(it)
+        }
+    }
+    
+    @JvmStatic
+    fun requestConsentInfoUpdate(
+        underAgeOfConsent: Boolean = false,
+        debugGeography: Int? = null,  // Use Int for DebugGeography constants
         testDeviceHashedId: String? = null,
-        onConsentReady: () -> Unit = {},
-        onConsentError: (String) -> Unit = {}
+        onConsentInfoUpdateSuccess: () -> Unit = {},
+        onConsentInfoUpdateFailure: (String) -> Unit = {}
     ) {
-        val debugSettingsBuilder = ConsentDebugSettings.Builder(context)
-            .setDebugGeography(debugGeography)
-        
-        testDeviceHashedId?.let {
-            debugSettingsBuilder.addTestDeviceHashedId(it)
+        val ctx = contextRef?.get() ?: run {
+            Log.e(TAG, "Context not set. Call init() first")
+            return
         }
         
         val params = ConsentRequestParameters.Builder()
-            .setConsentDebugSettings(debugSettingsBuilder.build())
-            .build()
+            .setTagForUnderAgeOfConsent(underAgeOfConsent)
         
-        consentInformation.requestConsentInfoUpdate(
+        if (debugGeography != null && testDeviceHashedId != null) {
+            val debugSettings = ConsentDebugSettings.Builder(ctx)
+                .setDebugGeography(debugGeography)
+                .addTestDeviceHashedId(testDeviceHashedId)
+                .build()
+            params.setConsentDebugSettings(debugSettings)
+        }
+        
+        val activity = currentActivityRef?.get() ?: (ctx as? Activity)
+        if (activity == null) {
+            Log.e(TAG, "No activity available for consent info update")
+            onConsentInfoUpdateFailure("No activity available")
+            return
+        }
+        
+        consentInformation?.requestConsentInfoUpdate(
             activity,
-            params,
+            params.build(),
             {
-                if (consentInformation.isConsentFormAvailable) {
-                    loadConsentForm(activity, onConsentReady, onConsentError)
-                } else {
-                    onConsentReady()
-                }
+                Log.d(TAG, "Consent info updated successfully")
+                onConsentInfoUpdateSuccess()
             },
             { error ->
-                Log.e(TAG, "Consent info error: ${error.message}")
-                onConsentError(error.message)
+                Log.e(TAG, "Failed to update consent info: ${error.message}")
+                onConsentInfoUpdateFailure(error.message)
             }
         )
     }
     
-    private fun loadConsentForm(
+    @JvmStatic
+    fun showConsentForm(
         activity: Activity,
-        onConsentReady: () -> Unit,
-        onConsentError: (String) -> Unit
+        onConsentFormDismissed: (FormError?) -> Unit = {}
     ) {
-        UserMessagingPlatform.loadConsentForm(
-            context,
-            { consentForm ->
-                if (consentInformation.consentStatus == ConsentInformation.ConsentStatus.REQUIRED) {
-                    consentForm.show(activity) { error ->
-                        if (error != null) {
-                            Log.e(TAG, "Consent form error: ${error.message}")
-                            onConsentError(error.message)
-                        } else {
-                            onConsentReady()
-                        }
-                    }
-                } else {
-                    onConsentReady()
-                }
-            },
-            { error ->
-                Log.e(TAG, "Failed to load consent form: ${error.message}")
-                onConsentError(error.message)
+        UserMessagingPlatform.loadAndShowConsentFormIfRequired(activity) { formError ->
+            if (formError != null) {
+                Log.e(TAG, "Error showing consent form: ${formError.message}")
+            } else {
+                Log.d(TAG, "Consent form shown and handled")
             }
-        )
+            onConsentFormDismissed(formError)
+        }
     }
     
+    @JvmStatic
+    fun canRequestAds(): Boolean {
+        // Check if consent information is available
+        val canRequest = consentInformation?.canRequestAds()
+        
+        // The UMP SDK's canRequestAds() returns false until consent info is updated
+        // So if it's false and consent status is UNKNOWN, we should still allow non-personalized ads
+        val consentStatus = getConsentStatus()
+        val allowAds = when {
+            canRequest == true -> true
+            canRequest == false && consentStatus == ConsentInformation.ConsentStatus.UNKNOWN -> {
+                // Consent not yet determined, allow non-personalized ads
+                Log.d(TAG, "Consent unknown, allowing non-personalized ads")
+                true
+            }
+            canRequest == null -> true // No consent info available, allow non-personalized
+            else -> false
+        }
+        
+        Log.d(TAG, "canRequestAds check - consentInfo: ${consentInformation != null}, canRequest: $canRequest, status: $consentStatus, allowing: $allowAds")
+        
+        return allowAds
+    }
+    
+    @JvmStatic
+    fun getConsentStatus(): Int {
+        return consentInformation?.consentStatus ?: ConsentInformation.ConsentStatus.UNKNOWN
+    }
+    
+    @JvmStatic
+    fun isConsentFormAvailable(): Boolean {
+        return consentInformation?.isConsentFormAvailable ?: false
+    }
+    
+    @JvmStatic
+    fun getPrivacyOptionsRequirementStatus(): ConsentInformation.PrivacyOptionsRequirementStatus {
+        return consentInformation?.privacyOptionsRequirementStatus 
+            ?: ConsentInformation.PrivacyOptionsRequirementStatus.UNKNOWN
+    }
+    
+    @JvmStatic
+    fun showPrivacyOptionsForm(
+        activity: Activity,
+        onConsentFormDismissed: (FormError?) -> Unit = {}
+    ) {
+        UserMessagingPlatform.showPrivacyOptionsForm(activity) { formError ->
+            if (formError != null) {
+                Log.e(TAG, "Error showing privacy options form: ${formError.message}")
+            }
+            onConsentFormDismissed(formError)
+        }
+    }
+    
+    @JvmStatic
     fun canShowAds(): Boolean {
-        return consentInformation.canRequestAds()
+        val isEEA = isUserInEEA()
+        val consentStatus = getConsentStatus()
+        val consentObtained = consentStatus == ConsentInformation.ConsentStatus.OBTAINED
+        val canRequestAds = canRequestAds()
+        
+        Log.d(TAG, "canShowAds check - isEEA: $isEEA, consentStatus: $consentStatus, consentObtained: $consentObtained, canRequestAds: $canRequestAds")
+        
+        return if (isEEA) {
+            consentObtained && canRequestAds
+        } else {
+            canRequestAds
+        }
     }
     
+    @JvmStatic
     fun canShowNonPersonalizedAds(): Boolean {
-        // Can show non-personalized ads even without consent in some regions
-        // Check if we can at least request ads (covers cases like child-directed treatment)
-        return true // You can always attempt to show non-personalized ads
+        val isEEA = isUserInEEA()
+        val consentStatus = getConsentStatus()
+        
+        // For non-personalized ads, we can show them even without explicit consent
+        // We just need to pass the npa flag
+        val canShow = when (consentStatus) {
+            ConsentInformation.ConsentStatus.UNKNOWN -> true // Allow non-personalized when unknown
+            ConsentInformation.ConsentStatus.NOT_REQUIRED -> true
+            ConsentInformation.ConsentStatus.OBTAINED -> true
+            ConsentInformation.ConsentStatus.REQUIRED -> true // Allow non-personalized even when consent required
+            else -> true
+        }
+        
+        Log.d(TAG, "canShowNonPersonalizedAds check - isEEA: $isEEA, consentStatus: $consentStatus, canShow: $canShow")
+        
+        return canShow
     }
     
-    private fun createAdRequest(): AdRequest {
+    @JvmStatic
+    fun isUserInEEA(): Boolean {
+        return false // You can implement actual EEA detection logic here
+    }
+    
+    @JvmStatic
+    fun createAdRequest(): AdRequest {
         val builder = AdRequest.Builder()
         
-        // If user hasn't consented, request non-personalized ads
-        if (!canShowAds()) {
+        val isEEA = isUserInEEA()
+        val consentObtained = getConsentStatus() == ConsentInformation.ConsentStatus.OBTAINED
+        
+        if (isEEA && !consentObtained) {
             val extras = Bundle()
-            extras.putString("npa", "1") // Non-personalized ads
+            extras.putString("npa", "1")
             builder.addNetworkExtrasBundle(AdMobAdapter::class.java, extras)
-            Log.d(TAG, "Requesting non-personalized ads due to consent status")
         }
         
         return builder.build()
     }
     
+    @JvmStatic
+    fun loadInterstitialAd(
+        onAdLoaded: () -> Unit = {},
+        onAdFailedToLoad: (LoadAdError) -> Unit = {}
+    ) {
+        val effectiveAdUnitId = adConfig?.getEffectiveInterstitialAdUnitId() ?: ""
+        if (effectiveAdUnitId.isEmpty()) {
+            Log.e(TAG, "No interstitial ad unit ID configured")
+            return
+        }
+        loadInterstitialAd(effectiveAdUnitId, onAdLoaded, onAdFailedToLoad)
+    }
+    
+    @JvmStatic
     fun loadInterstitialAd(
         adUnitId: String,
         onAdLoaded: () -> Unit = {},
         onAdFailedToLoad: (LoadAdError) -> Unit = {},
         retryAttempt: Int = 0
     ) {
+        val ctx = contextRef?.get() ?: run {
+            Log.e(TAG, "Context not set. Call init() first")
+            return
+        }
+        
         // Check if we can show any type of ads (personalized or non-personalized)
         if (!canShowAds() && !canShowNonPersonalizedAds()) {
             Log.w(TAG, "Cannot request any type of ads")
@@ -210,7 +314,7 @@ class AdMobMediationManager(private val context: Context) {
         
         // Check debug flag
         adConfig?.let { config ->
-            if (!config.shouldShowInterstitials(context)) {
+            if (!config.shouldShowInterstitials(ctx)) {
                 Log.d(TAG, "Interstitial ads disabled in debug mode")
                 return
             }
@@ -219,7 +323,7 @@ class AdMobMediationManager(private val context: Context) {
         val adRequest = createAdRequest()
         
         InterstitialAd.load(
-            context,
+            ctx,
             adUnitId,
             adRequest,
             object : InterstitialAdLoadCallback() {
@@ -283,12 +387,25 @@ class AdMobMediationManager(private val context: Context) {
         }
     }
     
+    @JvmStatic
+    fun showInterstitialAd(): Boolean {
+        val activity = currentActivityRef?.get()
+        if (activity == null) {
+            Log.e(TAG, "No current activity available to show interstitial ad")
+            return false
+        }
+        return showInterstitialAd(activity)
+    }
+    
+    @JvmStatic
     fun showInterstitialAd(activity: Activity): Boolean {
         // Check debug flag
         adConfig?.let { config ->
-            if (!config.shouldShowInterstitials(context)) {
-                Log.d(TAG, "Interstitial ads disabled in debug mode")
-                return false
+            contextRef?.get()?.let { ctx ->
+                if (!config.shouldShowInterstitials(ctx)) {
+                    Log.d(TAG, "Interstitial ads disabled in debug mode")
+                    return false
+                }
             }
         }
         
@@ -301,12 +418,31 @@ class AdMobMediationManager(private val context: Context) {
         }
     }
     
+    @JvmStatic
+    fun loadRewardedAd(
+        onAdLoaded: () -> Unit = {},
+        onAdFailedToLoad: (LoadAdError) -> Unit = {}
+    ) {
+        val effectiveAdUnitId = adConfig?.getEffectiveRewardedAdUnitId() ?: ""
+        if (effectiveAdUnitId.isEmpty()) {
+            Log.e(TAG, "No rewarded ad unit ID configured")
+            return
+        }
+        loadRewardedAd(effectiveAdUnitId, onAdLoaded, onAdFailedToLoad)
+    }
+    
+    @JvmStatic
     fun loadRewardedAd(
         adUnitId: String,
         onAdLoaded: () -> Unit = {},
         onAdFailedToLoad: (LoadAdError) -> Unit = {},
         retryAttempt: Int = 0
     ) {
+        val ctx = contextRef?.get() ?: run {
+            Log.e(TAG, "Context not set. Call init() first")
+            return
+        }
+        
         // Check if we can show any type of ads (personalized or non-personalized)
         if (!canShowAds() && !canShowNonPersonalizedAds()) {
             Log.w(TAG, "Cannot request any type of ads")
@@ -315,7 +451,7 @@ class AdMobMediationManager(private val context: Context) {
         
         // Check debug flag
         adConfig?.let { config ->
-            if (!config.shouldShowRewardedAds(context)) {
+            if (!config.shouldShowRewardedAds(ctx)) {
                 Log.d(TAG, "Rewarded ads disabled in debug mode")
                 return
             }
@@ -324,7 +460,7 @@ class AdMobMediationManager(private val context: Context) {
         val adRequest = createAdRequest()
         
         RewardedAd.load(
-            context,
+            ctx,
             adUnitId,
             adRequest,
             object : RewardedAdLoadCallback() {
@@ -388,22 +524,37 @@ class AdMobMediationManager(private val context: Context) {
         }
     }
     
+    @JvmStatic
+    fun showRewardedAd(
+        onUserEarnedReward: (RewardItem) -> Unit = {}
+    ): Boolean {
+        val activity = currentActivityRef?.get()
+        if (activity == null) {
+            Log.e(TAG, "No current activity available to show rewarded ad")
+            return false
+        }
+        return showRewardedAd(activity, onUserEarnedReward)
+    }
+    
+    @JvmStatic
     fun showRewardedAd(
         activity: Activity,
-        onUserEarnedReward: (RewardItem) -> Unit
+        onUserEarnedReward: (RewardItem) -> Unit = {}
     ): Boolean {
         // Check debug flag
         adConfig?.let { config ->
-            if (!config.shouldShowRewardedAds(context)) {
-                Log.d(TAG, "Rewarded ads disabled in debug mode")
-                return false
+            contextRef?.get()?.let { ctx ->
+                if (!config.shouldShowRewardedAds(ctx)) {
+                    Log.d(TAG, "Rewarded ads disabled in debug mode")
+                    return false
+                }
             }
         }
         
         return if (rewardedAd != null) {
-            rewardedAd?.show(activity) { reward ->
-                Log.d(TAG, "User earned reward: ${reward.amount} ${reward.type}")
-                onUserEarnedReward(reward)
+            rewardedAd?.show(activity) { rewardItem ->
+                Log.d(TAG, "User earned reward: ${rewardItem.amount} ${rewardItem.type}")
+                onUserEarnedReward(rewardItem)
             }
             true
         } else {
@@ -412,22 +563,49 @@ class AdMobMediationManager(private val context: Context) {
         }
     }
     
+    @JvmStatic
+    fun loadRewardedInterstitialAd(
+        onAdLoaded: () -> Unit = {},
+        onAdFailedToLoad: (LoadAdError) -> Unit = {}
+    ) {
+        val effectiveAdUnitId = adConfig?.getEffectiveRewardedInterstitialAdUnitId() ?: ""
+        if (effectiveAdUnitId.isEmpty()) {
+            Log.e(TAG, "No rewarded interstitial ad unit ID configured")
+            return
+        }
+        loadRewardedInterstitialAd(effectiveAdUnitId, onAdLoaded, onAdFailedToLoad)
+    }
+    
+    @JvmStatic
     fun loadRewardedInterstitialAd(
         adUnitId: String,
         onAdLoaded: () -> Unit = {},
         onAdFailedToLoad: (LoadAdError) -> Unit = {},
         retryAttempt: Int = 0
     ) {
+        val ctx = contextRef?.get() ?: run {
+            Log.e(TAG, "Context not set. Call init() first")
+            return
+        }
+        
         // Check if we can show any type of ads (personalized or non-personalized)
         if (!canShowAds() && !canShowNonPersonalizedAds()) {
             Log.w(TAG, "Cannot request any type of ads")
             return
         }
         
+        // Check debug flag
+        adConfig?.let { config ->
+            if (!config.shouldShowRewardedAds(ctx)) {
+                Log.d(TAG, "Rewarded interstitial ads disabled in debug mode")
+                return
+            }
+        }
+        
         val adRequest = createAdRequest()
         
         RewardedInterstitialAd.load(
-            context,
+            ctx,
             adUnitId,
             adRequest,
             object : RewardedInterstitialAdLoadCallback() {
@@ -491,45 +669,108 @@ class AdMobMediationManager(private val context: Context) {
         }
     }
     
+    @JvmStatic
+    fun showRewardedInterstitialAd(
+        onUserEarnedReward: (RewardItem) -> Unit = {}
+    ): Boolean {
+        val activity = currentActivityRef?.get()
+        if (activity == null) {
+            Log.e(TAG, "No current activity available to show rewarded interstitial ad")
+            return false
+        }
+        return showRewardedInterstitialAd(activity, onUserEarnedReward)
+    }
+    
+    @JvmStatic
     fun showRewardedInterstitialAd(
         activity: Activity,
-        onUserEarnedReward: (RewardItem) -> Unit
+        onUserEarnedReward: (RewardItem) -> Unit = {}
     ): Boolean {
+        // Check debug flag
+        adConfig?.let { config ->
+            contextRef?.get()?.let { ctx ->
+                if (!config.shouldShowRewardedAds(ctx)) {
+                    Log.d(TAG, "Rewarded interstitial ads disabled in debug mode")
+                    return false
+                }
+            }
+        }
+        
         return if (rewardedInterstitialAd != null) {
-            rewardedInterstitialAd?.show(activity) { reward ->
-                Log.d(TAG, "User earned reward from interstitial: ${reward.amount} ${reward.type}")
-                onUserEarnedReward(reward)
+            rewardedInterstitialAd?.show(activity) { rewardItem ->
+                Log.d(TAG, "User earned reward from interstitial: ${rewardItem.amount} ${rewardItem.type}")
+                onUserEarnedReward(rewardItem)
             }
             true
         } else {
-            Log.w(TAG, "Rewarded interstitial not ready")
+            Log.w(TAG, "Rewarded interstitial ad not ready")
             false
         }
     }
     
+    @JvmStatic
     fun isInterstitialReady(): Boolean = interstitialAd != null
     
-    fun isRewardedAdReady(): Boolean = rewardedAd != null
+    @JvmStatic
+    fun isRewardedReady(): Boolean = rewardedAd != null
     
+    @JvmStatic
     fun isRewardedInterstitialReady(): Boolean = rewardedInterstitialAd != null
     
+    @JvmStatic
     fun resetConsent() {
-        consentInformation.reset()
+        consentInformation?.reset()
         Log.d(TAG, "Consent information reset")
     }
     
+    @JvmStatic
     fun getConfig(): AdMobConfig? = adConfig
     
+    @JvmStatic
     fun updateConfig(config: AdMobConfig) {
         this.adConfig = config
         
         // Update App Open Ad Manager if needed
         if (config.enableAppOpenAd) {
-            val application = context.applicationContext as? Application
-            if (application != null && AppOpenAdManager.getInstance() == null) {
-                AppOpenAdManager.initialize(application, config)
-                Log.d(TAG, "App Open Ad Manager initialized after config update")
+            contextRef?.get()?.let { ctx ->
+                val application = ctx.applicationContext as? Application
+                if (application != null && AppOpenAdManager.getInstance() == null) {
+                    AppOpenAdManager.initialize(application, config)
+                    Log.d(TAG, "App Open Ad Manager initialized after config update")
+                }
             }
+        }
+    }
+    
+    // Calculate exponential backoff delay
+    private fun getRetryDelayMillis(retryAttempt: Int): Long {
+        // Calculate delay: 2^retryAttempt seconds, capped at 2^6 (64 seconds)
+        val exponent = min(6, retryAttempt)
+        return TimeUnit.SECONDS.toMillis(2.0.pow(exponent).toLong())
+    }
+    
+    // Activity Lifecycle Callbacks
+    override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
+    
+    override fun onActivityStarted(activity: Activity) {}
+    
+    override fun onActivityResumed(activity: Activity) {
+        currentActivityRef = WeakReference(activity)
+    }
+    
+    override fun onActivityPaused(activity: Activity) {
+        if (currentActivityRef?.get() == activity) {
+            currentActivityRef = null
+        }
+    }
+    
+    override fun onActivityStopped(activity: Activity) {}
+    
+    override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
+    
+    override fun onActivityDestroyed(activity: Activity) {
+        if (currentActivityRef?.get() == activity) {
+            currentActivityRef = null
         }
     }
 }

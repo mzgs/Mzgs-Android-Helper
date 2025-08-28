@@ -9,6 +9,7 @@ Android helper library with utility tools and comprehensive ad mediation support
 - 🔐 Built-in UMP consent management
 - 🚀 AppLovin MAX mediation adapters included
 - 🔄 Dual mediation support (AdMob + AppLovin MAX)
+- ⚡ Simplified API with automatic ad unit ID resolution from config
 
 ## Installation
 
@@ -22,470 +23,236 @@ dependencies {
 }
 ```
 
-## Ad Networks Support
+## Quick Start
 
-This library provides complete implementation for both **AdMob** and **AppLovin MAX** mediation platforms. You can choose to use either one or both in your application.
-
-### Supported Ad Formats
-
-| Ad Format | AdMob | AppLovin MAX |
-|-----------|--------|---------------|
-| Banner (320x50) | ✅ | ✅ |
-| Large Banner (320x100) | ✅ | ✅ |
-| MREC (300x250) | ✅ | ✅ |
-| Adaptive Banner | ✅ | ✅ |
-| Interstitial | ✅ | ✅ |
-| Rewarded Video | ✅ | ✅ |
-| Native Ads | ✅ | ✅ |
-| App Open Ads | ✅ | ✅ |
-
-## AdMob Mediation Usage
-
-### Required Imports for Compose
-
-```kotlin
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import com.mzgs.helper.admob.*
-import com.google.android.gms.ads.AdSize
-import com.google.android.gms.ads.nativead.NativeAd
-import com.google.android.gms.ads.nativead.NativeAdOptions
-```
-
-### Initial Setup
-
-1. **Initialize AdMob in your Application class:**
+### 1. Initialize in Application Class
 
 ```kotlin
 class MyApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         
-        // Initialize AdMob
-        val adManager = AdMobMediationManager.getInstance(this)
-        adManager.initialize(
-            testDeviceIds = listOf("YOUR_TEST_DEVICE_ID"), // Optional
+        // Initialize AdMob with config
+        val adMobConfig = AdMobConfig(
+            bannerAdUnitId = "YOUR_BANNER_ID",
+            interstitialAdUnitId = "YOUR_INTERSTITIAL_ID",
+            rewardedAdUnitId = "YOUR_REWARDED_ID",
+            nativeAdUnitId = "YOUR_NATIVE_ID",
+            appOpenAdUnitId = "YOUR_APP_OPEN_ID",
+            enableTestMode = BuildConfig.DEBUG // Use test ads in debug
+        )
+        
+        AdMobMediationManager.initialize(
+            context = this,
+            config = adMobConfig,
             onInitComplete = {
-                Log.d("AdMob", "Initialization complete")
+                Log.d("AdMob", "Initialized")
             }
         )
         
-        // Optional: Initialize App Open Ads
-        AppOpenAdManager.initialize(
-            application = this,
-            adUnitId = "YOUR_APP_OPEN_AD_UNIT_ID"
+        // Initialize AppLovin with config
+        val appLovinConfig = AppLovinConfig(
+            bannerAdUnitId = "YOUR_BANNER_ID",
+            interstitialAdUnitId = "YOUR_INTERSTITIAL_ID",
+            rewardedAdUnitId = "YOUR_REWARDED_ID",
+            enableTestMode = BuildConfig.DEBUG
+        )
+        
+        AppLovinMediationManager.initialize(
+            context = this,
+            config = appLovinConfig,
+            onInitComplete = {
+                Log.d("AppLovin", "Initialized")
+            }
         )
     }
 }
 ```
 
-2. **Request Consent (Required for EU users):**
+### 2. Initialize in Activity
 
 ```kotlin
-class MainActivity : AppCompatActivity() {
+class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        val adManager = AdMobMediationManager.getInstance(this)
+        // Set current activity for simplified show methods
+        AdMobMediationManager.setCurrentActivity(this)
+        AppLovinMediationManager.setCurrentActivity(this)
         
-        // Request consent
-        adManager.requestConsentInfo(
-            activity = this,
-            debugGeography = ConsentDebugSettings.DebugGeography.DEBUG_GEOGRAPHY_EEA, // For testing
-            testDeviceHashedId = "YOUR_TEST_DEVICE_HASHED_ID", // For testing
+        // Request consent (AdMob)
+        AdMobMediationManager.requestConsentInfo(
             onConsentReady = {
-                // Consent obtained, you can now load ads
+                // Start loading ads
                 loadAds()
-            },
-            onConsentError = { error ->
-                Log.e("Consent", "Error: $error")
             }
         )
-    }
-}
-```
-
-### Banner Ads in Compose
-
-**Multiple Banner Formats Available:**
-- Standard Banner (320x50)
-- Large Banner (320x100)
-- MREC/Medium Rectangle (300x250)
-- Full Banner (468x60)
-- Leaderboard (728x90)
-- Adaptive Banners (flexible sizing)
-
-**Using BannerAdHelper for different formats:**
-
-```kotlin
-// Create banner helper
-val bannerHelper = BannerAdHelper(context)
-
-// Standard banner (320x50)
-bannerHelper.createStandardBanner(
-    adUnitId = "YOUR_BANNER_AD_UNIT_ID",
-    container = frameLayout,
-    onAdLoaded = { Log.d("Banner", "Loaded") }
-)
-
-// MREC (300x250)
-bannerHelper.createMREC(
-    adUnitId = "YOUR_MREC_AD_UNIT_ID",
-    container = frameLayout,
-    onAdLoaded = { Log.d("MREC", "Loaded") }
-)
-
-// Adaptive banner
-bannerHelper.createAdaptiveBanner(
-    adUnitId = "YOUR_BANNER_AD_UNIT_ID",
-    container = frameLayout,
-    onAdLoaded = { Log.d("Adaptive", "Loaded") }
-)
-
-// Inline adaptive banner (for scrollable content)
-bannerHelper.createInlineAdaptiveBanner(
-    adUnitId = "YOUR_BANNER_AD_UNIT_ID",
-    container = frameLayout,
-    maxHeight = 90, // Optional max height
-    onAdLoaded = { Log.d("Inline", "Loaded") }
-)
-```
-
-**Create a Composable for Banner Ads:**
-
-```kotlin
-@Composable
-fun AdMobBanner(
-    adUnitId: String,
-    modifier: Modifier = Modifier,
-    adSize: AdSize = AdSize.BANNER,
-    isAdaptive: Boolean = true
-) {
-    val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
-    
-    AndroidView(
-        modifier = modifier.fillMaxWidth(),
-        factory = { context ->
-            AdMobBannerView(context).apply {
-                loadBanner(
-                    adUnitId = adUnitId,
-                    adSize = adSize,
-                    isAdaptive = isAdaptive,
-                    onAdLoaded = {
-                        Log.d("Banner", "Ad loaded")
-                    },
-                    onAdFailedToLoad = { error ->
-                        Log.e("Banner", "Failed to load: ${error.message}")
-                    }
-                )
-            }
-        },
-        update = { bannerView ->
-            // Handle lifecycle
-            DisposableEffect(lifecycleOwner) {
-                val observer = LifecycleEventObserver { _, event ->
-                    when (event) {
-                        Lifecycle.Event.ON_RESUME -> bannerView.resume()
-                        Lifecycle.Event.ON_PAUSE -> bannerView.pause()
-                        Lifecycle.Event.ON_DESTROY -> bannerView.destroy()
-                        else -> {}
-                    }
-                }
-                lifecycleOwner.lifecycle.addObserver(observer)
-                
-                onDispose {
-                    lifecycleOwner.lifecycle.removeObserver(observer)
-                    bannerView.destroy()
-                }
-            }
-        }
-    )
-}
-
-// Usage in your Compose screen
-@Composable
-fun HomeScreen() {
-    Column(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        // Your content
-        Box(modifier = Modifier.weight(1f)) {
-            // Main content
-        }
         
-        // Banner ad at bottom
-        AdMobBanner(
-            adUnitId = "YOUR_BANNER_AD_UNIT_ID",
-            modifier = Modifier.align(Alignment.BottomCenter)
+        setContent {
+            MyApp()
+        }
+    }
+    
+    private fun loadAds() {
+        // Load interstitial (auto-uses config's ad unit ID)
+        AdMobMediationManager.loadInterstitialAd(
+            onAdLoaded = { Log.d("Ad", "Interstitial ready") }
+        )
+        
+        // Load rewarded (auto-uses config's ad unit ID)
+        AdMobMediationManager.loadRewardedAd(
+            onAdLoaded = { Log.d("Ad", "Rewarded ready") }
         )
     }
 }
 ```
 
-### MREC (Medium Rectangle) Ads
+## AdMob Integration
 
-MREC ads are 300x250 dp banner ads, perfect for content breaks and inline placements.
-
-**Using AdMobMRECView:**
+### Simplified Banner Ads (Compose)
 
 ```kotlin
 @Composable
-fun MRECAd(
-    adUnitId: String,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-    var mrecView: AdMobMRECView? by remember { mutableStateOf(null) }
-    
-    DisposableEffect(Unit) {
-        onDispose {
-            mrecView?.destroy()
+fun MyScreen() {
+    Scaffold(
+        bottomBar = {
+            // Automatically uses ad unit ID from config
+            AdMobBanner(
+                modifier = Modifier.fillMaxWidth(),
+                isAdaptive = true // Default is true
+            )
         }
+    ) { paddingValues ->
+        // Your content
     }
-    
-    AndroidView(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(250.dp),
-        factory = { ctx ->
-            AdMobMRECView(ctx).apply {
-                mrecView = this
-                loadMREC(
-                    adUnitId = adUnitId,
-                    onAdLoaded = {
-                        Log.d("MREC", "Ad loaded")
-                    },
-                    onAdFailedToLoad = { error ->
-                        Log.e("MREC", "Failed: ${error.message}")
-                    }
-                )
-            }
-        }
-    )
 }
 
-// Usage in your screen
+// Or with explicit ad unit ID
+@Composable
+fun CustomBanner() {
+    AdMobBanner(
+        adUnitId = "ca-app-pub-XXXXX/XXXXX",
+        modifier = Modifier.fillMaxWidth(),
+        isAdaptive = true
+    )
+}
+```
+
+### Inline Adaptive Banner in Scrollable Content
+
+```kotlin
 @Composable
 fun ContentScreen() {
     LazyColumn {
-        item { 
-            // Your content
+        item {
+            Text("Article Title", style = MaterialTheme.typography.headlineLarge)
         }
         
         item {
-            // MREC ad between content
-            MRECAd(
-                adUnitId = "YOUR_MREC_AD_UNIT_ID",
-                modifier = Modifier.padding(vertical = 16.dp)
+            Text("Some content paragraph...")
+        }
+        
+        // Inline adaptive banner
+        item {
+            AdMobBanner(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                isAdaptive = true
             )
         }
         
         item {
-            // More content
+            Text("More content...")
         }
     }
 }
 ```
 
-### Interstitial Ads in Compose
+### Simplified Interstitial Ads
 
 ```kotlin
-@Composable
-fun InterstitialAdScreen() {
-    val context = LocalContext.current
-    val activity = context as? Activity
-    val adManager = remember { AdMobMediationManager.getInstance(context) }
-    var isAdLoaded by remember { mutableStateOf(false) }
-    
-    // Load ad when composable enters composition
-    LaunchedEffect(Unit) {
-        adManager.loadInterstitialAd(
-            adUnitId = "YOUR_INTERSTITIAL_AD_UNIT_ID",
-            onAdLoaded = {
-                isAdLoaded = true
-            },
-            onAdFailedToLoad = { error ->
-                Log.e("Interstitial", "Failed to load: ${error.message}")
-                isAdLoaded = false
-            }
-        )
+// Load interstitial (uses config's ad unit ID)
+AdMobMediationManager.loadInterstitialAd(
+    onAdLoaded = {
+        Log.d("Ad", "Interstitial loaded")
+    },
+    onAdFailedToLoad = { error ->
+        Log.e("Ad", "Failed: ${error.message}")
     }
-    
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Button(
-            onClick = {
-                activity?.let {
-                    if (adManager.isInterstitialReady()) {
-                        adManager.showInterstitialAd(it)
-                        // Load next ad
-                        adManager.loadInterstitialAd("YOUR_INTERSTITIAL_AD_UNIT_ID")
-                    }
-                }
-            },
-            enabled = isAdLoaded
-        ) {
-            Text("Show Interstitial Ad")
-        }
-    }
+)
+
+// Show when ready (uses current activity set in init)
+if (AdMobMediationManager.isInterstitialReady()) {
+    AdMobMediationManager.showInterstitialAd()
 }
+
+// Or with explicit ad unit ID
+AdMobMediationManager.loadInterstitialAd(
+    adUnitId = "ca-app-pub-XXXXX/XXXXX",
+    onAdLoaded = { /* ... */ }
+)
 ```
 
-### Rewarded Ads in Compose
+### Simplified Rewarded Ads
 
 ```kotlin
-@Composable
-fun RewardedAdScreen(
-    onRewardEarned: (amount: Int, type: String) -> Unit
-) {
-    val context = LocalContext.current
-    val activity = context as? Activity
-    val adManager = remember { AdMobMediationManager.getInstance(context) }
-    var isAdLoaded by remember { mutableStateOf(false) }
-    
-    // Load ad
-    LaunchedEffect(Unit) {
-        adManager.loadRewardedAd(
-            adUnitId = "YOUR_REWARDED_AD_UNIT_ID",
-            onAdLoaded = {
-                isAdLoaded = true
-            },
-            onAdFailedToLoad = { error ->
-                Log.e("Rewarded", "Failed to load: ${error.message}")
-                isAdLoaded = false
-            }
-        )
+// Load rewarded ad (uses config's ad unit ID)
+AdMobMediationManager.loadRewardedAd(
+    onAdLoaded = {
+        Log.d("Ad", "Rewarded ad ready")
     }
-    
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Button(
-            onClick = {
-                activity?.let {
-                    if (adManager.isRewardedAdReady()) {
-                        adManager.showRewardedAd(
-                            activity = it,
-                            onUserEarnedReward = { rewardItem ->
-                                onRewardEarned(rewardItem.amount, rewardItem.type)
-                                // Load next ad
-                                adManager.loadRewardedAd("YOUR_REWARDED_AD_UNIT_ID")
-                            }
-                        )
-                    }
-                }
-            },
-            enabled = isAdLoaded
-        ) {
-            Text("Watch Ad for Reward")
-        }
-    }
-}
+)
 
-// Usage example
-@Composable
-fun GameScreen() {
-    var coins by remember { mutableStateOf(0) }
-    
-    RewardedAdScreen(
-        onRewardEarned = { amount, type ->
-            coins += amount
-            Log.d("Game", "User earned $amount $type")
+// Show when ready (uses current activity)
+if (AdMobMediationManager.isRewardedAdReady()) {
+    AdMobMediationManager.showRewardedAd(
+        onUserEarnedReward = { rewardItem ->
+            val amount = rewardItem.amount
+            val type = rewardItem.type
+            Log.d("Reward", "User earned $amount $type")
         }
     )
-    
-    Text("Coins: $coins")
 }
 ```
 
-### Native Ads in Compose
+### Simplified Native Ads
 
 ```kotlin
 @Composable
-fun NativeAdView(
-    adUnitId: String,
-    modifier: Modifier = Modifier
-) {
+fun NativeAdView() {
     val context = LocalContext.current
-    val nativeAdHelper = remember { AdMobNativeAdHelper(context) }
+    val helper = remember { AdMobNativeAdHelper(context) }
     var nativeAd by remember { mutableStateOf<NativeAd?>(null) }
     
-    // Load native ad
     LaunchedEffect(Unit) {
-        nativeAdHelper.loadNativeAd(
-            adUnitId = adUnitId,
+        // Uses config's native ad unit ID
+        helper.loadNativeAd(
             onAdLoaded = { ad ->
                 nativeAd = ad
-            },
-            onAdFailedToLoad = { error ->
-                Log.e("Native", "Failed to load: ${error.message}")
-            },
-            mediaAspectRatio = NativeAdOptions.NATIVE_MEDIA_ASPECT_RATIO_LANDSCAPE
+            }
         )
     }
     
-    // Cleanup
     DisposableEffect(Unit) {
         onDispose {
-            nativeAdHelper.destroy()
+            helper.destroy()
         }
     }
     
     nativeAd?.let { ad ->
-        Card(
-            modifier = modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp)
-            ) {
-                // Ad attribution
-                Text(
-                    text = "Ad",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.secondary
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                // Headline
-                ad.headline?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
-                    )
+        // Display your native ad UI
+        Card {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("Ad", style = MaterialTheme.typography.labelSmall)
+                ad.headline?.let { 
+                    Text(it, style = MaterialTheme.typography.headlineSmall)
                 }
-                
-                // Body
                 ad.body?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
+                    Text(it, style = MaterialTheme.typography.bodyMedium)
                 }
-                
-                // Call to action button
                 ad.callToAction?.let { cta ->
-                    Button(
-                        onClick = { /* Handled by native ad */ },
-                        modifier = Modifier.align(Alignment.End)
-                    ) {
+                    Button(onClick = {}) {
                         Text(cta)
                     }
                 }
@@ -493,57 +260,288 @@ fun NativeAdView(
         }
     }
 }
+```
 
-// Usage in your screen
+### Splash Screen with Auto Interstitial
+
+```kotlin
+override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+    
+    // Initialize ads
+    AdMobMediationManager.setCurrentActivity(this)
+    
+    // Load interstitial for splash
+    AdMobMediationManager.loadInterstitialAd()
+    
+    // Setup splash screen
+    SimpleSplashHelper.Builder(this)
+        .setDuration(3000) // 3 seconds
+        .showProgress(true)
+        .onComplete {
+            // Show interstitial after splash if ready
+            if (AdMobMediationManager.isInterstitialReady()) {
+                AdMobMediationManager.showInterstitialAd()
+            }
+            // Navigate to main screen
+            startMainActivity()
+        }
+        .build()
+        .show()
+}
+```
+
+## AppLovin MAX Integration
+
+### Simplified Banner Ads (Compose)
+
+```kotlin
 @Composable
-fun FeedScreen() {
+fun AppLovinBannerExample() {
+    // Uses config's banner ad unit ID
+    AppLovinBannerView(
+        modifier = Modifier.fillMaxWidth(),
+        backgroundColor = Color.Gray
+    )
+}
+
+// Or with explicit ad unit ID
+@Composable
+fun CustomAppLovinBanner() {
+    AppLovinBannerView(
+        adUnitId = "YOUR_BANNER_AD_UNIT_ID",
+        modifier = Modifier.fillMaxWidth()
+    )
+}
+```
+
+### Simplified MREC Ads
+
+```kotlin
+@Composable
+fun AppLovinMRECExample() {
     LazyColumn {
-        items(10) { index ->
-            if (index == 3) {
-                // Show native ad after 3rd item
-                NativeAdView(
-                    adUnitId = "YOUR_NATIVE_AD_UNIT_ID",
-                    modifier = Modifier.padding(16.dp)
+        item { Text("Content above MREC") }
+        
+        // MREC ad (uses config's MREC ad unit ID)
+        item {
+            AppLovinMRECView(
+                modifier = Modifier.padding(16.dp),
+                backgroundColor = Color.LightGray
+            )
+        }
+        
+        item { Text("Content below MREC") }
+    }
+}
+```
+
+### Simplified Interstitial & Rewarded
+
+```kotlin
+// Load interstitial (uses config)
+AppLovinMediationManager.loadInterstitialAd(
+    onAdLoaded = { Log.d("AppLovin", "Interstitial ready") }
+)
+
+// Show when ready
+if (AppLovinMediationManager.isInterstitialReady()) {
+    AppLovinMediationManager.showInterstitialAd()
+}
+
+// Load rewarded (uses config)
+AppLovinMediationManager.loadRewardedAd(
+    onAdLoaded = { Log.d("AppLovin", "Rewarded ready") }
+)
+
+// Show rewarded
+if (AppLovinMediationManager.isRewardedAdReady()) {
+    AppLovinMediationManager.showRewardedAd(
+        onUserEarnedReward = { reward ->
+            Log.d("Reward", "User earned: ${reward.amount} ${reward.label}")
+        }
+    )
+}
+```
+
+## Complete Example App
+
+```kotlin
+@Composable
+fun CompleteAdExample() {
+    var showInterstitial by remember { mutableStateOf(false) }
+    var showRewarded by remember { mutableStateOf(false) }
+    var coins by remember { mutableStateOf(0) }
+    
+    // Load ads on first composition
+    LaunchedEffect(Unit) {
+        // These use config's ad unit IDs automatically
+        AdMobMediationManager.loadInterstitialAd()
+        AdMobMediationManager.loadRewardedAd()
+        AppLovinMediationManager.loadInterstitialAd()
+        AppLovinMediationManager.loadRewardedAd()
+    }
+    
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Ad Example - Coins: $coins") }
+            )
+        },
+        bottomBar = {
+            // Adaptive banner at bottom (uses config)
+            AdMobBanner(
+                modifier = Modifier.fillMaxWidth(),
+                isAdaptive = true
+            )
+        }
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(16.dp)
+        ) {
+            // AdMob Section
+            item {
+                Card {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("AdMob Ads", style = MaterialTheme.typography.headlineMedium)
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            Button(
+                                onClick = {
+                                    if (AdMobMediationManager.isInterstitialReady()) {
+                                        AdMobMediationManager.showInterstitialAd()
+                                        // Reload for next time
+                                        AdMobMediationManager.loadInterstitialAd()
+                                    }
+                                }
+                            ) {
+                                Text("Show Interstitial")
+                            }
+                            
+                            Button(
+                                onClick = {
+                                    if (AdMobMediationManager.isRewardedAdReady()) {
+                                        AdMobMediationManager.showRewardedAd(
+                                            onUserEarnedReward = { reward ->
+                                                coins += reward.amount
+                                                // Reload for next time
+                                                AdMobMediationManager.loadRewardedAd()
+                                            }
+                                        )
+                                    }
+                                }
+                            ) {
+                                Text("Watch for Coins")
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Native Ad
+            item {
+                NativeAdView()
+            }
+            
+            // AppLovin Section
+            item {
+                Card {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("AppLovin MAX", style = MaterialTheme.typography.headlineMedium)
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            Button(
+                                onClick = {
+                                    if (AppLovinMediationManager.isInterstitialReady()) {
+                                        AppLovinMediationManager.showInterstitialAd()
+                                        AppLovinMediationManager.loadInterstitialAd()
+                                    }
+                                }
+                            ) {
+                                Text("Show Interstitial")
+                            }
+                            
+                            Button(
+                                onClick = {
+                                    if (AppLovinMediationManager.isRewardedAdReady()) {
+                                        AppLovinMediationManager.showRewardedAd(
+                                            onUserEarnedReward = { reward ->
+                                                coins += reward.amount
+                                                AppLovinMediationManager.loadRewardedAd()
+                                            }
+                                        )
+                                    }
+                                }
+                            ) {
+                                Text("Watch for Coins")
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // MREC Ad
+            item {
+                AppLovinMRECView(
+                    modifier = Modifier.fillMaxWidth(),
+                    backgroundColor = Color.LightGray
                 )
-            } else {
-                // Regular content
-                ContentItem()
+            }
+            
+            // Content items
+            items(10) { index ->
+                Card {
+                    ListItem(
+                        headlineContent = { Text("Content Item $index") },
+                        supportingContent = { Text("This is sample content") }
+                    )
+                }
             }
         }
     }
 }
 ```
 
-### App Open Ads
+## Ad Formats Reference
 
-App Open Ads are automatically shown when the app comes to foreground after being initialized:
+### AdMob Banner Sizes
+
+| Format | Size (dp) | Usage |
+|--------|-----------|--------|
+| BANNER | 320x50 | Standard banner |
+| LARGE_BANNER | 320x100 | Large banner |
+| MEDIUM_RECTANGLE | 300x250 | MREC/Medium rectangle |
+| FULL_BANNER | 468x60 | Tablet full banner |
+| LEADERBOARD | 728x90 | Tablet leaderboard |
+| ADAPTIVE | Flexible | Adapts to screen width |
+
+### AppLovin MAX Formats
+
+| Format | Size (dp) | Usage |
+|--------|-----------|--------|
+| BANNER | 320x50 | Standard banner |
+| LEADER | 728x90 | Tablet leaderboard |
+| MREC | 300x250 | Medium rectangle |
+
+## Testing
+
+### Test Ad Unit IDs (AdMob)
 
 ```kotlin
-// In your Application class
-class MyApplication : Application() {
-    override fun onCreate() {
-        super.onCreate()
-        
-        // Initialize App Open Ad Manager
-        val appOpenManager = AppOpenAdManager.initialize(
-            application = this,
-            adUnitId = "YOUR_APP_OPEN_AD_UNIT_ID"
-        )
-        
-        // Optional: Manually control when to show
-        // appOpenManager.showAdIfAvailable(activity)
-    }
-}
-```
-
-### Test Ad Units
-
-For testing, use these provided test ad unit IDs:
-
-```kotlin
+// Use test config for development
 val testConfig = AdMobConfig.createTestConfig()
 
-// Test ad unit IDs:
+// Test IDs included:
 // Banner: ca-app-pub-3940256099942544/6300978111
 // Interstitial: ca-app-pub-3940256099942544/1033173712
 // Rewarded: ca-app-pub-3940256099942544/5224354917
@@ -551,9 +549,17 @@ val testConfig = AdMobConfig.createTestConfig()
 // App Open: ca-app-pub-3940256099942544/3419835294
 ```
 
-### Configuration Options
+### Test Configuration (AppLovin)
 
-Create a custom configuration:
+```kotlin
+// Use test config for development
+val testConfig = AppLovinConfig.createTestConfig()
+// AppLovin will automatically use test ads in debug builds
+```
+
+## Configuration Options
+
+### AdMob Configuration
 
 ```kotlin
 val config = AdMobConfig(
@@ -561,420 +567,167 @@ val config = AdMobConfig(
     interstitialAdUnitId = "YOUR_INTERSTITIAL_ID",
     rewardedAdUnitId = "YOUR_REWARDED_ID",
     nativeAdUnitId = "YOUR_NATIVE_ID",
-    testDeviceIds = listOf("DEVICE_ID_1", "DEVICE_ID_2"),
-    enableTestMode = BuildConfig.DEBUG // Use test ads in debug mode
+    appOpenAdUnitId = "YOUR_APP_OPEN_ID",
+    testDeviceIds = listOf("DEVICE_ID"),
+    enableTestMode = BuildConfig.DEBUG,
+    enableDebugLogging = true,
+    showInterstitialsInDebug = false, // Disable interstitials in debug
+    showBannersInDebug = true,
+    showRewardedInDebug = true,
+    showNativeInDebug = true
 )
 
-// Get appropriate ad unit ID based on mode
-val bannerId = config.getEffectiveBannerAdUnitId() // Returns test ID if in test mode
-```
-
-### Adaptive Banner Sizes
-
-Use adaptive banners for better responsiveness:
-
-```kotlin
-// Get adaptive banner size
-val display = resources.displayMetrics
-val adWidth = (display.widthPixels / display.density).toInt()
-
-// Current orientation adaptive banner
-val adaptiveSize = AdSizeHelper.getAdaptiveBannerAdSize(context, adWidth)
-
-// Inline adaptive banner with max height
-val inlineSize = AdSizeHelper.getInlineAdaptiveBannerAdSize(context, adWidth, 90)
-
-// Landscape adaptive banner
-val landscapeSize = AdSizeHelper.getLandscapeAdaptiveBannerAdSize(context, adWidth)
-
-// Portrait adaptive banner
-val portraitSize = AdSizeHelper.getPortraitAdaptiveBannerAdSize(context, adWidth)
-```
-
-### Complete Compose Integration Example
-
-```kotlin
-@Composable
-fun MainScreen() {
-    val context = LocalContext.current
-    val activity = context as? Activity
-    val adManager = remember { AdMobMediationManager.getInstance(context) }
-    
-    // Initialize ads on first composition
-    LaunchedEffect(Unit) {
-        if (activity != null) {
-            adManager.requestConsentInfo(
-                activity = activity,
-                onConsentReady = {
-                    // Start loading ads after consent
-                    Log.d("Ads", "Consent obtained, ready to show ads")
-                }
-            )
-        }
-    }
-    
-    Scaffold(
-        bottomBar = {
-            // Adaptive banner at bottom
-            AdMobBanner(
-                adUnitId = if (BuildConfig.DEBUG) {
-                    AdMobConfig.TEST_BANNER_AD_UNIT_ID
-                } else {
-                    "YOUR_PRODUCTION_BANNER_ID"
-                },
-                isAdaptive = true
-            )
-        }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            // Your app content
-        }
-    }
-}
-```
-
-## AppLovin MAX Mediation Usage
-
-### Initial Setup
-
-1. **Initialize AppLovin MAX in your Application class:**
-
-```kotlin
-class MyApplication : Application() {
-    override fun onCreate() {
-        super.onCreate()
-        
-        // Initialize AppLovin MAX
-        val appLovinManager = AppLovinMediationManager.getInstance(this)
-        appLovinManager.initialize(
-            onInitComplete = {
-                Log.d("AppLovin", "MAX SDK initialized")
-            }
-        )
-        
-        // Optional: Initialize App Open Ads
-        AppLovinAppOpenAdManager.initialize(
-            application = this,
-            adUnitId = "YOUR_APPLOVIN_APP_OPEN_AD_UNIT_ID"
-        )
-    }
-}
-```
-
-### AppLovin Banner Ads
-
-```kotlin
-@Composable
-fun AppLovinBanner(
-    adUnitId: String,
-    modifier: Modifier = Modifier,
-    bannerSize: MaxAdFormat = MaxAdFormat.BANNER
-) {
-    val context = LocalContext.current
-    
-    AndroidView(
-        modifier = modifier.fillMaxWidth(),
-        factory = { ctx ->
-            AppLovinBannerView(ctx).apply {
-                loadBanner(
-                    adUnitId = adUnitId,
-                    bannerSize = bannerSize,
-                    onAdLoaded = { Log.d("AppLovin", "Banner loaded") },
-                    onAdFailedToLoad = { error ->
-                        Log.e("AppLovin", "Banner failed: ${error.message}")
-                    }
-                )
-            }
-        }
-    )
-}
-```
-
-### AppLovin MREC Ads
-
-```kotlin
-@Composable
-fun AppLovinMREC(
-    adUnitId: String,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-    
-    AndroidView(
-        modifier = modifier
-            .width(300.dp)
-            .height(250.dp),
-        factory = { ctx ->
-            AppLovinMRECView(ctx).apply {
-                loadMREC(
-                    adUnitId = adUnitId,
-                    onAdLoaded = { Log.d("AppLovin", "MREC loaded") }
-                )
-            }
-        }
-    )
-}
-```
-
-### AppLovin Interstitial Ads
-
-```kotlin
-@Composable
-fun AppLovinInterstitialScreen() {
-    val context = LocalContext.current
-    val activity = context as? Activity
-    val manager = remember { AppLovinMediationManager.getInstance(context) }
-    var isAdLoaded by remember { mutableStateOf(false) }
-    
-    LaunchedEffect(Unit) {
-        manager.loadInterstitialAd(
-            adUnitId = "YOUR_APPLOVIN_INTERSTITIAL_AD_UNIT_ID",
-            onAdLoaded = { isAdLoaded = true },
-            onAdFailedToLoad = { error ->
-                Log.e("AppLovin", "Failed: ${error.message}")
-            }
-        )
-    }
-    
-    Button(
-        onClick = {
-            activity?.let {
-                if (manager.isInterstitialReady()) {
-                    manager.showInterstitialAd(it)
-                    // Load next ad
-                    manager.loadInterstitialAd("YOUR_APPLOVIN_INTERSTITIAL_AD_UNIT_ID")
-                }
-            }
-        },
-        enabled = isAdLoaded
-    ) {
-        Text("Show AppLovin Interstitial")
-    }
-}
-```
-
-### AppLovin Rewarded Ads
-
-```kotlin
-@Composable
-fun AppLovinRewardedAdScreen(
-    onRewardEarned: (reward: MaxReward) -> Unit
-) {
-    val context = LocalContext.current
-    val activity = context as? Activity
-    val manager = remember { AppLovinMediationManager.getInstance(context) }
-    var isAdLoaded by remember { mutableStateOf(false) }
-    
-    LaunchedEffect(Unit) {
-        manager.loadRewardedAd(
-            adUnitId = "YOUR_APPLOVIN_REWARDED_AD_UNIT_ID",
-            onAdLoaded = { isAdLoaded = true }
-        )
-    }
-    
-    Button(
-        onClick = {
-            activity?.let {
-                if (manager.isRewardedAdReady()) {
-                    manager.showRewardedAd(
-                        activity = it,
-                        onUserEarnedReward = { reward ->
-                            onRewardEarned(reward)
-                            // Load next ad
-                            manager.loadRewardedAd("YOUR_APPLOVIN_REWARDED_AD_UNIT_ID")
-                        }
-                    )
-                }
-            }
-        },
-        enabled = isAdLoaded
-    ) {
-        Text("Watch AppLovin Ad for Reward")
-    }
-}
-```
-
-### AppLovin Native Ads
-
-```kotlin
-@Composable
-fun AppLovinNativeAd(
-    adUnitId: String,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-    val nativeHelper = remember { AppLovinNativeAdHelper(context) }
-    var nativeAdView by remember { mutableStateOf<MaxNativeAdView?>(null) }
-    
-    LaunchedEffect(Unit) {
-        nativeHelper.loadNativeAd(
-            adUnitId = adUnitId,
-            templateType = AppLovinNativeAdHelper.TemplateType.MEDIUM,
-            onAdLoaded = { adView ->
-                nativeAdView = adView
-            },
-            onAdFailedToLoad = { error ->
-                Log.e("AppLovin", "Native failed: ${error.message}")
-            }
-        )
-    }
-    
-    DisposableEffect(Unit) {
-        onDispose {
-            nativeHelper.destroy()
-        }
-    }
-    
-    nativeAdView?.let { adView ->
-        AndroidView(
-            modifier = modifier.fillMaxWidth(),
-            factory = { adView }
-        )
-    }
-}
+// Initialize with config
+AdMobMediationManager.initialize(context, config)
 ```
 
 ### AppLovin Configuration
 
 ```kotlin
-// Create AppLovin configuration
-val appLovinConfig = AppLovinConfig(
+val config = AppLovinConfig(
     bannerAdUnitId = "YOUR_BANNER_ID",
     mrecAdUnitId = "YOUR_MREC_ID",
     interstitialAdUnitId = "YOUR_INTERSTITIAL_ID",
     rewardedAdUnitId = "YOUR_REWARDED_ID",
     nativeAdUnitId = "YOUR_NATIVE_ID",
-    appOpenAdUnitId = "YOUR_APP_OPEN_ID"
+    appOpenAdUnitId = "YOUR_APP_OPEN_ID",
+    enableTestMode = BuildConfig.DEBUG,
+    enableVerboseLogging = true,
+    showInterstitialsInDebug = false,
+    showBannersInDebug = true,
+    showRewardedInDebug = true
 )
 
-// Use test configuration for development
-val testConfig = AppLovinConfig.createTestConfig()
+// Initialize with config
+AppLovinMediationManager.initialize(context, config)
 ```
 
-### AppLovin Banner Helper
+## Consent Management
 
-The library includes a comprehensive banner helper for AppLovin:
-
-```kotlin
-val bannerHelper = AppLovinBannerHelper(context)
-
-// Standard banner
-bannerHelper.createStandardBanner(
-    adUnitId = "YOUR_BANNER_ID",
-    container = frameLayout
-)
-
-// MREC
-bannerHelper.createMREC(
-    adUnitId = "YOUR_MREC_ID",
-    container = frameLayout
-)
-
-// Adaptive banner
-bannerHelper.createAdaptiveBanner(
-    adUnitId = "YOUR_BANNER_ID",
-    container = frameLayout
-)
-
-// Clean up
-bannerHelper.destroy()
-```
-
-## Choosing Between AdMob and AppLovin MAX
-
-Both ad networks are fully supported. Here's a quick comparison:
-
-| Feature | AdMob | AppLovin MAX |
-|---------|--------|---------------|
-| Google ecosystem integration | ✅ Excellent | ❌ Limited |
-| Mediation partners | ✅ Many | ✅ Many |
-| eCPM optimization | ✅ Good | ✅ Excellent |
-| Real-time analytics | ✅ Yes | ✅ Yes |
-| A/B testing | ✅ Yes | ✅ Yes |
-| User privacy controls | ✅ UMP/CMP | ✅ Built-in |
-
-### Using Both Networks
-
-You can use both networks in your app for maximum monetization:
+### AdMob UMP Consent
 
 ```kotlin
-class MyApplication : Application() {
-    override fun onCreate() {
-        super.onCreate()
-        
-        // Initialize both networks
-        val adMobManager = AdMobMediationManager.getInstance(this)
-        val appLovinManager = AppLovinMediationManager.getInstance(this)
-        
-        // Initialize AdMob
-        adMobManager.initialize()
-        
-        // Initialize AppLovin
-        appLovinManager.initialize()
+// Request consent with debug settings for testing
+AdMobMediationManager.requestConsentInfo(
+    debugGeography = ConsentDebugSettings.DebugGeography.DEBUG_GEOGRAPHY_EEA,
+    testDeviceHashedId = "YOUR_TEST_DEVICE_HASHED_ID",
+    onConsentReady = {
+        // Consent obtained, can show ads
+        Log.d("Consent", "Ready to show ads")
+    },
+    onConsentError = { error ->
+        Log.e("Consent", "Error: $error")
     }
-}
+)
+
+// Check consent status
+val canShowAds = AdMobMediationManager.canShowAds()
+val canShowNonPersonalizedAds = AdMobMediationManager.canShowNonPersonalizedAds()
+
+// Reset consent (for testing)
+AdMobMediationManager.resetConsent()
 ```
 
-## General Helper Functions
+## Helper Functions
 
-### Show Toast
+### Toast Messages
 
 ```kotlin
 MzgsHelper.showToast(context, "Hello World")
 MzgsHelper.showToast(context, "Long message", Toast.LENGTH_LONG)
 ```
 
-### Check Network Availability
+### Network Check
 
 ```kotlin
-// Requires ACCESS_NETWORK_STATE permission
 if (MzgsHelper.isNetworkAvailable(context)) {
     // Network is available
+} else {
+    // No network connection
 }
 ```
 
-### Get App Version
+### App Version
 
 ```kotlin
 val versionName = MzgsHelper.getAppVersion(context)
 val versionCode = MzgsHelper.getAppVersionCode(context)
 ```
 
-## Permissions Required
-
-Add these to your `AndroidManifest.xml`:
+## AndroidManifest.xml Setup
 
 ```xml
 <uses-permission android:name="android.permission.INTERNET" />
 <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
 <application>
-    <!-- AdMob App ID (required for AdMob) -->
+    <!-- AdMob App ID (Required) -->
     <meta-data
         android:name="com.google.android.gms.ads.APPLICATION_ID"
-        android:value="YOUR_ADMOB_APP_ID" />
+        android:value="ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY" />
     
-    <!-- AppLovin SDK Key (required for AppLovin MAX) -->
+    <!-- AppLovin SDK Key (Required for AppLovin) -->
     <meta-data
         android:name="applovin.sdk.key"
-        android:value="YOUR_APPLOVIN_SDK_KEY" />
+        android:value="YOUR_SDK_KEY_HERE" />
 </application>
+```
+
+## Memory Management
+
+The library uses WeakReference for context storage to prevent memory leaks. Always ensure proper lifecycle management:
+
+```kotlin
+// In Activity
+override fun onResume() {
+    super.onResume()
+    AdMobMediationManager.setCurrentActivity(this)
+    AppLovinMediationManager.setCurrentActivity(this)
+}
+
+// In Composables with ads
+DisposableEffect(Unit) {
+    onDispose {
+        // Cleanup handled automatically
+    }
+}
 ```
 
 ## ProGuard Rules
 
-If using ProGuard/R8, the library includes consumer rules automatically. No additional configuration needed.
+The library includes consumer ProGuard rules automatically. No additional configuration needed.
 
 ## Requirements
 
 - Minimum SDK: 24 (Android 7.0)
 - Target SDK: 36 (Android 14)
+- Kotlin: 1.9+
+- Compose: Latest stable
 - Google Mobile Ads SDK: 24.5.0
 - AppLovin MAX SDK: Latest version
+
+## Troubleshooting
+
+### Ads Not Loading
+
+1. Check your ad unit IDs are correct
+2. Verify consent status: `AdMobMediationManager.canShowAds()`
+3. Enable debug logging: `config.enableDebugLogging = true`
+4. Check network connection: `MzgsHelper.isNetworkAvailable(context)`
+5. For test ads, ensure test mode is enabled: `enableTestMode = true`
+
+### Memory Leaks
+
+- Always use the provided composables which handle lifecycle automatically
+- Set activity in onResume: `AdMobMediationManager.setCurrentActivity(this)`
+- The library uses WeakReference internally to prevent leaks
+
+### Consent Issues
+
+- For EU users, consent is required before showing ads
+- Test with debug geography: `DEBUG_GEOGRAPHY_EEA`
+- Non-personalized ads work without explicit consent
+- Reset consent for testing: `AdMobMediationManager.resetConsent()`
 
 ## License
 
