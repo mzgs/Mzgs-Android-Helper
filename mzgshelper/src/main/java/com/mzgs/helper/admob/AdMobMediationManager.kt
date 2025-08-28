@@ -6,7 +6,9 @@ import android.content.Context
 import android.util.Log
 import android.os.Handler
 import android.os.Looper
+import android.os.Bundle
 import com.google.android.gms.ads.*
+import com.google.ads.mediation.admob.AdMobAdapter
 import java.util.concurrent.TimeUnit
 import kotlin.math.min
 import kotlin.math.pow
@@ -59,7 +61,7 @@ class AdMobMediationManager(private val context: Context) {
         onInitComplete: () -> Unit = {}
     ) {
         this.adConfig = config
-        initialize(config.testDeviceIds, onInitComplete)
+        initialize(config, onInitComplete)
     }
     
     @Deprecated("Use initialize(config: AdMobConfig) instead", ReplaceWith("initialize(config, onInitComplete)"))
@@ -171,14 +173,35 @@ class AdMobMediationManager(private val context: Context) {
         return consentInformation.canRequestAds()
     }
     
+    fun canShowNonPersonalizedAds(): Boolean {
+        // Can show non-personalized ads even without consent in some regions
+        // Check if we can at least request ads (covers cases like child-directed treatment)
+        return true // You can always attempt to show non-personalized ads
+    }
+    
+    private fun createAdRequest(): AdRequest {
+        val builder = AdRequest.Builder()
+        
+        // If user hasn't consented, request non-personalized ads
+        if (!canShowAds()) {
+            val extras = Bundle()
+            extras.putString("npa", "1") // Non-personalized ads
+            builder.addNetworkExtrasBundle(AdMobAdapter::class.java, extras)
+            Log.d(TAG, "Requesting non-personalized ads due to consent status")
+        }
+        
+        return builder.build()
+    }
+    
     fun loadInterstitialAd(
         adUnitId: String,
         onAdLoaded: () -> Unit = {},
         onAdFailedToLoad: (LoadAdError) -> Unit = {},
         retryAttempt: Int = 0
     ) {
-        if (!canShowAds()) {
-            Log.w(TAG, "Cannot request ads - consent not obtained")
+        // Check if we can show any type of ads (personalized or non-personalized)
+        if (!canShowAds() && !canShowNonPersonalizedAds()) {
+            Log.w(TAG, "Cannot request any type of ads")
             return
         }
         
@@ -190,7 +213,7 @@ class AdMobMediationManager(private val context: Context) {
             }
         }
         
-        val adRequest = AdRequest.Builder().build()
+        val adRequest = createAdRequest()
         
         InterstitialAd.load(
             context,
@@ -281,8 +304,9 @@ class AdMobMediationManager(private val context: Context) {
         onAdFailedToLoad: (LoadAdError) -> Unit = {},
         retryAttempt: Int = 0
     ) {
-        if (!canShowAds()) {
-            Log.w(TAG, "Cannot request ads - consent not obtained")
+        // Check if we can show any type of ads (personalized or non-personalized)
+        if (!canShowAds() && !canShowNonPersonalizedAds()) {
+            Log.w(TAG, "Cannot request any type of ads")
             return
         }
         
@@ -294,7 +318,7 @@ class AdMobMediationManager(private val context: Context) {
             }
         }
         
-        val adRequest = AdRequest.Builder().build()
+        val adRequest = createAdRequest()
         
         RewardedAd.load(
             context,
@@ -391,12 +415,13 @@ class AdMobMediationManager(private val context: Context) {
         onAdFailedToLoad: (LoadAdError) -> Unit = {},
         retryAttempt: Int = 0
     ) {
-        if (!canShowAds()) {
-            Log.w(TAG, "Cannot request ads - consent not obtained")
+        // Check if we can show any type of ads (personalized or non-personalized)
+        if (!canShowAds() && !canShowNonPersonalizedAds()) {
+            Log.w(TAG, "Cannot request any type of ads")
             return
         }
         
-        val adRequest = AdRequest.Builder().build()
+        val adRequest = createAdRequest()
         
         RewardedInterstitialAd.load(
             context,

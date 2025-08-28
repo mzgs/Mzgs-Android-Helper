@@ -62,12 +62,21 @@ class MainActivity : ComponentActivity() {
         }
     }
     
-    private fun initializeAds() {
-        // Configure AdMob with App Open Ads
-        // For testing, use the createTestConfig() which has all test ad unit IDs
-        val adConfig = AdMobConfig.createTestConfig().copy(
-            enableAppOpenAd = true, // Enable app open ads (will auto-initialize AppOpenAdManager)
-            testDeviceIds = listOf("YOUR_TEST_DEVICE_ID"), // Add your test device ID if needed
+    private fun initAdmob() {
+
+        
+        // Configure AdMob with your ad unit IDs
+        val adConfig = AdMobConfig(
+            appId = "",
+            bannerAdUnitId = "",
+            interstitialAdUnitId ="",
+            rewardedAdUnitId = "",
+            rewardedInterstitialAdUnitId = "",
+            nativeAdUnitId = "",
+            appOpenAdUnitId = "",
+            enableAppOpenAd = true, // Enable app open ads
+            enableTestMode = true, // Set to false for production
+            testDeviceIds = listOf("YOUR_TEST_DEVICE_ID"), // Add your test device ID
             
             // Debug-only flags (these only work in DEBUG builds, ignored in RELEASE)
             showAdsInDebug = true,  // Master switch - set to false to disable ALL ads in debug
@@ -78,14 +87,6 @@ class MainActivity : ComponentActivity() {
             showRewardedAdsInDebug = true  // Control rewarded ads in debug
         )
         
-        // For production, use:
-        // val adConfig = AdMobConfig(
-        //     appId = "YOUR_APP_ID",
-        //     appOpenAdUnitId = "YOUR_APP_OPEN_AD_UNIT_ID",
-        //     enableAppOpenAd = true,
-        //     enableTestMode = false
-        // )
-        
         // Initialize AdMob with config - App Open Ad Manager will be initialized automatically
         val adManager = AdMobMediationManager.getInstance(this)
         adManager.initialize(
@@ -94,6 +95,11 @@ class MainActivity : ComponentActivity() {
                 Log.d("MainActivity", "AdMob initialized with all configured features")
             }
         )
+    }
+    
+    private fun initializeAds() {
+        // Initialize AdMob
+        initAdmob()
         
         // Initialize AppLovin MAX
         val appLovinConfig = AppLovinConfig(
