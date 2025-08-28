@@ -63,9 +63,6 @@ class MainActivity : ComponentActivity() {
     }
     
     private fun initAdmob() {
-
-        
-        // Configure AdMob with your ad unit IDs
         val adConfig = AdMobConfig(
             appId = "",
             bannerAdUnitId = "",
@@ -74,20 +71,17 @@ class MainActivity : ComponentActivity() {
             rewardedInterstitialAdUnitId = "",
             nativeAdUnitId = "",
             appOpenAdUnitId = "",
-            enableAppOpenAd = true, // Enable app open ads
-            enableTestMode = true, // Set to false for production
-            testDeviceIds = listOf("YOUR_TEST_DEVICE_ID"), // Add your test device ID
-            
-            // Debug-only flags (these only work in DEBUG builds, ignored in RELEASE)
-            showAdsInDebug = true,  // Master switch - set to false to disable ALL ads in debug
-            showInterstitialsInDebug = true,  // Control interstitial ads in debug
-            showAppOpenAdInDebug = true,  // Control app open ads in debug  
-            showBannersInDebug = true,  // Control banner ads in debug
-            showNativeAdsInDebug = true,  // Control native ads in debug
-            showRewardedAdsInDebug = true  // Control rewarded ads in debug
+            enableAppOpenAd = true,
+            enableTestMode = true,
+            testDeviceIds = listOf("YOUR_TEST_DEVICE_ID"),
+            showAdsInDebug = true,
+            showInterstitialsInDebug = true,
+            showAppOpenAdInDebug = true,
+            showBannersInDebug = true,
+            showNativeAdsInDebug = true,
+            showRewardedAdsInDebug = true
         )
         
-        // Initialize AdMob with config - App Open Ad Manager will be initialized automatically
         val adManager = AdMobMediationManager.getInstance(this)
         adManager.initialize(
             config = adConfig,
@@ -97,13 +91,14 @@ class MainActivity : ComponentActivity() {
         )
     }
     
-    private fun initializeAds() {
-        // Initialize AdMob
-        initAdmob()
-        
-        // Initialize AppLovin MAX
+    private fun initApplovinMax() {
         val appLovinConfig = AppLovinConfig(
             sdkKey = "sTOrf_0s7y7dzVqfTPRR0Ck_synT0Xrs0DgfChVKedyc7nGgAi6BwrAnnxEoT3dTHJ7T0dpfFmGNXX3hE9u9_2",
+            bannerAdUnitId = "",
+            interstitialAdUnitId = "",
+            rewardedAdUnitId = "",
+            mrecAdUnitId = "",
+            nativeAdUnitId = "",
             enableTestMode = true,
             verboseLogging = true,
             creativeDebuggerEnabled = true,
@@ -117,6 +112,11 @@ class MainActivity : ComponentActivity() {
                 Log.d("MainActivity", "AppLovin MAX initialized successfully")
             }
         )
+    }
+    
+    private fun initializeAds() {
+        initAdmob()
+        initApplovinMax()
     }
 }
 
