@@ -44,8 +44,6 @@ import com.mzgs.helper.analytics.FirebaseAnalyticsManager
 
 class MainActivity : ComponentActivity() {
     
-    private var splashHelper: SimpleSplashHelper? = null
-    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -53,12 +51,10 @@ class MainActivity : ComponentActivity() {
         // Initialize Remote context
         FirebaseAnalyticsManager.initialize(this)
         Remote.init(this)
-        
-        // Initialize AdMob (consent will be handled inside)
         initAdmob()
         
-        // Prepare splash screen but don't show it yet
-        splashHelper = SimpleSplashHelper.Builder(this)
+        // Initialize Simple Splash Screen with progress
+        SimpleSplashHelper.Builder(this)
             .setDuration(Remote.getLong("splash_time", 9000))
             .showProgress(true)
             .onComplete { 
@@ -73,8 +69,8 @@ class MainActivity : ComponentActivity() {
                 }
             }
             .build()
+            .show()
         
-        // Show content immediately (no splash blocking initially)
         setContent {
             MzgsAndroidHelperTheme {
                 AdMobTestScreen()
