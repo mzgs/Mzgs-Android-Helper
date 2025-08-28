@@ -32,17 +32,22 @@ import com.example.mzgsandroidhelper.ui.theme.MzgsAndroidHelperTheme
 import com.google.android.gms.ads.AdSize
 import com.google.android.ump.ConsentDebugSettings
 import com.mzgs.helper.MzgsHelper
+import com.mzgs.helper.Remote
 import com.mzgs.helper.SimpleSplashHelper
 import com.mzgs.helper.admob.*
 import com.mzgs.helper.applovin.AppLovinConfig
 import com.mzgs.helper.applovin.AppLovinMediationManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.lifecycle.lifecycleScope
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        
+        // Initialize Remote context
+        Remote.init(this)
         
         // Initialize Simple Splash Screen with progress
         SimpleSplashHelper.Builder(this)
@@ -117,6 +122,20 @@ class MainActivity : ComponentActivity() {
     private fun initializeAds() {
         initAdmob()
         initApplovinMax()
+    }
+    
+    override fun onStart() {
+        super.onStart()
+        
+        // Initialize remote config
+        lifecycleScope.launch {
+            try {
+                Remote.initRemote()
+                Log.d("MainActivity", "Remote config initialized successfully")
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Failed to initialize remote config", e)
+            }
+        }
     }
 }
 

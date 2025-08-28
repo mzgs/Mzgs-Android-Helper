@@ -61,14 +61,7 @@ class AdMobMediationManager(private val context: Context) {
         onInitComplete: () -> Unit = {}
     ) {
         this.adConfig = config
-        initialize(config, onInitComplete)
-    }
-    
-    @Deprecated("Use initialize(config: AdMobConfig) instead", ReplaceWith("initialize(config, onInitComplete)"))
-    fun initialize(
-        testDeviceIds: List<String> = emptyList(),
-        onInitComplete: () -> Unit = {}
-    ) {
+        
         if (isInitialized) {
             Log.d(TAG, "AdMob already initialized")
             onInitComplete()
@@ -76,7 +69,7 @@ class AdMobMediationManager(private val context: Context) {
         }
         
         val requestConfiguration = RequestConfiguration.Builder()
-            .setTestDeviceIds(testDeviceIds)
+            .setTestDeviceIds(config.testDeviceIds)
             .build()
         
         MobileAds.setRequestConfiguration(requestConfiguration)
@@ -90,20 +83,30 @@ class AdMobMediationManager(private val context: Context) {
             }
             
             // Initialize App Open Ad Manager if configured
-            adConfig?.let { config ->
-                if (config.enableAppOpenAd && config.getEffectiveAppOpenAdUnitId().isNotEmpty()) {
-                    val application = context.applicationContext as? Application
-                    if (application != null) {
-                        AppOpenAdManager.initialize(application, config)
-                        Log.d(TAG, "App Open Ad Manager initialized automatically")
-                    } else {
-                        Log.w(TAG, "Could not initialize App Open Ad Manager - context is not Application")
-                    }
+            if (config.enableAppOpenAd && config.getEffectiveAppOpenAdUnitId().isNotEmpty()) {
+                val application = context.applicationContext as? Application
+                if (application != null) {
+                    AppOpenAdManager.initialize(application, config)
+                    Log.d(TAG, "App Open Ad Manager initialized automatically")
+                } else {
+                    Log.w(TAG, "Could not initialize App Open Ad Manager - context is not Application")
                 }
             }
             
             onInitComplete()
         }
+    }
+    
+    @Deprecated("Use initialize(config: AdMobConfig) instead", ReplaceWith("initialize(config, onInitComplete)"))
+    fun initialize(
+        testDeviceIds: List<String> = emptyList(),
+        onInitComplete: () -> Unit = {}
+    ) {
+        // Create a default config with the provided test device IDs
+        val config = AdMobConfig(
+            testDeviceIds = testDeviceIds
+        )
+        initialize(config, onInitComplete)
     }
     
     fun requestConsentInfo(

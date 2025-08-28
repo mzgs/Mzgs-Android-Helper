@@ -15,6 +15,11 @@ import com.mzgs.helper.admob.AdMobConfig
 import com.mzgs.helper.admob.AdMobMediationManager
 import com.mzgs.helper.applovin.AppLovinConfig
 import com.mzgs.helper.applovin.AppLovinMediationManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
+import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -187,3 +192,181 @@ object MzgsHelper {
     }
 
 }
+
+
+
+/**
+ * Remote Configuration Helper
+ * Manages remote configuration settings fetched from a server
+ */
+object Remote {
+    private var app: JSONObject? = null
+    private var applicationContext: Context? = null
+    
+    // Default restricted countries list
+
+
+    /**
+     * Initialize with application context
+     * Call this method in your Application class onCreate
+     *
+     * @param context The application context
+     */
+    fun init(context: Context) {
+        applicationContext = context.applicationContext
+    }
+
+    /**
+     * Initialize remote configuration by fetching from URL
+     *
+     * @param url The remote configuration URL
+     */
+    suspend fun initRemote(url: String = remoteConfigUrl) {
+        try {
+            val response = withContext(Dispatchers.IO) {
+                makeRequest(url, 10000)
+            }
+
+            response?.let { data ->
+                val jsonObj = jsonDecode(data)
+                jsonObj?.let { json ->
+                    app = json.optJSONObject(getPackageName())
+
+                    if (app == null || app?.length() == 0) {
+                        app = JSONObject()
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    /**
+     * Get boolean value from remote config
+     */
+    fun getBool(key: String, default: Boolean = false): Boolean {
+        return if (app?.has(key) == true) app!!.optBoolean(key, default) else default
+    }
+
+    /**
+     * Get integer value from remote config
+     */
+    fun getInt(key: String, default: Int = 0): Int {
+        return if (app?.has(key) == true) app!!.optInt(key, default) else default
+    }
+
+    /**
+     * Get string value from remote config
+     */
+    fun getString(key: String, default: String = ""): String {
+        return if (app?.has(key) == true) app!!.optString(key, default) else default
+    }
+
+    /**
+     * Get double value from remote config
+     */
+    fun getDouble(key: String, default: Double = 0.0): Double {
+        return if (app?.has(key) == true) app!!.optDouble(key, default) else default
+    }
+
+    /**
+     * Get string array from remote config
+     */
+    fun getStringArray(key: String, default: List<String> = listOf()): List<String> {
+        if (app?.has(key) == true) {
+            val jsonArray = app!!.optJSONArray(key)
+            if (jsonArray != null) {
+                val result = mutableListOf<String>()
+                for (i in 0 until jsonArray.length()) {
+                    jsonArray.optString(i)?.let { result.add(it) }
+                }
+                return result
+            }
+        }
+        return default
+    }
+
+    /**
+     * Get integer array from remote config
+     */
+    fun getIntArray(key: String, default: List<Int> = listOf()): List<Int> {
+        if (app?.has(key) == true) {
+            val jsonArray = app!!.optJSONArray(key)
+            if (jsonArray != null) {
+                val result = mutableListOf<Int>()
+                for (i in 0 until jsonArray.length()) {
+                    result.add(jsonArray.optInt(i))
+                }
+                return result
+            }
+        }
+        return default
+    }
+
+
+
+    /**
+     * Set a value in the remote config
+     */
+    fun setValue(key: String, value: Any) {
+        try {
+            app?.put(key, value)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    /**
+     * Initialize remote configuration at app startup
+     * Call this method from your Application class or main activity
+     * This is a suspending function that will wait until remote config is loaded
+     */
+    suspend fun initializeAtAppStart() {
+        initRemote()
+    }
+
+    // Helper functions that would need to be implemented elsewhere or added here
+    private suspend fun makeRequest(url: String, timeoutMs: Int): String? {
+        // Implementation would depend on your HTTP client
+        // Example using simple URL connection:
+        return withContext(Dispatchers.IO) {
+            try {
+                val connection = URL(url).openConnection()
+                connection.connectTimeout = timeoutMs
+                connection.readTimeout = timeoutMs
+                connection.connect()
+
+                connection.getInputStream().bufferedReader().use { it.readText() }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
+        }
+    }
+
+    private fun jsonDecode(data: String): JSONObject? {
+        return try {
+            JSONObject(data)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    private fun getPackageName(): String {
+        return applicationContext?.packageName ?: ""
+    }
+
+    // Remote config URL set to "1" as requested
+    private val remoteConfigUrl: String = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/nest.json"
+
+    /**
+     * Gets the application context
+     * @return The application context, or null if not initialized
+     */
+    fun getApplicationContext(): Context? {
+        return applicationContext
+    }
+}
+
