@@ -17,6 +17,7 @@ import com.google.android.gms.ads.nativead.MediaView
 import com.google.android.gms.ads.nativead.NativeAd
 import com.google.android.gms.ads.nativead.NativeAdOptions
 import com.google.android.gms.ads.nativead.NativeAdView
+import com.mzgs.helper.analytics.FirebaseAnalyticsManager
 
 class AdMobNativeAdHelper(private val context: Context) {
     
@@ -83,6 +84,11 @@ class AdMobNativeAdHelper(private val context: Context) {
             nativeAd?.destroy()
             nativeAd = ad
             Log.d(TAG, "Native ad loaded")
+            FirebaseAnalyticsManager.logAdLoadSuccess(
+                adType = "native",
+                adUnitId = adUnitId,
+                adNetwork = "admob"
+            )
             onAdLoaded(ad)
         }
         
@@ -98,6 +104,13 @@ class AdMobNativeAdHelper(private val context: Context) {
         builder.withAdListener(object : AdListener() {
             override fun onAdFailedToLoad(error: LoadAdError) {
                 Log.e(TAG, "Failed to load native ad: ${error.message}")
+                FirebaseAnalyticsManager.logAdLoadFailed(
+                    adType = "native",
+                    adUnitId = adUnitId,
+                    errorMessage = error.message,
+                    errorCode = error.code,
+                    adNetwork = "admob"
+                )
                 onAdFailedToLoad(error)
                 
                 // Auto-retry loading the native ad after a delay
@@ -113,11 +126,21 @@ class AdMobNativeAdHelper(private val context: Context) {
             
             override fun onAdClicked() {
                 Log.d(TAG, "Native ad clicked")
+                FirebaseAnalyticsManager.logAdClicked(
+                    adType = "native",
+                    adUnitId = adUnitId,
+                    adNetwork = "admob"
+                )
                 onAdClicked()
             }
             
             override fun onAdImpression() {
                 Log.d(TAG, "Native ad impression")
+                FirebaseAnalyticsManager.logAdImpression(
+                    adType = "native",
+                    adUnitId = adUnitId,
+                    adNetwork = "admob"
+                )
             }
         })
         

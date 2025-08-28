@@ -15,6 +15,7 @@ import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.FullScreenContentCallback
 import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.ads.appopen.AppOpenAd
+import com.mzgs.helper.analytics.FirebaseAnalyticsManager
 import java.util.Date
 
 class AppOpenAdManager(
@@ -58,12 +59,8 @@ class AppOpenAdManager(
         // Register for app lifecycle events AFTER initialization
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
         
-        if (config.enableAppOpenAd && config.getEffectiveAppOpenAdUnitId().isNotEmpty()) {
-            // Fetch the first ad immediately after initialization
-            Handler(Looper.getMainLooper()).postDelayed({
-                fetchAd(application.applicationContext)
-            }, 1000) // Small delay to ensure everything is initialized
-        }
+        // Don't load on app start - will load when app goes to background
+        // or when explicitly requested
     }
     
     // Called when app comes to foreground
@@ -152,6 +149,11 @@ class AppOpenAdManager(
                     isLoadingAd = false
                     loadTime = Date().time
                     Log.d(TAG, "App open ad loaded successfully at ${Date(loadTime)}")
+                    FirebaseAnalyticsManager.logAdLoadSuccess(
+                        adType = "app_open",
+                        adUnitId = adUnitId,
+                        adNetwork = "admob"
+                    )
                     
                     // Set up callbacks immediately
                     setupAdCallbacks(ad)
@@ -161,6 +163,13 @@ class AppOpenAdManager(
                     isLoadingAd = false
                     appOpenAd = null
                     Log.e(TAG, "Failed to load app open ad: ${loadAdError.message} (Code: ${loadAdError.code})")
+                    FirebaseAnalyticsManager.logAdLoadFailed(
+                        adType = "app_open",
+                        adUnitId = adUnitId,
+                        errorMessage = loadAdError.message,
+                        errorCode = loadAdError.code,
+                        adNetwork = "admob"
+                    )
                 }
             }
         )
@@ -191,10 +200,22 @@ class AppOpenAdManager(
             
             override fun onAdClicked() {
                 Log.d(TAG, "App open ad clicked")
+                val adUnitId = config.getEffectiveAppOpenAdUnitId()
+                FirebaseAnalyticsManager.logAdClicked(
+                    adType = "app_open",
+                    adUnitId = adUnitId,
+                    adNetwork = "admob"
+                )
             }
             
             override fun onAdImpression() {
                 Log.d(TAG, "App open ad impression recorded")
+                val adUnitId = config.getEffectiveAppOpenAdUnitId()
+                FirebaseAnalyticsManager.logAdImpression(
+                    adType = "app_open",
+                    adUnitId = adUnitId,
+                    adNetwork = "admob"
+                )
             }
         }
     }

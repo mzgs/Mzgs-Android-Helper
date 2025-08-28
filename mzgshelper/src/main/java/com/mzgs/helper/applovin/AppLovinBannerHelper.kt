@@ -12,6 +12,7 @@ import com.applovin.mediation.MaxAdViewAdListener
 import com.applovin.mediation.MaxError
 import com.applovin.mediation.ads.MaxAdView
 import com.applovin.sdk.AppLovinSdkUtils
+import com.mzgs.helper.analytics.FirebaseAnalyticsManager
 
 class AppLovinBannerHelper(private val context: Context) {
     
@@ -57,16 +58,33 @@ class AppLovinBannerHelper(private val context: Context) {
             setListener(object : MaxAdViewAdListener {
                 override fun onAdLoaded(ad: MaxAd) {
                     Log.d(TAG, "$bannerType ad loaded")
+                    FirebaseAnalyticsManager.logAdLoadSuccess(
+                        adType = "banner_$bannerType",
+                        adUnitId = adUnitId,
+                        adNetwork = "applovin"
+                    )
                     onAdLoaded()
                 }
                 
                 override fun onAdLoadFailed(adUnitId: String, error: MaxError) {
                     Log.e(TAG, "$bannerType failed to load: ${error.message}")
+                    FirebaseAnalyticsManager.logAdLoadFailed(
+                        adType = "banner_$bannerType",
+                        adUnitId = adUnitId,
+                        errorMessage = error.message,
+                        errorCode = error.code,
+                        adNetwork = "applovin"
+                    )
                     onAdFailedToLoad(error)
                 }
                 
                 override fun onAdDisplayed(ad: MaxAd) {
                     Log.d(TAG, "$bannerType ad displayed")
+                    FirebaseAnalyticsManager.logAdImpression(
+                        adType = "banner_$bannerType",
+                        adUnitId = adUnitId,
+                        adNetwork = "applovin"
+                    )
                 }
                 
                 override fun onAdHidden(ad: MaxAd) {
@@ -75,6 +93,11 @@ class AppLovinBannerHelper(private val context: Context) {
                 
                 override fun onAdClicked(ad: MaxAd) {
                     Log.d(TAG, "$bannerType ad clicked")
+                    FirebaseAnalyticsManager.logAdClicked(
+                        adType = "banner_$bannerType",
+                        adUnitId = adUnitId,
+                        adNetwork = "applovin"
+                    )
                     onAdClicked()
                 }
                 

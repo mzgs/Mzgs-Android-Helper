@@ -12,6 +12,7 @@ import com.applovin.mediation.MaxAd
 import com.applovin.mediation.MaxAdListener
 import com.applovin.mediation.MaxError
 import com.applovin.mediation.ads.MaxAppOpenAd
+import com.mzgs.helper.analytics.FirebaseAnalyticsManager
 import java.util.Date
 
 class AppLovinAppOpenAdManager private constructor(
@@ -48,9 +49,8 @@ class AppLovinAppOpenAdManager private constructor(
         application.registerActivityLifecycleCallbacks(this)
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
         
-        if (config.enableAppOpenAd) {
-            loadAd()
-        }
+        // Don't load on app start - will load when app goes to background
+        // or when explicitly requested
     }
     
     override fun onStateChanged(source: LifecycleOwner, event: Lifecycle.Event) {
@@ -81,16 +81,33 @@ class AppLovinAppOpenAdManager private constructor(
             override fun onAdLoaded(ad: MaxAd) {
                 Log.d(TAG, "App open ad loaded")
                 loadTime = Date().time
+                FirebaseAnalyticsManager.logAdLoadSuccess(
+                    adType = "app_open",
+                    adUnitId = adUnitId,
+                    adNetwork = "applovin"
+                )
             }
             
             override fun onAdLoadFailed(adUnitId: String, error: MaxError) {
                 Log.e(TAG, "Failed to load app open ad: ${error.message}")
+                FirebaseAnalyticsManager.logAdLoadFailed(
+                    adType = "app_open",
+                    adUnitId = adUnitId,
+                    errorMessage = error.message,
+                    errorCode = error.code,
+                    adNetwork = "applovin"
+                )
                 appOpenAd = null
             }
             
             override fun onAdDisplayed(ad: MaxAd) {
                 Log.d(TAG, "App open ad displayed")
                 isShowingAd = true
+                FirebaseAnalyticsManager.logAdImpression(
+                    adType = "app_open",
+                    adUnitId = adUnitId,
+                    adNetwork = "applovin"
+                )
             }
             
             override fun onAdHidden(ad: MaxAd) {
@@ -102,6 +119,11 @@ class AppLovinAppOpenAdManager private constructor(
             
             override fun onAdClicked(ad: MaxAd) {
                 Log.d(TAG, "App open ad clicked")
+                FirebaseAnalyticsManager.logAdClicked(
+                    adType = "app_open",
+                    adUnitId = adUnitId,
+                    adNetwork = "applovin"
+                )
             }
             
             override fun onAdDisplayFailed(ad: MaxAd, error: MaxError) {

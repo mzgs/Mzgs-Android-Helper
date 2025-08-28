@@ -6,6 +6,7 @@ import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import com.google.android.gms.ads.*
+import com.mzgs.helper.analytics.FirebaseAnalyticsManager
 
 /**
  * Helper class for creating different banner ad formats
@@ -60,11 +61,23 @@ class BannerAdHelper(private val context: Context) {
             adListener = object : AdListener() {
                 override fun onAdLoaded() {
                     Log.d(TAG, "$bannerType ad loaded")
+                    FirebaseAnalyticsManager.logAdLoadSuccess(
+                        adType = "banner_$bannerType",
+                        adUnitId = adUnitId,
+                        adNetwork = "admob"
+                    )
                     onAdLoaded()
                 }
                 
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     Log.e(TAG, "$bannerType failed to load: ${error.message}")
+                    FirebaseAnalyticsManager.logAdLoadFailed(
+                        adType = "banner_$bannerType",
+                        adUnitId = adUnitId,
+                        errorMessage = error.message,
+                        errorCode = error.code,
+                        adNetwork = "admob"
+                    )
                     onAdFailedToLoad(error)
                     
                     // Auto-retry loading the banner after a delay
@@ -77,6 +90,11 @@ class BannerAdHelper(private val context: Context) {
                 
                 override fun onAdClicked() {
                     Log.d(TAG, "$bannerType ad clicked")
+                    FirebaseAnalyticsManager.logAdClicked(
+                        adType = "banner_$bannerType",
+                        adUnitId = adUnitId,
+                        adNetwork = "admob"
+                    )
                     onAdClicked()
                 }
                 
@@ -90,6 +108,11 @@ class BannerAdHelper(private val context: Context) {
                 
                 override fun onAdImpression() {
                     Log.d(TAG, "$bannerType ad impression")
+                    FirebaseAnalyticsManager.logAdImpression(
+                        adType = "banner_$bannerType",
+                        adUnitId = adUnitId,
+                        adNetwork = "admob"
+                    )
                 }
             }
         }

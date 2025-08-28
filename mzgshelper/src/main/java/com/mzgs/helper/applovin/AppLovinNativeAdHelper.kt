@@ -16,6 +16,7 @@ import com.applovin.mediation.nativeAds.MaxNativeAdLoader
 import com.applovin.mediation.nativeAds.MaxNativeAdView
 import com.applovin.mediation.nativeAds.MaxNativeAdViewBinder
 import com.mzgs.helper.R
+import com.mzgs.helper.analytics.FirebaseAnalyticsManager
 
 class AppLovinNativeAdHelper(private val context: Context) {
     
@@ -50,16 +51,33 @@ class AppLovinNativeAdHelper(private val context: Context) {
                 this@AppLovinNativeAdHelper.nativeAdView = nativeAdView
                 
                 Log.d(TAG, "Native ad loaded")
+                FirebaseAnalyticsManager.logAdLoadSuccess(
+                    adType = "native",
+                    adUnitId = adUnitId,
+                    adNetwork = "applovin"
+                )
                 onAdLoaded()
             }
             
             override fun onNativeAdLoadFailed(adUnitId: String, error: MaxError) {
                 Log.e(TAG, "Failed to load native ad: ${error.message}")
+                FirebaseAnalyticsManager.logAdLoadFailed(
+                    adType = "native",
+                    adUnitId = adUnitId,
+                    errorMessage = error.message,
+                    errorCode = error.code,
+                    adNetwork = "applovin"
+                )
                 onAdFailedToLoad(error)
             }
             
             override fun onNativeAdClicked(ad: MaxAd) {
                 Log.d(TAG, "Native ad clicked")
+                FirebaseAnalyticsManager.logAdClicked(
+                    adType = "native",
+                    adUnitId = adUnitId,
+                    adNetwork = "applovin"
+                )
                 onAdClicked()
             }
             
@@ -115,7 +133,7 @@ class AppLovinNativeAdHelper(private val context: Context) {
         return MaxNativeAdView(builder.build(), context)
     }
     
-    fun showNativeAd(container: FrameLayout): Boolean {
+    fun showNativeAd(container: FrameLayout, adUnitId: String = ""): Boolean {
         val config = AppLovinMediationManager.getInstance(context).getConfig()
         if (config != null && !config.shouldShowNativeAds(context)) {
             Log.d(TAG, "Native ads disabled in debug mode")
@@ -138,6 +156,13 @@ class AppLovinNativeAdHelper(private val context: Context) {
             nativeAdLoader?.render(adView, loadedNativeAd)
             
             Log.d(TAG, "Native ad displayed")
+            if (adUnitId.isNotEmpty()) {
+                FirebaseAnalyticsManager.logAdImpression(
+                    adType = "native",
+                    adUnitId = adUnitId,
+                    adNetwork = "applovin"
+                )
+            }
             return true
         }
         

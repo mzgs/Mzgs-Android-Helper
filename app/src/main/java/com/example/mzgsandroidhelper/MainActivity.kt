@@ -40,21 +40,27 @@ import com.mzgs.helper.applovin.AppLovinMediationManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.lifecycle.lifecycleScope
+import com.mzgs.helper.analytics.FirebaseAnalyticsManager
 
 class MainActivity : ComponentActivity() {
+    
+    private var splashHelper: SimpleSplashHelper? = null
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
         // Initialize Remote context
+        FirebaseAnalyticsManager.initialize(this)
         Remote.init(this)
+        
+        // Initialize AdMob (consent will be handled inside)
         initAdmob()
         
-        // Initialize Simple Splash Screen with progress
-        SimpleSplashHelper.Builder(this)
-            .setDuration(Remote.getLong("splash_time",9000))
-            .showProgress(true) // Show progress bar
+        // Prepare splash screen but don't show it yet
+        splashHelper = SimpleSplashHelper.Builder(this)
+            .setDuration(Remote.getLong("splash_time", 9000))
+            .showProgress(true)
             .onComplete { 
                 Log.d("MainActivity", "Splash screen completed")
                 
@@ -67,8 +73,8 @@ class MainActivity : ComponentActivity() {
                 }
             }
             .build()
-            .show()
         
+        // Show content immediately (no splash blocking initially)
         setContent {
             MzgsAndroidHelperTheme {
                 AdMobTestScreen()
@@ -101,8 +107,18 @@ class MainActivity : ComponentActivity() {
             config = adConfig,
             onInitComplete = {
                 Log.d("MainActivity", "AdMob initialized with all configured features")
-                // Load interstitial ad immediately so it's ready after splash
-                AdMobMediationManager.loadInterstitialAd()
+                
+                // Check if we can show ads (consent obtained)
+                val adManager = AdMobMediationManager.getInstance(this)
+                if (adManager.canShowAds()) {
+                    Log.d("MainActivity", "Consent obtained, loading interstitial ad")
+                    // Load interstitial ad immediately so it's ready after splash
+                    AdMobMediationManager.loadInterstitialAd()
+                } else {
+                    Log.d("MainActivity", "Waiting for consent before loading ads")
+                    // For EU users, consent form will show first
+                    // We need to wait for consent before loading ads
+                }
             }
         )
     }
@@ -200,11 +216,7 @@ fun AdMobTestScreen() {
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
-            // Banner ad at bottom - uses config's banner ad unit ID
-            AdMobBanner(
-                isAdaptive = true,
-                modifier = Modifier.fillMaxWidth()
-            )
+
 
         }
     ) { paddingValues ->
@@ -374,10 +386,14 @@ fun AdMobTestScreen() {
                                     activity?.let {
                                         if (adManager.showInterstitialAd(it)) {
                                             interstitialLoaded = false
+                                        } else {
+                                            scope.launch {
+                                                snackbarHostState.showSnackbar("No interstitial ad available")
+                                            }
                                         }
                                     }
                                 },
-                                enabled = interstitialLoaded,
+                                enabled = true, // Always enabled
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Text("Show")
@@ -448,10 +464,14 @@ fun AdMobTestScreen() {
                                             }
                                         )) {
                                             rewardedLoaded = false
+                                        } else {
+                                            scope.launch {
+                                                snackbarHostState.showSnackbar("No rewarded ad available")
+                                            }
                                         }
                                     }
                                 },
-                                enabled = rewardedLoaded,
+                                enabled = true, // Always enabled
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Text("Watch for 10 coins")
@@ -518,10 +538,14 @@ fun AdMobTestScreen() {
                                             }
                                         )) {
                                             rewardedInterstitialLoaded = false
+                                        } else {
+                                            scope.launch {
+                                                snackbarHostState.showSnackbar("No rewarded interstitial ad available")
+                                            }
                                         }
                                     }
                                 },
-                                enabled = rewardedInterstitialLoaded,
+                                enabled = true, // Always enabled
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Text("Show")
