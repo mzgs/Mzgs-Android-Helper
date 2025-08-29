@@ -25,7 +25,13 @@ class SimpleSplashHelper(private val activity: ComponentActivity) {
     private var splashDialog: Dialog? = null
     private var progressBar: ProgressBar? = null
     private var progressText: TextView? = null
+    private var circularProgressBar: ProgressBar? = null
     private var progressAnimator: ValueAnimator? = null
+    private var handler: Handler? = null
+    private var dismissRunnable: Runnable? = null
+    private var remainingTime: Long = 0L
+    private var lastPauseTime: Long = 0L
+    private var isPaused: Boolean = false
     
     class Builder(private val activity: ComponentActivity) {
         private val helper = SimpleSplashHelper(activity)
@@ -50,14 +56,25 @@ class SimpleSplashHelper(private val activity: ComponentActivity) {
     
     fun show() {
         createAndShowSplash()
-        if (showProgress) {
-            startProgressAnimation()
-        }
         
-        // Dismiss after duration
-        Handler(Looper.getMainLooper()).postDelayed({
-            dismiss()
-        }, splashDuration)
+        remainingTime = splashDuration
+        
+        // Only start animation and timer if not paused
+        if (!isPaused) {
+            if (showProgress) {
+                startProgressAnimation()
+            }
+            
+            // Dismiss after duration
+            handler = Handler(Looper.getMainLooper())
+            dismissRunnable = Runnable {
+                dismiss()
+            }
+            handler?.postDelayed(dismissRunnable!!, splashDuration)
+        } else {
+            // If starting paused, show circular progress
+            showCircularProgress()
+        }
     }
     
     private fun createAndShowSplash() {
@@ -140,6 +157,23 @@ class SimpleSplashHelper(private val activity: ComponentActivity) {
                 }
                 addView(progressBar)
                 
+                // Circular Progress Bar (hidden by default)
+                circularProgressBar = ProgressBar(context).apply {
+                    layoutParams = LinearLayout.LayoutParams(
+                        120,
+                        120
+                    ).apply {
+                        bottomMargin = 20
+                    }
+                    visibility = android.view.View.GONE
+                    // Blue circular progress
+                    indeterminateDrawable?.setColorFilter(
+                        Color.parseColor("#2196F3"),
+                        android.graphics.PorterDuff.Mode.SRC_IN
+                    )
+                }
+                addView(circularProgressBar)
+                
                 // Progress Text with dark color
                 progressText = TextView(context).apply {
                     text = "Loading... 0%"
@@ -168,6 +202,87 @@ class SimpleSplashHelper(private val activity: ComponentActivity) {
     private fun dismiss() {
         progressAnimator?.cancel()
         splashDialog?.dismiss()
+        handler?.removeCallbacks(dismissRunnable ?: return)
         onComplete?.invoke()
+    }
+    
+    fun pause() {
+        if (!isPaused) {
+            isPaused = true
+            lastPauseTime = System.currentTimeMillis()
+            
+            // Only do these if dialog is actually showing
+            if (splashDialog?.isShowing == true) {
+                // Pause the progress animation
+                progressAnimator?.pause()
+                
+                // Cancel the dismiss handler
+                dismissRunnable?.let {
+                    handler?.removeCallbacks(it)
+                }
+                
+                // Calculate remaining time
+                val elapsedTime = splashDuration - remainingTime
+                remainingTime = splashDuration - elapsedTime - (System.currentTimeMillis() - lastPauseTime)
+                
+                // Show circular progress when paused
+                showCircularProgress()
+            }
+        }
+    }
+    
+    fun resume() {
+        if (isPaused && splashDialog?.isShowing == true) {
+            isPaused = false
+            
+            // Show progress indicators
+            showProgress()
+            
+            // Resume or start the progress animation
+            if (progressAnimator == null && showProgress) {
+                startProgressAnimation()
+            } else {
+                progressAnimator?.resume()
+            }
+            
+            // Create handler and runnable if needed
+            if (handler == null) {
+                handler = Handler(Looper.getMainLooper())
+            }
+            if (dismissRunnable == null) {
+                dismissRunnable = Runnable {
+                    dismiss()
+                }
+            }
+            
+            // Reschedule the dismiss with remaining time
+            if (remainingTime > 0) {
+                dismissRunnable?.let {
+                    handler?.postDelayed(it, remainingTime)
+                }
+            }
+        }
+    }
+    
+    fun hideProgress() {
+        progressBar?.visibility = android.view.View.INVISIBLE
+        progressText?.visibility = android.view.View.INVISIBLE
+        circularProgressBar?.visibility = android.view.View.GONE
+    }
+    
+    fun showProgress() {
+        if (showProgress) {
+            progressBar?.visibility = android.view.View.VISIBLE
+            progressText?.visibility = android.view.View.VISIBLE
+            circularProgressBar?.visibility = android.view.View.GONE
+        }
+    }
+    
+    private fun showCircularProgress() {
+        if (showProgress) {
+            progressBar?.visibility = android.view.View.INVISIBLE
+            progressText?.visibility = android.view.View.INVISIBLE
+            circularProgressBar?.visibility = android.view.View.VISIBLE
+        }
     }
 }

@@ -44,6 +44,8 @@ import com.mzgs.helper.analytics.FirebaseAnalyticsManager
 
 class MainActivity : ComponentActivity() {
     
+    private lateinit var splash: SimpleSplashHelper
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -51,10 +53,10 @@ class MainActivity : ComponentActivity() {
         // Initialize Remote context
         FirebaseAnalyticsManager.initialize(this)
         Remote.init(this)
-        initAdmob()
+
         
         // Initialize Simple Splash Screen with progress
-        SimpleSplashHelper.Builder(this)
+        splash = SimpleSplashHelper.Builder(this)
             .setDuration(Remote.getLong("splash_time", 9000))
             .showProgress(true)
             .onComplete { 
@@ -69,7 +71,12 @@ class MainActivity : ComponentActivity() {
                 }
             }
             .build()
-            .show()
+
+        // Start splash screen normally
+        splash.pause()
+        splash.show()
+
+
         
         setContent {
             MzgsAndroidHelperTheme {
@@ -77,6 +84,8 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+    
+
     
     private fun initAdmob() {
         val adConfig = AdMobConfig(
