@@ -75,6 +75,7 @@ class MainActivity : ComponentActivity() {
         // Start splash screen normally
         splash.pause()
         splash.show()
+        
 
 
         
@@ -114,8 +115,8 @@ class MainActivity : ComponentActivity() {
                 Log.d("MainActivity", "AdMob initialized with all configured features")
                 
                 // Check if we can show ads (consent obtained)
-                val adManager = AdMobMediationManager.getInstance(this)
-                if (adManager.canShowAds()) {
+
+                if (AdMobMediationManager.canShowAds()) {
                     Log.d("MainActivity", "Consent obtained, loading interstitial ad")
                     // Load interstitial ad immediately so it's ready after splash
                     AdMobMediationManager.loadInterstitialAd()
