@@ -24,6 +24,7 @@ import com.google.android.ump.ConsentInformation
 import com.google.android.ump.ConsentRequestParameters
 import com.google.android.ump.FormError
 import com.google.android.ump.UserMessagingPlatform
+import com.mzgs.helper.MzgsHelper
 import java.lang.ref.WeakReference
 
 object AdMobMediationManager : Application.ActivityLifecycleCallbacks {
@@ -61,8 +62,15 @@ object AdMobMediationManager : Application.ActivityLifecycleCallbacks {
             return
         }
         
+        // SAFETY: Only set test device IDs in debug builds
+        val testDeviceIds = if (MzgsHelper.isDebugMode(context)) {
+            config.testDeviceIds
+        } else {
+            emptyList() // Never use test device IDs in release
+        }
+        
         val requestConfiguration = RequestConfiguration.Builder()
-            .setTestDeviceIds(config.testDeviceIds)
+            .setTestDeviceIds(testDeviceIds)
             .build()
         
         MobileAds.setRequestConfiguration(requestConfiguration)
@@ -161,13 +169,43 @@ object AdMobMediationManager : Application.ActivityLifecycleCallbacks {
         activity: Activity,
         onConsentFormDismissed: (FormError?) -> Unit = {}
     ) {
-        UserMessagingPlatform.loadAndShowConsentFormIfRequired(activity) { formError ->
-            if (formError != null) {
-                Log.e(TAG, "Error showing consent form: ${formError.message}")
-            } else {
-                Log.d(TAG, "Consent form shown and handled")
+        // SAFETY CHECK: Only allow debug flags in debug builds
+        val shouldForceShow = adConfig?.let { config ->
+            contextRef?.get()?.let { context ->
+                // CRITICAL: Must be debug mode AND flag enabled
+                MzgsHelper.isDebugMode(context) && config.debugRequireConsentAlways
             }
-            onConsentFormDismissed(formError)
+        } ?: false
+        
+        if (shouldForceShow) {
+            // Force load and show consent form regardless of requirements
+            UserMessagingPlatform.loadConsentForm(
+                activity,
+                { consentForm ->
+                    consentForm.show(activity) { formError ->
+                        if (formError != null) {
+                            Log.e(TAG, "Error showing forced consent form: ${formError.message}")
+                        } else {
+                            Log.d(TAG, "Forced consent form shown and handled")
+                        }
+                        onConsentFormDismissed(formError)
+                    }
+                },
+                { formError ->
+                    Log.e(TAG, "Error loading consent form: ${formError.message}")
+                    onConsentFormDismissed(formError)
+                }
+            )
+        } else {
+            // Normal flow - only show if required
+            UserMessagingPlatform.loadAndShowConsentFormIfRequired(activity) { formError ->
+                if (formError != null) {
+                    Log.e(TAG, "Error showing consent form: ${formError.message}")
+                } else {
+                    Log.d(TAG, "Consent form shown and handled")
+                }
+                onConsentFormDismissed(formError)
+            }
         }
     }
     
@@ -202,6 +240,17 @@ object AdMobMediationManager : Application.ActivityLifecycleCallbacks {
     
     @JvmStatic
     fun isConsentFormAvailable(): Boolean {
+        // SAFETY CHECK: Only allow debug override in debug builds
+        adConfig?.let { config ->
+            contextRef?.get()?.let { context ->
+                // CRITICAL: Must be debug mode AND flag enabled - NEVER affects release
+                if (MzgsHelper.isDebugMode(context) && config.debugRequireConsentAlways) {
+                    Log.d(TAG, "DEBUG ONLY: Forcing consent form availability for testing")
+                    return true
+                }
+            }
+        }
+        // Normal production flow
         return consentInformation?.isConsentFormAvailable ?: false
     }
     
@@ -286,7 +335,7 @@ object AdMobMediationManager : Application.ActivityLifecycleCallbacks {
         onAdLoaded: () -> Unit = {},
         onAdFailedToLoad: (LoadAdError) -> Unit = {}
     ) {
-        val effectiveAdUnitId = adConfig?.getEffectiveInterstitialAdUnitId() ?: ""
+        val effectiveAdUnitId = adConfig?.getEffectiveInterstitialAdUnitId(contextRef?.get()) ?: ""
         if (effectiveAdUnitId.isEmpty()) {
             Log.e(TAG, "No interstitial ad unit ID configured")
             return
@@ -360,7 +409,7 @@ object AdMobMediationManager : Application.ActivityLifecycleCallbacks {
                 interstitialAd = null
                 // Auto-reload the interstitial ad
                 adConfig?.let { config ->
-                    val adUnitId = config.getEffectiveInterstitialAdUnitId()
+                    val adUnitId = config.getEffectiveInterstitialAdUnitId(contextRef?.get())
                     if (adUnitId.isNotEmpty()) {
                         Log.d(TAG, "Auto-reloading interstitial ad")
                         loadInterstitialAd(adUnitId)
@@ -423,7 +472,7 @@ object AdMobMediationManager : Application.ActivityLifecycleCallbacks {
         onAdLoaded: () -> Unit = {},
         onAdFailedToLoad: (LoadAdError) -> Unit = {}
     ) {
-        val effectiveAdUnitId = adConfig?.getEffectiveRewardedAdUnitId() ?: ""
+        val effectiveAdUnitId = adConfig?.getEffectiveRewardedAdUnitId(contextRef?.get()) ?: ""
         if (effectiveAdUnitId.isEmpty()) {
             Log.e(TAG, "No rewarded ad unit ID configured")
             return
@@ -497,7 +546,7 @@ object AdMobMediationManager : Application.ActivityLifecycleCallbacks {
                 rewardedAd = null
                 // Auto-reload the rewarded ad
                 adConfig?.let { config ->
-                    val adUnitId = config.getEffectiveRewardedAdUnitId()
+                    val adUnitId = config.getEffectiveRewardedAdUnitId(contextRef?.get())
                     if (adUnitId.isNotEmpty()) {
                         Log.d(TAG, "Auto-reloading rewarded ad")
                         loadRewardedAd(adUnitId)
@@ -568,7 +617,7 @@ object AdMobMediationManager : Application.ActivityLifecycleCallbacks {
         onAdLoaded: () -> Unit = {},
         onAdFailedToLoad: (LoadAdError) -> Unit = {}
     ) {
-        val effectiveAdUnitId = adConfig?.getEffectiveRewardedInterstitialAdUnitId() ?: ""
+        val effectiveAdUnitId = adConfig?.getEffectiveRewardedInterstitialAdUnitId(contextRef?.get()) ?: ""
         if (effectiveAdUnitId.isEmpty()) {
             Log.e(TAG, "No rewarded interstitial ad unit ID configured")
             return
@@ -642,7 +691,7 @@ object AdMobMediationManager : Application.ActivityLifecycleCallbacks {
                 rewardedInterstitialAd = null
                 // Auto-reload the rewarded interstitial ad
                 adConfig?.let { config ->
-                    val adUnitId = config.getEffectiveRewardedInterstitialAdUnitId()
+                    val adUnitId = config.getEffectiveRewardedInterstitialAdUnitId(contextRef?.get())
                     if (adUnitId.isNotEmpty()) {
                         Log.d(TAG, "Auto-reloading rewarded interstitial ad")
                         loadRewardedInterstitialAd(adUnitId)

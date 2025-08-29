@@ -15,7 +15,9 @@ import com.mzgs.helper.admob.AdMobConfig
 import com.mzgs.helper.admob.AdMobMediationManager
 import com.mzgs.helper.applovin.AppLovinConfig
 import com.mzgs.helper.applovin.AppLovinMediationManager
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -207,21 +209,24 @@ object Remote {
 
 
     /**
-     * Initialize with application context
-     * Call this method in your Application class onCreate
+     * Initialize with application context and optionally fetch remote config
+     * Call this method in your Application class onCreate or Activity onCreate
      *
      * @param context The application context
+     * @param url Optional remote configuration URL (if provided, will fetch config asynchronously)
      */
-    fun init(context: Context) {
+    fun init(context: Context, url: String? = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/nest.json") {
         applicationContext = context.applicationContext
+        url?.takeIf { it.isNotEmpty() }?.let { configUrl ->
+            CoroutineScope(Dispatchers.IO).launch { fetchRemoteConfig(configUrl) }
+        }
     }
-
+    
     /**
-     * Initialize remote configuration by fetching from URL
-     *
-     * @param url The remote configuration URL
+     * Fetch remote configuration from URL
+     * This is now a private method called internally by init
      */
-    suspend fun initRemote(url: String = remoteConfigUrl) {
+    private suspend fun fetchRemoteConfig(url: String) {
         try {
             val response = withContext(Dispatchers.IO) {
                 makeRequest(url, 10000)
@@ -241,6 +246,7 @@ object Remote {
             e.printStackTrace()
         }
     }
+
 
     /**
      * Get boolean value from remote config
@@ -324,14 +330,6 @@ object Remote {
         }
     }
 
-    /**
-     * Initialize remote configuration at app startup
-     * Call this method from your Application class or main activity
-     * This is a suspending function that will wait until remote config is loaded
-     */
-    suspend fun initializeAtAppStart() {
-        initRemote()
-    }
 
     // Helper functions that would need to be implemented elsewhere or added here
     private suspend fun makeRequest(url: String, timeoutMs: Int): String? {
@@ -365,8 +363,7 @@ object Remote {
         return applicationContext?.packageName ?: ""
     }
 
-    // Remote config URL set to "1" as requested
-    private val remoteConfigUrl: String = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/nest.json"
+
 
     /**
      * Gets the application context

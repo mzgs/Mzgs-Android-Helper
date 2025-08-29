@@ -50,8 +50,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
-        // Initialize Remote context
+        // Initialize Firebase Analytics and Remote
         FirebaseAnalyticsManager.initialize(this)
+        // Remote.init now handles both context and async config fetching
+        // Optional: pass custom URL like Remote.init(this, "https://your-config-url.com/config.json")
         Remote.init(this)
 
         
@@ -76,8 +78,100 @@ class MainActivity : ComponentActivity() {
         splash.pause()
         splash.show()
         
-
-
+        // Initialize AdMob with consent handling
+        val adConfig = AdMobConfig(
+            appId = "",
+            bannerAdUnitId = "",
+            interstitialAdUnitId = "",
+            rewardedAdUnitId = "",
+            rewardedInterstitialAdUnitId = "",
+            nativeAdUnitId = "",
+            appOpenAdUnitId = "",
+            enableAppOpenAd = true,
+            enableTestMode = true,
+            testDeviceIds = listOf("YOUR_TEST_DEVICE_ID"),
+            showAdsInDebug = true,
+            showInterstitialsInDebug = true,
+            showAppOpenAdInDebug = true,
+            showBannersInDebug = true,
+            showNativeAdsInDebug = true,
+            showRewardedAdsInDebug = true,
+            debugRequireConsentAlways = true  // Set to true to always show consent form for testing
+        )
+        
+        AdMobMediationManager.init(
+            context = this,
+            config = adConfig,
+            onInitComplete = {
+                Log.d("MainActivity", "AdMob initialized")
+                
+                // Request consent info update
+                // SAFETY: Debug settings only apply in debug builds
+                val isDebugMode = MzgsHelper.isDebugMode(this)
+                AdMobMediationManager.requestConsentInfoUpdate(
+                    underAgeOfConsent = false,
+                    debugGeography = if (isDebugMode && adConfig.debugRequireConsentAlways) 
+                        ConsentDebugSettings.DebugGeography.DEBUG_GEOGRAPHY_EEA else null,
+                    testDeviceHashedId = if (isDebugMode && adConfig.debugRequireConsentAlways) 
+                        "TEST-DEVICE-HASHED-ID" else null,
+                    onConsentInfoUpdateSuccess = {
+                        Log.d("MainActivity", "Consent info updated")
+                        
+                        // Check if we can show ads (either personalized or non-personalized)
+                        val canShowPersonalized = AdMobMediationManager.canShowAds()
+                        val canShowNonPersonalized = AdMobMediationManager.canShowNonPersonalizedAds()
+                        
+                        Log.d("MainActivity", "Can show personalized: $canShowPersonalized, non-personalized: $canShowNonPersonalized")
+                        
+                        // Check if consent form needs to be shown
+                        if (AdMobMediationManager.isConsentFormAvailable()) {
+                            Log.d("MainActivity", "Showing consent form")
+                            AdMobMediationManager.showConsentForm(
+                                activity = this,
+                                onConsentFormDismissed = { formError ->
+                                    if (formError != null) {
+                                        Log.e("MainActivity", "Consent form error: ${formError.message}")
+                                    }
+                                    Log.d("MainActivity", "Consent form dismissed")
+                                    
+                                    // After consent form is dismissed, load interstitial ad
+                                    // We can load ads even if only non-personalized ads are allowed
+                                    if (AdMobMediationManager.canShowAds() || AdMobMediationManager.canShowNonPersonalizedAds()) {
+                                        Log.d("MainActivity", "Loading interstitial ad after consent")
+                                        AdMobMediationManager.loadInterstitialAd()
+                                    }
+                                    
+                                    // Resume splash screen
+                                    splash.resume()
+                                }
+                            )
+                        } else {
+                            // No consent form needed
+                            // Load ads if we can show any type (personalized or non-personalized)
+                            if (canShowPersonalized || canShowNonPersonalized) {
+                                Log.d("MainActivity", "No consent form needed, loading interstitial ad")
+                                AdMobMediationManager.loadInterstitialAd()
+                            } else {
+                                Log.d("MainActivity", "Cannot show any ads yet")
+                            }
+                            
+                            // Resume splash screen
+                            splash.resume()
+                        }
+                    },
+                    onConsentInfoUpdateFailure = { error ->
+                        Log.e("MainActivity", "Failed to update consent info: $error")
+                        
+                        // Even if consent update fails, try to load ad if non-personalized ads are allowed
+                        if (AdMobMediationManager.canShowNonPersonalizedAds()) {
+                            Log.d("MainActivity", "Loading non-personalized ad after consent failure")
+                            AdMobMediationManager.loadInterstitialAd()
+                        }
+                        splash.resume()
+                    }
+                )
+            }
+        )
         
         setContent {
             MzgsAndroidHelperTheme {
@@ -105,7 +199,8 @@ class MainActivity : ComponentActivity() {
             showAppOpenAdInDebug = true,
             showBannersInDebug = true,
             showNativeAdsInDebug = true,
-            showRewardedAdsInDebug = true
+            showRewardedAdsInDebug = true,
+            debugRequireConsentAlways = false  // Set to true to always show consent form for testing
         )
         
         AdMobMediationManager.init(
@@ -156,21 +251,8 @@ class MainActivity : ComponentActivity() {
         initAdmob()
         initApplovinMax()
     }
-    
-    override fun onStart() {
-        super.onStart()
-        
-        // Initialize remote config
-        lifecycleScope.launch {
-            try {
-                Remote.initRemote()
-                Log.d("MainActivity", "Remote config initialized successfully")
-            } catch (e: Exception) {
-                Log.e("MainActivity", "Failed to initialize remote config", e)
-            }
-        }
-    }
 }
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
