@@ -70,6 +70,7 @@ class MainActivity : ComponentActivity() {
                     AdMobMediationManager.showInterstitialAd()
                 } else {
                     Log.d("MainActivity", "Interstitial ad not ready after splash")
+                    FirebaseAnalyticsManager.logEvent("onstart_ad_not_ready")
                 }
             }
             .build()
