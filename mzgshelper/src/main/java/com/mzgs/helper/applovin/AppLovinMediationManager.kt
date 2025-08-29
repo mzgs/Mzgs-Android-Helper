@@ -17,6 +17,7 @@ import com.applovin.sdk.AppLovinSdk
 import com.applovin.sdk.AppLovinSdkConfiguration
 import com.applovin.sdk.AppLovinSdkInitializationConfiguration
 import com.applovin.sdk.AppLovinSdkSettings
+import com.mzgs.helper.MzgsHelper
 import java.lang.ref.WeakReference
 import java.util.concurrent.TimeUnit
 import kotlin.math.min
@@ -56,10 +57,17 @@ object AppLovinMediationManager : Application.ActivityLifecycleCallbacks {
             return
         }
         
+        // SAFETY: Only set test device IDs in debug builds
+        val testDeviceIds = if (MzgsHelper.isDebugMode(context)) {
+            config.testDeviceAdvertisingIds
+        } else {
+            emptyList() // Never use test device IDs in release
+        }
+        
         // Create initialization configuration using the builder pattern
         val initConfig = AppLovinSdkInitializationConfiguration.builder(config.sdkKey, context)
             .setMediationProvider(AppLovinMediationProvider.MAX)
-            .setTestDeviceAdvertisingIds(config.testDeviceAdvertisingIds)
+            .setTestDeviceAdvertisingIds(testDeviceIds)
             .build()
         
         // Initialize SDK with configuration
