@@ -32,6 +32,7 @@ class SimpleSplashHelper(private val activity: ComponentActivity) {
     private var remainingTime: Long = 0L
     private var lastPauseTime: Long = 0L
     private var isPaused: Boolean = false
+    private var onCompleteInvoked: Boolean = false
     
     class Builder(private val activity: ComponentActivity) {
         private val helper = SimpleSplashHelper(activity)
@@ -65,10 +66,29 @@ class SimpleSplashHelper(private val activity: ComponentActivity) {
                 startProgressAnimation()
             }
             
-            // Dismiss after duration
             handler = Handler(Looper.getMainLooper())
+            
+            // Trigger onComplete 1 second before dismissal
+            if (splashDuration > 1000L) {
+                handler?.postDelayed({
+                    if (!onCompleteInvoked) {
+                        onComplete?.invoke()
+                        onCompleteInvoked = true
+                    }
+                }, splashDuration - 1000L)
+            } else {
+                // If duration is 1 second or less, trigger immediately
+                if (!onCompleteInvoked) {
+                    onComplete?.invoke()
+                    onCompleteInvoked = true
+                }
+            }
+            
+            // Dismiss after full duration
             dismissRunnable = Runnable {
-                dismiss()
+                splashDialog?.dismiss()
+                progressAnimator?.cancel()
+                handler?.removeCallbacks(dismissRunnable ?: return@Runnable)
             }
             handler?.postDelayed(dismissRunnable!!, splashDuration)
         } else {
@@ -203,7 +223,7 @@ class SimpleSplashHelper(private val activity: ComponentActivity) {
         progressAnimator?.cancel()
         splashDialog?.dismiss()
         handler?.removeCallbacks(dismissRunnable ?: return)
-        onComplete?.invoke()
+        // onComplete is now called 1 second before dismissal in show()
     }
     
     fun pause() {
@@ -251,12 +271,29 @@ class SimpleSplashHelper(private val activity: ComponentActivity) {
             }
             if (dismissRunnable == null) {
                 dismissRunnable = Runnable {
-                    dismiss()
+                    splashDialog?.dismiss()
+                    progressAnimator?.cancel()
+                    handler?.removeCallbacks(dismissRunnable ?: return@Runnable)
                 }
             }
             
-            // Reschedule the dismiss with remaining time
+            // Reschedule onComplete and dismiss with remaining time
             if (remainingTime > 0) {
+                // Schedule onComplete 1 second before dismissal if not already called
+                if (remainingTime > 1000L && !onCompleteInvoked) {
+                    handler?.postDelayed({
+                        if (!onCompleteInvoked) {
+                            onComplete?.invoke()
+                            onCompleteInvoked = true
+                        }
+                    }, remainingTime - 1000L)
+                } else if (remainingTime <= 1000L && !onCompleteInvoked) {
+                    // If less than 1 second remains, call immediately
+                    onComplete?.invoke()
+                    onCompleteInvoked = true
+                }
+                
+                // Schedule dismissal
                 dismissRunnable?.let {
                     handler?.postDelayed(it, remainingTime)
                 }

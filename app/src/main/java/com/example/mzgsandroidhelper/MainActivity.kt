@@ -59,7 +59,7 @@ class MainActivity : ComponentActivity() {
         
         // Initialize Simple Splash Screen with progress
         splash = SimpleSplashHelper.Builder(this)
-            .setDuration(Remote.getLong("splash_time", 9000))
+            .setDuration(Remote.getLong("splash_time", 10000))
             .showProgress(true)
             .onComplete { 
                 Log.d("MainActivity", "Splash screen completed")
@@ -96,7 +96,7 @@ class MainActivity : ComponentActivity() {
             showBannersInDebug = true,
             showNativeAdsInDebug = true,
             showRewardedAdsInDebug = true,
-            debugRequireConsentAlways = true  // Set to true to always show consent form for testing
+            debugRequireConsentAlways = false  // Set to true to always show consent form for testing
         )
         
         AdMobMediationManager.init(
