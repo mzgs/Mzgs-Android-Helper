@@ -1,5 +1,6 @@
 package com.mzgs.helper
 
+import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.app.Activity
 import android.app.Dialog
@@ -11,6 +12,7 @@ import android.os.Looper
 import android.view.Gravity
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
@@ -33,6 +35,9 @@ class SimpleSplashHelper(private val activity: ComponentActivity) {
     private var lastPauseTime: Long = 0L
     private var isPaused: Boolean = false
     private var onCompleteInvoked: Boolean = false
+    private var rotateLogo: Boolean = false
+    private var logoRotationAnimator: ObjectAnimator? = null
+    private var logoImageView: ImageView? = null
     
     class Builder(private val activity: ComponentActivity) {
         private val helper = SimpleSplashHelper(activity)
@@ -52,6 +57,11 @@ class SimpleSplashHelper(private val activity: ComponentActivity) {
             return this
         }
         
+        fun setRotateLogo(rotate: Boolean): Builder {
+            helper.rotateLogo = rotate
+            return this
+        }
+        
         fun build(): SimpleSplashHelper = helper
     }
     
@@ -59,6 +69,11 @@ class SimpleSplashHelper(private val activity: ComponentActivity) {
         createAndShowSplash()
         
         remainingTime = splashDuration
+        
+        // Start logo rotation if enabled
+        if (rotateLogo && logoImageView != null) {
+            startLogoRotationAnimation()
+        }
         
         // Only start animation and timer if not paused
         if (!isPaused) {
@@ -133,14 +148,14 @@ class SimpleSplashHelper(private val activity: ComponentActivity) {
             setPadding(40, 0, 40, 0)
             
             // App Icon with better size
-            val icon = ImageView(context).apply {
+            logoImageView = ImageView(context).apply {
                 setImageResource(activity.applicationInfo.icon)
-                layoutParams = LinearLayout.LayoutParams(180, 180).apply {
+                layoutParams = LinearLayout.LayoutParams(240, 240).apply {
                     bottomMargin = 40
                 }
                 scaleType = ImageView.ScaleType.FIT_CENTER
             }
-            addView(icon)
+            addView(logoImageView)
             
             // App Name with dark text for white background
             val appName = TextView(context).apply {
@@ -198,7 +213,7 @@ class SimpleSplashHelper(private val activity: ComponentActivity) {
                 progressText = TextView(context).apply {
                     text = "Loading... 0%"
                     setTextColor(Color.parseColor("#757575")) // Medium gray
-                    textSize = 14f
+                    textSize = 16f
                     gravity = Gravity.CENTER
                     letterSpacing = 0.05f
                 }
@@ -219,8 +234,22 @@ class SimpleSplashHelper(private val activity: ComponentActivity) {
         }
     }
     
+    private fun startLogoRotationAnimation() {
+        logoImageView?.let { logo ->
+            // Create continuous rotation animation that always runs
+            logoRotationAnimator = ObjectAnimator.ofFloat(logo, "rotation", 0f, 360f).apply {
+                duration = 2000 // 2 seconds for one full rotation
+                repeatCount = ValueAnimator.INFINITE
+                repeatMode = ValueAnimator.RESTART
+                interpolator = AccelerateDecelerateInterpolator()
+                start()
+            }
+        }
+    }
+    
     private fun dismiss() {
         progressAnimator?.cancel()
+        logoRotationAnimator?.cancel()
         splashDialog?.dismiss()
         handler?.removeCallbacks(dismissRunnable ?: return)
         // onComplete is now called 1 second before dismissal in show()
@@ -235,6 +264,9 @@ class SimpleSplashHelper(private val activity: ComponentActivity) {
             if (splashDialog?.isShowing == true) {
                 // Pause the progress animation
                 progressAnimator?.pause()
+                
+                // Logo rotation animation continues even when paused (not affected by pause)
+                // logoRotationAnimator?.pause() // REMOVED - logo keeps rotating
                 
                 // Cancel the dismiss handler
                 dismissRunnable?.let {
@@ -264,6 +296,9 @@ class SimpleSplashHelper(private val activity: ComponentActivity) {
             } else {
                 progressAnimator?.resume()
             }
+            
+            // Logo rotation animation continues independently (not affected by resume)
+            // logoRotationAnimator?.resume() // REMOVED - logo keeps rotating
             
             // Create handler and runnable if needed
             if (handler == null) {

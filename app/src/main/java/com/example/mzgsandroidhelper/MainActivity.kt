@@ -60,6 +60,7 @@ class MainActivity : ComponentActivity() {
         // Initialize Simple Splash Screen with progress
         splash = SimpleSplashHelper.Builder(this)
             .setDuration(Remote.getLong("splash_time", 10000))
+            .setRotateLogo(true)
             .showProgress(true)
             .onComplete { 
                 Log.d("MainActivity", "Splash screen completed")
