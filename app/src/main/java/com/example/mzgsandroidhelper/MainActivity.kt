@@ -40,6 +40,7 @@ import com.mzgs.helper.applovin.AppLovinMediationManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.lifecycle.lifecycleScope
+import com.mzgs.helper.Ads
 import com.mzgs.helper.analytics.FirebaseAnalyticsManager
 
 class MainActivity : ComponentActivity() {
@@ -56,7 +57,9 @@ class MainActivity : ComponentActivity() {
         // Optional: pass custom URL like Remote.init(this, "https://your-config-url.com/config.json")
         Remote.init(this)
 
-        
+
+        Ads.showInterstitial(this)
+
         // Initialize Simple Splash Screen with progress
         splash = SimpleSplashHelper.Builder(this)
             .setDuration(Remote.getLong("splash_time", 10000))
