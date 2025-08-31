@@ -1,5 +1,6 @@
 package com.mzgs.helper
 
+import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.app.Activity
@@ -36,7 +37,7 @@ class SimpleSplashHelper(private val activity: ComponentActivity) {
     private var isPaused: Boolean = false
     private var onCompleteInvoked: Boolean = false
     private var rotateLogo: Boolean = false
-    private var logoRotationAnimator: ObjectAnimator? = null
+    private var logoAnimatorSet: AnimatorSet? = null
     private var logoImageView: ImageView? = null
     
     class Builder(private val activity: ComponentActivity) {
@@ -236,12 +237,33 @@ class SimpleSplashHelper(private val activity: ComponentActivity) {
     
     private fun startLogoRotationAnimation() {
         logoImageView?.let { logo ->
-            // Create continuous rotation animation that always runs
-            logoRotationAnimator = ObjectAnimator.ofFloat(logo, "rotation", 0f, 360f).apply {
-                duration = 2000 // 2 seconds for one full rotation
+            // Create rotation animation
+            val rotationAnimator = ObjectAnimator.ofFloat(logo, "rotation", 0f, 360f).apply {
+                duration = 1500 // 1.5 seconds for one full rotation (faster)
                 repeatCount = ValueAnimator.INFINITE
                 repeatMode = ValueAnimator.RESTART
                 interpolator = AccelerateDecelerateInterpolator()
+            }
+            
+            // Create pulse animation for scaleX
+            val pulseScaleX = ObjectAnimator.ofFloat(logo, "scaleX", 1f, 1.15f, 1f).apply {
+                duration = 1500 // 1.5 seconds for one pulse
+                repeatCount = ValueAnimator.INFINITE
+                repeatMode = ValueAnimator.RESTART
+                interpolator = AccelerateDecelerateInterpolator()
+            }
+            
+            // Create pulse animation for scaleY
+            val pulseScaleY = ObjectAnimator.ofFloat(logo, "scaleY", 1f, 1.15f, 1f).apply {
+                duration = 1500 // 1.5 seconds for one pulse
+                repeatCount = ValueAnimator.INFINITE
+                repeatMode = ValueAnimator.RESTART
+                interpolator = AccelerateDecelerateInterpolator()
+            }
+            
+            // Combine all animations
+            logoAnimatorSet = AnimatorSet().apply {
+                playTogether(rotationAnimator, pulseScaleX, pulseScaleY)
                 start()
             }
         }
@@ -249,7 +271,7 @@ class SimpleSplashHelper(private val activity: ComponentActivity) {
     
     private fun dismiss() {
         progressAnimator?.cancel()
-        logoRotationAnimator?.cancel()
+        logoAnimatorSet?.cancel()
         splashDialog?.dismiss()
         handler?.removeCallbacks(dismissRunnable ?: return)
         // onComplete is now called 1 second before dismissal in show()
