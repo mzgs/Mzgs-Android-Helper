@@ -56,9 +56,12 @@ class MainActivity : ComponentActivity() {
         // Remote.init now handles both context and async config fetching
         // Optional: pass custom URL like Remote.init(this, "https://your-config-url.com/config.json")
         Remote.init(this)
+        
+        // Initialize Ads helper (required for Ads class to work)
+        Ads.init(this)
 
 
-        Ads.showInterstitial(this)
+
 
         // Initialize Simple Splash Screen with progress
         splash = SimpleSplashHelper.Builder(this)
@@ -83,7 +86,7 @@ class MainActivity : ComponentActivity() {
         splash.pause()
         splash.show()
         
-        // Initialize AdMob with consent handling
+        // Method 1: Initialize AdMob using Ads helper class (Simplified)
         val adConfig = AdMobConfig(
             appId = "",
             bannerAdUnitId = "",
@@ -104,14 +107,14 @@ class MainActivity : ComponentActivity() {
             debugRequireConsentAlways = false  // Set to true to always show consent form for testing
         )
         
-        AdMobMediationManager.init(
-            context = this,
+        // Using Ads helper for initialization (NEW - Easier way, no context needed!)
+        Ads.initAdMob(
             config = adConfig,
             onInitComplete = {
                 Log.d("MainActivity", "AdMob initialized")
                 
                 // Request consent info update
-                // SAFETY: Debug settings only apply in debug builds
+                // Check if app is in debug mode for consent testing
                 val isDebugMode = MzgsHelper.isDebugMode(this)
                 AdMobMediationManager.requestConsentInfoUpdate(
                     underAgeOfConsent = false,
@@ -187,6 +190,9 @@ class MainActivity : ComponentActivity() {
     
 
     
+    // Example: Three different ways to initialize and use ads
+    
+    // Method 2: Using separate initialization methods
     private fun initAdmob() {
         val adConfig = AdMobConfig(
             appId = "",
@@ -229,6 +235,7 @@ class MainActivity : ComponentActivity() {
         )
     }
     
+    // Method 3: Initialize AppLovin MAX directly
     private fun initApplovinMax() {
         val appLovinConfig = AppLovinConfig(
             sdkKey = "sTOrf_0s7y7dzVqfTPRR0Ck_synT0Xrs0DgfChVKedyc7nGgAi6BwrAnnxEoT3dTHJ7T0dpfFmGNXX3hE9u9_2",
@@ -252,9 +259,20 @@ class MainActivity : ComponentActivity() {
         )
     }
     
+    // Example: Initialize both ad networks
     private fun initializeAds() {
+        // You can initialize both networks separately
         initAdmob()
         initApplovinMax()
+        
+        // After initialization, you can use the Ads class to show ads
+        // The Ads class will automatically use the first available ad network
+        // based on the order configured in Remote config (ads_order)
+        
+        // Example usage after initialization:
+        // Ads.showInterstitial() - Shows interstitial from first available network
+        // Ads.showRewardedAd() - Shows rewarded ad from first available network
+        // Ads.showBanner(activity, container) - Shows banner from first available network
     }
 }
 

@@ -1,23 +1,124 @@
 package com.mzgs.helper
 
 import android.app.Activity
+import android.app.Application
 import android.content.Context
+import android.os.Bundle
 import android.util.Log
 import android.view.ViewGroup
 import com.google.android.gms.ads.LoadAdError
 import com.applovin.mediation.MaxError
+import com.mzgs.helper.admob.AdMobConfig
 import com.mzgs.helper.admob.AdMobMediationManager
+import com.mzgs.helper.applovin.AppLovinConfig
 import com.mzgs.helper.applovin.AppLovinMediationManager
+import java.lang.ref.WeakReference
 
-object Ads {
+object Ads : Application.ActivityLifecycleCallbacks {
     private const val TAG = "Ads"
     private const val ADMOB = "admob"
     private const val APPLOVIN_MAX = "applovin_max"
     
     private var applicationContext: Context? = null
+    private var currentActivityRef: WeakReference<Activity>? = null
     
     fun init(context: Context) {
         applicationContext = context.applicationContext
+        
+        // Register for activity lifecycle callbacks
+        if (context is Activity) {
+            currentActivityRef = WeakReference(context)
+            context.application.registerActivityLifecycleCallbacks(this)
+        } else if (context is Application) {
+            context.registerActivityLifecycleCallbacks(this)
+        } else if (context.applicationContext is Application) {
+            (context.applicationContext as Application).registerActivityLifecycleCallbacks(this)
+        }
+    }
+    
+    fun getCurrentActivity(): Activity? {
+        return currentActivityRef?.get()
+    }
+    
+    @JvmStatic
+    fun initAdMob(
+        config: AdMobConfig,
+        onInitComplete: () -> Unit = {}
+    ) {
+        val context = applicationContext
+        if (context == null) {
+            Log.e(TAG, "Ads.init() must be called before initAdMob()")
+            return
+        }
+        Log.d(TAG, "Initializing AdMob through Ads helper")
+        AdMobMediationManager.init(context, config, onInitComplete)
+    }
+    
+    @JvmStatic
+    fun initAppLovinMax(
+        config: AppLovinConfig,
+        onInitComplete: () -> Unit = {}
+    ) {
+        val context = applicationContext
+        if (context == null) {
+            Log.e(TAG, "Ads.init() must be called before initAppLovinMax()")
+            return
+        }
+        Log.d(TAG, "Initializing AppLovin MAX through Ads helper")
+        AppLovinMediationManager.init(context, config, onInitComplete)
+    }
+    
+    @JvmStatic
+    fun initBothNetworks(
+        adMobConfig: AdMobConfig,
+        appLovinConfig: AppLovinConfig,
+        onBothInitComplete: () -> Unit = {}
+    ) {
+        val context = applicationContext
+        if (context == null) {
+            Log.e(TAG, "Ads.init() must be called before initBothNetworks()")
+            return
+        }
+        
+        var adMobInitialized = false
+        var appLovinInitialized = false
+        
+        fun checkBothInitialized() {
+            if (adMobInitialized && appLovinInitialized) {
+                Log.d(TAG, "Both ad networks initialized successfully")
+                onBothInitComplete()
+            }
+        }
+        
+        initAdMob(adMobConfig) {
+            adMobInitialized = true
+            checkBothInitialized()
+        }
+        
+        initAppLovinMax(appLovinConfig) {
+            appLovinInitialized = true
+            checkBothInitialized()
+        }
+    }
+    
+    @JvmStatic
+    fun getAdMobManager(): AdMobMediationManager? {
+        val context = applicationContext
+        if (context == null) {
+            Log.e(TAG, "Ads.init() must be called before getAdMobManager()")
+            return null
+        }
+        return AdMobMediationManager.getInstance(context)
+    }
+    
+    @JvmStatic
+    fun getAppLovinManager(): AppLovinMediationManager? {
+        val context = applicationContext
+        if (context == null) {
+            Log.e(TAG, "Ads.init() must be called before getAppLovinManager()")
+            return null
+        }
+        return AppLovinMediationManager.getInstance(context)
     }
     
     private fun getAdsOrder(): List<String> {
@@ -27,6 +128,7 @@ object Ads {
     @JvmStatic
     fun showInterstitial(): Boolean {
         val context = applicationContext ?: return false
+        val activity = currentActivityRef?.get()
         val adsOrder = getAdsOrder()
         
         Log.d(TAG, "Attempting to show interstitial with order: $adsOrder")
@@ -42,8 +144,14 @@ object Ads {
                 }
                 ADMOB -> {
                     if (AdMobMediationManager.isInterstitialReady()) {
-                        Log.d(TAG, "Showing AdMob interstitial")
-                        return AdMobMediationManager.showInterstitialAd()
+                        if (activity != null) {
+                            // Update AdMob's current activity
+                            AdMobMediationManager.setCurrentActivity(activity)
+                            Log.d(TAG, "Showing AdMob interstitial")
+                            return AdMobMediationManager.showInterstitialAd()
+                        } else {
+                            Log.e(TAG, "No current activity available for AdMob interstitial")
+                        }
                     }
                     Log.d(TAG, "AdMob interstitial not ready, trying next")
                 }
@@ -136,6 +244,7 @@ object Ads {
     @JvmStatic
     fun showRewardedAd(): Boolean {
         val context = applicationContext ?: return false
+        val activity = currentActivityRef?.get()
         val adsOrder = getAdsOrder()
         
         Log.d(TAG, "Attempting to show rewarded ad with order: $adsOrder")
@@ -151,8 +260,14 @@ object Ads {
                 }
                 ADMOB -> {
                     if (AdMobMediationManager.isRewardedReady()) {
-                        Log.d(TAG, "Showing AdMob rewarded ad")
-                        return AdMobMediationManager.showRewardedAd()
+                        if (activity != null) {
+                            // Update AdMob's current activity
+                            AdMobMediationManager.setCurrentActivity(activity)
+                            Log.d(TAG, "Showing AdMob rewarded ad")
+                            return AdMobMediationManager.showRewardedAd()
+                        } else {
+                            Log.e(TAG, "No current activity available for AdMob rewarded ad")
+                        }
                     }
                     Log.d(TAG, "AdMob rewarded ad not ready, trying next")
                 }
@@ -331,6 +446,7 @@ object Ads {
     @JvmStatic
     fun showAppOpenAd(): Boolean {
         val context = applicationContext ?: return false
+        val activity = currentActivityRef?.get()
         val adsOrder = getAdsOrder()
         
         Log.d(TAG, "Attempting to show app open ad with order: $adsOrder")
@@ -348,12 +464,12 @@ object Ads {
                 }
                 ADMOB -> {
                     val appOpenManager = com.mzgs.helper.admob.AppOpenAdManager.getInstance()
-                    if (appOpenManager != null && context is Activity) {
+                    if (appOpenManager != null && activity != null) {
                         Log.d(TAG, "Attempting to show AdMob app open ad")
-                        appOpenManager.showAdIfAvailable(context)
+                        appOpenManager.showAdIfAvailable(activity)
                         return true
                     }
-                    Log.d(TAG, "AdMob app open ad not ready or context not an activity, trying next")
+                    Log.d(TAG, "AdMob app open ad not ready or no activity available, trying next")
                 }
                 else -> {
                     Log.w(TAG, "Unknown ad network: $network")
@@ -372,5 +488,42 @@ object Ads {
         MEDIUM_RECTANGLE,
         FULL_BANNER,
         LEADERBOARD
+    }
+    
+    // Activity Lifecycle Callbacks
+    override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
+        // Not needed
+    }
+    
+    override fun onActivityStarted(activity: Activity) {
+        // Not needed
+    }
+    
+    override fun onActivityResumed(activity: Activity) {
+        currentActivityRef = WeakReference(activity)
+        // Also update AdMobMediationManager's current activity
+        AdMobMediationManager.setCurrentActivity(activity)
+    }
+    
+    override fun onActivityPaused(activity: Activity) {
+        if (currentActivityRef?.get() == activity) {
+            currentActivityRef = null
+        }
+    }
+    
+    override fun onActivityStopped(activity: Activity) {
+        // Not needed
+    }
+    
+    override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {
+        // Not needed
+    }
+    
+    override fun onActivityDestroyed(activity: Activity) {
+        if (currentActivityRef?.get() == activity) {
+            currentActivityRef = null
+            // Also clear AdMobMediationManager's current activity
+            AdMobMediationManager.setCurrentActivity(null)
+        }
     }
 }
