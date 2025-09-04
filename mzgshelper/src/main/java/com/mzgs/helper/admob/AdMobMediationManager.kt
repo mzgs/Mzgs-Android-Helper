@@ -26,16 +26,16 @@ import com.google.android.ump.FormError
 import com.google.android.ump.UserMessagingPlatform
 import com.mzgs.helper.MzgsHelper
 import com.mzgs.helper.p
+import com.mzgs.helper.Ads
 import java.lang.ref.WeakReference
 
-object AdMobMediationManager : Application.ActivityLifecycleCallbacks {
+object AdMobMediationManager {
     
     private const val TAG = "AdMobMediation"
     private var isInitialized = false
     private const val MAX_RETRY_ATTEMPTS = 6 // Allow up to 6 retries for exponential backoff
     
     private var contextRef: WeakReference<Context>? = null
-    private var currentActivityRef: WeakReference<Activity>? = null
     private var adConfig: AdMobConfig? = null
     private var interstitialAd: InterstitialAd? = null
     private var rewardedAd: RewardedAd? = null
@@ -48,14 +48,9 @@ object AdMobMediationManager : Application.ActivityLifecycleCallbacks {
         this.adConfig = config
         this.consentInformation = UserMessagingPlatform.getConsentInformation(context)
         
-        // If context is an activity, store it as current activity
-        if (context is Activity) {
-            this.currentActivityRef = WeakReference(context)
-        }
+        // Activity tracking is handled by Ads class
         
-        // Register activity lifecycle callbacks to track current activity
-        val application = context.applicationContext as? Application
-        application?.registerActivityLifecycleCallbacks(this)
+        // Activity tracking is handled by Ads class
         
         if (isInitialized) {
             Log.d(TAG, "AdMob already initialized")
@@ -140,10 +135,11 @@ object AdMobMediationManager : Application.ActivityLifecycleCallbacks {
     }
     
     @JvmStatic
+    @Deprecated("Use Ads.getCurrentActivity() instead. Activity tracking is centralized in Ads class.")
     fun setCurrentActivity(activity: Activity?) {
-        activity?.let {
-            currentActivityRef = WeakReference(it)
-        }
+        // This method is kept for backward compatibility but does nothing
+        // Activity tracking is now centralized in the Ads class
+        Log.d(TAG, "setCurrentActivity called - activity tracking is now handled by Ads class")
     }
     
     @JvmStatic
@@ -170,7 +166,7 @@ object AdMobMediationManager : Application.ActivityLifecycleCallbacks {
             params.setConsentDebugSettings(debugSettings)
         }
         
-        val activity = currentActivityRef?.get() ?: (ctx as? Activity)
+        val activity = Ads.getCurrentActivity() ?: (ctx as? Activity)
         if (activity == null) {
             Log.e(TAG, "No activity available for consent info update")
             onConsentInfoUpdateFailure("No activity available")
@@ -473,7 +469,7 @@ object AdMobMediationManager : Application.ActivityLifecycleCallbacks {
     
     @JvmStatic
     fun showInterstitialAd(onAdDismissed: (() -> Unit)? = null): Boolean {
-        val activity = currentActivityRef?.get()
+        val activity = Ads.getCurrentActivity()
         if (activity == null) {
             Log.e(TAG, "No current activity available to show interstitial ad")
             onAdDismissed?.invoke()
@@ -651,7 +647,7 @@ object AdMobMediationManager : Application.ActivityLifecycleCallbacks {
     fun showRewardedAd(
         onUserEarnedReward: (RewardItem) -> Unit = {}
     ): Boolean {
-        val activity = currentActivityRef?.get()
+        val activity = Ads.getCurrentActivity()
         if (activity == null) {
             Log.e(TAG, "No current activity available to show rewarded ad")
             return false
@@ -796,7 +792,7 @@ object AdMobMediationManager : Application.ActivityLifecycleCallbacks {
     fun showRewardedInterstitialAd(
         onUserEarnedReward: (RewardItem) -> Unit = {}
     ): Boolean {
-        val activity = currentActivityRef?.get()
+        val activity = Ads.getCurrentActivity()
         if (activity == null) {
             Log.e(TAG, "No current activity available to show rewarded interstitial ad")
             return false
@@ -872,28 +868,6 @@ object AdMobMediationManager : Application.ActivityLifecycleCallbacks {
         return TimeUnit.SECONDS.toMillis(2.0.pow(exponent).toLong())
     }
     
-    // Activity Lifecycle Callbacks
-    override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
-    
-    override fun onActivityStarted(activity: Activity) {}
-    
-    override fun onActivityResumed(activity: Activity) {
-        currentActivityRef = WeakReference(activity)
-    }
-    
-    override fun onActivityPaused(activity: Activity) {
-        if (currentActivityRef?.get() == activity) {
-            currentActivityRef = null
-        }
-    }
-    
-    override fun onActivityStopped(activity: Activity) {}
-    
-    override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
-    
-    override fun onActivityDestroyed(activity: Activity) {
-        if (currentActivityRef?.get() == activity) {
-            currentActivityRef = null
-        }
-    }
+    // Note: Activity lifecycle tracking is handled by the Ads class
+    // AdMobMediationManager gets activity reference from Ads when needed
 }

@@ -85,6 +85,7 @@ object Ads : Application.ActivityLifecycleCallbacks {
         }
     }
     
+    @JvmStatic
     fun getCurrentActivity(): Activity? {
         return currentActivityRef?.get()
     }
@@ -195,8 +196,7 @@ object Ads : Application.ActivityLifecycleCallbacks {
                 ADMOB -> {
                     if (AdMobMediationManager.isInterstitialReady()) {
                         if (activity != null) {
-                            // Update AdMob's current activity
-                            AdMobMediationManager.setCurrentActivity(activity)
+                            // Activity is now tracked automatically via lifecycle callbacks
                             Log.d(TAG, "Showing AdMob interstitial")
                             return AdMobMediationManager.showInterstitialAd()
                         } else {
@@ -316,8 +316,7 @@ object Ads : Application.ActivityLifecycleCallbacks {
                 ADMOB -> {
                     if (AdMobMediationManager.isRewardedReady()) {
                         if (activity != null) {
-                            // Update AdMob's current activity
-                            AdMobMediationManager.setCurrentActivity(activity)
+                            // Activity is now tracked automatically via lifecycle callbacks
                             Log.d(TAG, "Showing AdMob rewarded ad")
                             return AdMobMediationManager.showRewardedAd()
                         } else {
@@ -556,28 +555,40 @@ object Ads : Application.ActivityLifecycleCallbacks {
     }
     
     // Activity Lifecycle Callbacks
+    // Automatic Activity Lifecycle Tracking
     override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
-        // Not needed
+        Log.d(TAG, "Activity created: ${activity.javaClass.simpleName}")
     }
     
     override fun onActivityStarted(activity: Activity) {
-        // Not needed
+        // Update activity reference when activity becomes visible
+        currentActivityRef = WeakReference(activity)
+        Log.d(TAG, "Activity started, auto-tracking: ${activity.javaClass.simpleName}")
     }
     
     override fun onActivityResumed(activity: Activity) {
+        // Activity is in foreground, definitely our current activity
         currentActivityRef = WeakReference(activity)
-        // Also update AdMobMediationManager's current activity
-        AdMobMediationManager.setCurrentActivity(activity)
+        Log.d(TAG, "Activity resumed, current activity auto-set to: ${activity.javaClass.simpleName}")
+        // Note: AdMobMediationManager now tracks its own activity automatically
     }
     
     override fun onActivityPaused(activity: Activity) {
-        if (currentActivityRef?.get() == activity) {
-            currentActivityRef = null
-        }
+        // Activity going to background, but don't clear yet - another activity might be starting
+        Log.d(TAG, "Activity paused: ${activity.javaClass.simpleName}")
     }
     
     override fun onActivityStopped(activity: Activity) {
-        // Not needed
+        // Clear reference only if this was the current activity and no new one has taken over
+        if (currentActivityRef?.get() == activity) {
+            // Small delay to check if another activity is taking over
+            Handler(Looper.getMainLooper()).postDelayed({
+                if (currentActivityRef?.get() == activity) {
+                    currentActivityRef = null
+                    Log.d(TAG, "Activity stopped and reference cleared: ${activity.javaClass.simpleName}")
+                }
+            }, 100)
+        }
     }
     
     override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {
@@ -587,8 +598,7 @@ object Ads : Application.ActivityLifecycleCallbacks {
     override fun onActivityDestroyed(activity: Activity) {
         if (currentActivityRef?.get() == activity) {
             currentActivityRef = null
-            // Also clear AdMobMediationManager's current activity
-            AdMobMediationManager.setCurrentActivity(null)
+            Log.d(TAG, "Activity destroyed and reference cleared: ${activity.javaClass.simpleName}")
         }
     }
 }

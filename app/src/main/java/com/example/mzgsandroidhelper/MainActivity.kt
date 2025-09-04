@@ -106,11 +106,7 @@ class MainActivity : ComponentActivity() {
             appLovinConfig  ,
             onFinish = {
                 Log.d("MainActivity", "Splash and ad sequence completed")
-                setContent {
-                    MzgsAndroidHelperTheme {
-                        AdMobTestScreen()
-                    }
-                }
+
 
             },
             onFinishAndApplovinReady = {
@@ -122,7 +118,11 @@ class MainActivity : ComponentActivity() {
             }
         )
 
-
+        setContent {
+            MzgsAndroidHelperTheme {
+                AdMobTestScreen()
+            }
+        }
 
     }
 
@@ -395,7 +395,10 @@ fun AdsHelperCard() {
     var userCoins by remember { mutableStateOf(0) }
     
     // Load ads on initialization
-    LaunchedEffect(Unit) {
+    LaunchedEffect(activity) {
+        // Activity is now automatically tracked via lifecycle callbacks
+        Log.d("AdsHelper", "Activity auto-tracked for AdMob")
+        
         // Load interstitial ad
         AdMobMediationManager.loadInterstitialAd(
             onAdLoaded = {
@@ -489,8 +492,7 @@ fun AdsHelperCard() {
                                     snackbarHostState.showSnackbar("Interstitial not ready")
                                 }
                             }
-                        },
-                        enabled = Ads.isAnyInterstitialReady()
+                        }
                     ) {
                         Text("Show")
                     }
@@ -530,7 +532,7 @@ fun AdsHelperCard() {
                     Button(
                         onClick = {
                             activity?.let { act ->
-                                AdMobMediationManager.setCurrentActivity(act)
+                                // Activity is auto-tracked via lifecycle callbacks
                                 if (AdMobMediationManager.showRewardedAd(
                                     activity = act,
                                     onUserEarnedReward = { reward ->
@@ -547,8 +549,7 @@ fun AdsHelperCard() {
                                     AdMobMediationManager.loadRewardedAd()
                                 }
                             }
-                        },
-                        enabled = Ads.isAnyRewardedAdReady()
+                        }
                     ) {
                         Text("Watch (+10)")
                     }
@@ -584,7 +585,7 @@ fun AdsHelperCard() {
                     Button(
                         onClick = {
                             activity?.let { act ->
-                                AdMobMediationManager.setCurrentActivity(act)
+                                // Activity is auto-tracked via lifecycle callbacks
                                 if (AdMobMediationManager.showRewardedInterstitialAd(
                                     activity = act,
                                     onUserEarnedReward = { reward ->
@@ -599,10 +600,13 @@ fun AdsHelperCard() {
                                     rewardedInterstitialLoaded = false
                                     // Reload for next time
                                     AdMobMediationManager.loadRewardedInterstitialAd()
+                                } else {
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("Rewarded interstitial not ready")
+                                    }
                                 }
                             }
-                        },
-                        enabled = rewardedInterstitialLoaded
+                        }
                     ) {
                         Text("Show")
                     }
@@ -657,36 +661,40 @@ fun AdsHelperCard() {
                 Column(
                     modifier = Modifier.padding(12.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "Banner Ad",
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            "Auto-displayed below",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
+                    Text(
+                        "Banner Ad (Adaptive)",
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
                     
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    // Banner container
-                    AndroidView(
+                    // Banner container - always visible
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(60.dp),
-                        factory = { ctx ->
-                            FrameLayout(ctx).apply {
-                                activity?.let { act ->
-                                    Ads.showBanner(act, this, Ads.BannerSize.ADAPTIVE)
+                            .heightIn(min = 50.dp)
+                            .wrapContentHeight(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AndroidView(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .wrapContentHeight(),
+                            factory = { ctx ->
+                                FrameLayout(ctx).apply {
+                                    layoutParams = FrameLayout.LayoutParams(
+                                        FrameLayout.LayoutParams.MATCH_PARENT,
+                                        FrameLayout.LayoutParams.WRAP_CONTENT
+                                    )
+                                    // Load banner immediately when view is created
+                                    activity?.let { act ->
+                                        // Activity is auto-tracked via lifecycle callbacks
+                                        Log.d("AdsHelper", "Loading banner ad on create")
+                                        Ads.showBanner(act, this, Ads.BannerSize.ADAPTIVE)
+                                    }
                                 }
                             }
-                        }
-                    )
+                        )
+                    }
                 }
             }
             
@@ -702,24 +710,38 @@ fun AdsHelperCard() {
                 ) {
                     Text(
                         "MREC Ad (300x250)",
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 8.dp)
                     )
                     
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    // MREC container
-                    AndroidView(
+                    // MREC container - always visible
+                    Card(
                         modifier = Modifier
-                            .fillMaxWidth()
+                            .width(300.dp)
                             .height(250.dp),
-                        factory = { ctx ->
-                            FrameLayout(ctx).apply {
-                                activity?.let { act ->
-                                    Ads.showMREC(act, this)
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        )
+                    ) {
+                        AndroidView(
+                            modifier = Modifier.fillMaxSize(),
+                            factory = { ctx ->
+                                FrameLayout(ctx).apply {
+                                    layoutParams = FrameLayout.LayoutParams(
+                                        FrameLayout.LayoutParams.MATCH_PARENT,
+                                        FrameLayout.LayoutParams.MATCH_PARENT
+                                    )
+                                    // Load MREC immediately when view is created
+                                    activity?.let { act ->
+                                        // Activity is auto-tracked via lifecycle callbacks
+                                        Log.d("AdsHelper", "Loading MREC ad on create")
+                                        Ads.showMREC(act, this)
+                                    }
                                 }
                             }
-                        }
-                    )
+                        )
+                    }
                 }
             }
             
