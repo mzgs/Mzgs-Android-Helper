@@ -175,21 +175,52 @@ class SimpleSplashHelper(private val activity: ComponentActivity) {
             addView(appName)
             
             if (showProgress) {
-                // Progress Bar with blue color for white background
+                // Progress Bar with beautiful green gradient and rounded corners
                 progressBar = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal).apply {
                     layoutParams = LinearLayout.LayoutParams(
-                        600,
-                        12
+                        700,
+                        36  // Much thicker progress bar
                     ).apply {
-                        bottomMargin = 20
+                        bottomMargin = 28
                     }
                     max = 100
                     progress = 0
-                    // Blue progress bar
-                    progressDrawable.setColorFilter(
-                        Color.parseColor("#2196F3"),
-                        android.graphics.PorterDuff.Mode.SRC_IN
+                    
+                    // Create custom drawable with rounded corners and green gradient
+                    val progressDrawable = android.graphics.drawable.LayerDrawable(
+                        arrayOf(
+                            // Background track
+                            GradientDrawable().apply {
+                                cornerRadius = 18f
+                                setColor(Color.parseColor("#E0E0E0"))
+                            },
+                            // Secondary progress (not used)
+                            GradientDrawable().apply {
+                                cornerRadius = 18f
+                                setColor(Color.TRANSPARENT)
+                            },
+                            // Primary progress with green gradient
+                            android.graphics.drawable.ClipDrawable(
+                                GradientDrawable().apply {
+                                    cornerRadius = 18f
+                                    colors = intArrayOf(
+                                        Color.parseColor("#81C784"), // Light green
+                                        Color.parseColor("#4CAF50"), // Medium green
+                                        Color.parseColor("#388E3C")  // Dark green
+                                    )
+                                    orientation = GradientDrawable.Orientation.LEFT_RIGHT
+                                },
+                                Gravity.START,
+                                android.graphics.drawable.ClipDrawable.HORIZONTAL
+                            )
+                        )
                     )
+                    
+                    progressDrawable.setId(0, android.R.id.background)
+                    progressDrawable.setId(1, android.R.id.secondaryProgress)
+                    progressDrawable.setId(2, android.R.id.progress)
+                    
+                    this.progressDrawable = progressDrawable
                 }
                 addView(progressBar)
                 
@@ -202,21 +233,23 @@ class SimpleSplashHelper(private val activity: ComponentActivity) {
                         bottomMargin = 20
                     }
                     visibility = android.view.View.GONE
-                    // Blue circular progress
+                    // Green circular progress to match
                     indeterminateDrawable?.setColorFilter(
-                        Color.parseColor("#2196F3"),
+                        Color.parseColor("#4CAF50"),
                         android.graphics.PorterDuff.Mode.SRC_IN
                     )
                 }
                 addView(circularProgressBar)
                 
-                // Progress Text with dark color
+                // Progress Text - just percentage
                 progressText = TextView(context).apply {
-                    text = "Loading... 0%"
-                    setTextColor(Color.parseColor("#757575")) // Medium gray
-                    textSize = 16f
+                    text = "0%"
+                    setTextColor(Color.parseColor("#424242")) // Darker gray for better contrast
+                    textSize = 20f
                     gravity = Gravity.CENTER
-                    letterSpacing = 0.05f
+                    letterSpacing = 0.1f
+                    setTypeface(null, android.graphics.Typeface.BOLD)
+                    setPadding(0, 8, 0, 0)
                 }
                 addView(progressText)
             }
@@ -226,10 +259,11 @@ class SimpleSplashHelper(private val activity: ComponentActivity) {
     private fun startProgressAnimation() {
         progressAnimator = ValueAnimator.ofInt(0, 100).apply {
             duration = splashDuration
+            interpolator = AccelerateDecelerateInterpolator() // Smooth acceleration/deceleration
             addUpdateListener { animator ->
                 val progress = animator.animatedValue as Int
                 progressBar?.progress = progress
-                progressText?.text = "Loading... $progress%"
+                progressText?.text = "$progress%"
             }
             start()
         }

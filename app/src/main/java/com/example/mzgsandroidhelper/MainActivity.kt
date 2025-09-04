@@ -53,8 +53,8 @@ class MainActivity : ComponentActivity() {
         
         // Initialize Firebase Analytics and Remote
         FirebaseAnalyticsManager.initialize(this)
-        // Remote.init now handles both context and async config fetching
-        // Optional: pass custom URL like Remote.init(this, "https://your-config-url.com/config.json")
+        // Remote.init now handles network failures gracefully
+        // The Remote class has default values built into getter functions
         Remote.init(this)
         
         // Initialize Ads helper (required for Ads class to work)

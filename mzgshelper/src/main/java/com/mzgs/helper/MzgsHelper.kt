@@ -133,8 +133,36 @@ object Remote {
      */
     fun init(context: Context, url: String? = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/nest.json") {
         applicationContext = context.applicationContext
+        
+        // Initialize with empty config immediately (will use default values from getter functions)
+        app = JSONObject()
+        
+        // Try to fetch remote config asynchronously
         url?.takeIf { it.isNotEmpty() }?.let { configUrl ->
-            CoroutineScope(Dispatchers.IO).launch { fetchRemoteConfig(configUrl) }
+            CoroutineScope(Dispatchers.IO).launch { 
+                // Check network connectivity before attempting to fetch
+                if (isNetworkAvailable(context)) {
+                    fetchRemoteConfig(configUrl)
+                } else {
+                    Log.w("Remote", "Network not available, using default values")
+                }
+            }
+        }
+    }
+    
+    /**
+     * Check if network is available
+     */
+    private fun isNetworkAvailable(context: Context): Boolean {
+        return try {
+            val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val network = connectivityManager.activeNetwork
+            val capabilities = connectivityManager.getNetworkCapabilities(network)
+            capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true &&
+                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
+        } catch (e: Exception) {
+            Log.e("Remote", "Error checking network availability", e)
+            false
         }
     }
     
@@ -155,11 +183,17 @@ object Remote {
 
                     if (app == null || app?.length() == 0) {
                         app = JSONObject()
+                        Log.i("Remote", "No config found for package, using defaults")
+                    } else {
+                        Log.i("Remote", "Successfully fetched remote config")
                     }
                 }
+            } ?: run {
+                Log.w("Remote", "Empty response from remote config, using defaults")
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.w("Remote", "Failed to fetch remote config, using defaults: ${e.message}")
+            // Keep the already initialized empty JSONObject, which will use defaults
         }
     }
 
@@ -249,18 +283,16 @@ object Remote {
 
     // Helper functions that would need to be implemented elsewhere or added here
     private suspend fun makeRequest(url: String, timeoutMs: Int): String? {
-        // Implementation would depend on your HTTP client
-        // Example using simple URL connection:
         return withContext(Dispatchers.IO) {
             try {
                 val connection = URL(url).openConnection()
                 connection.connectTimeout = timeoutMs
                 connection.readTimeout = timeoutMs
                 connection.connect()
-
+                
                 connection.getInputStream().bufferedReader().use { it.readText() }
             } catch (e: Exception) {
-                e.printStackTrace()
+                Log.e("Remote", "Request failed: ${e.message}")
                 null
             }
         }
