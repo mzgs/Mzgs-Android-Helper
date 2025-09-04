@@ -45,49 +45,18 @@ import com.mzgs.helper.analytics.FirebaseAnalyticsManager
 
 class MainActivity : ComponentActivity() {
     
-    private lateinit var splash: SimpleSplashHelper
-    
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
-        // Initialize Firebase Analytics and Remote
+
         FirebaseAnalyticsManager.initialize(this)
-        // Remote.init now handles network failures gracefully
-        // The Remote class has default values built into getter functions
         Remote.init(this)
-        
-        // Initialize Ads helper (required for Ads class to work)
         Ads.init(this)
 
 
-
-
-        // Initialize Simple Splash Screen with progress
-        splash = SimpleSplashHelper.Builder(this)
-            .setDuration(Remote.getLong("splash_time", 10000))
-            .setRotateLogo(true)
-            .showProgress(true)
-            .onComplete { 
-                Log.d("MainActivity", "Splash screen completed")
-                
-                // Show interstitial ad if ready
-                if (AdMobMediationManager.isInterstitialReady()) {
-                    Log.d("MainActivity", "Showing interstitial ad after splash")
-                    AdMobMediationManager.showInterstitialAd()
-                } else {
-                    Log.d("MainActivity", "Interstitial ad not ready after splash")
-                    FirebaseAnalyticsManager.logEvent("onstart_ad_not_ready")
-                }
-            }
-            .build()
-
-        // Start splash screen normally
-        splash.pause()
-        splash.show()
-        
-        // Method 1: Initialize AdMob using Ads helper class (Simplified)
-        val adConfig = AdMobConfig(
+        val admobConfig = AdMobConfig(
             appId = "",
             bannerAdUnitId = "",
             interstitialAdUnitId = "",
@@ -106,81 +75,25 @@ class MainActivity : ComponentActivity() {
             showRewardedAdsInDebug = true,
             debugRequireConsentAlways = false  // Set to true to always show consent form for testing
         )
-        
-        // Using Ads helper for initialization (NEW - Easier way, no context needed!)
-        Ads.initAdMob(
-            config = adConfig,
-            onInitComplete = {
-                Log.d("MainActivity", "AdMob initialized")
-                
-                // Request consent info update
-                // Check if app is in debug mode for consent testing
-                val isDebugMode = MzgsHelper.isDebugMode(this)
-                AdMobMediationManager.requestConsentInfoUpdate(
-                    underAgeOfConsent = false,
-                    debugGeography = if (isDebugMode && adConfig.debugRequireConsentAlways) 
-                        ConsentDebugSettings.DebugGeography.DEBUG_GEOGRAPHY_EEA else null,
-                    testDeviceHashedId = if (isDebugMode && adConfig.debugRequireConsentAlways) 
-                        "TEST-DEVICE-HASHED-ID" else null,
-                    onConsentInfoUpdateSuccess = {
-                        Log.d("MainActivity", "Consent info updated")
-                        
-                        // Check if we can show ads (either personalized or non-personalized)
-                        val canShowPersonalized = AdMobMediationManager.canShowAds()
-                        val canShowNonPersonalized = AdMobMediationManager.canShowNonPersonalizedAds()
-                        
-                        Log.d("MainActivity", "Can show personalized: $canShowPersonalized, non-personalized: $canShowNonPersonalized")
-                        
-                        // Check if consent form needs to be shown
-                        if (AdMobMediationManager.isConsentFormAvailable()) {
-                            Log.d("MainActivity", "Showing consent form")
-                            AdMobMediationManager.showConsentForm(
-                                activity = this,
-                                onConsentFormDismissed = { formError ->
-                                    if (formError != null) {
-                                        Log.e("MainActivity", "Consent form error: ${formError.message}")
-                                    }
-                                    Log.d("MainActivity", "Consent form dismissed")
-                                    
-                                    // After consent form is dismissed, load interstitial ad
-                                    // We can load ads even if only non-personalized ads are allowed
-                                    if (AdMobMediationManager.canShowAds() || AdMobMediationManager.canShowNonPersonalizedAds()) {
-                                        Log.d("MainActivity", "Loading interstitial ad after consent")
-                                        AdMobMediationManager.loadInterstitialAd()
-                                    }
-                                    
-                                    // Resume splash screen
-                                    splash.resume()
-                                }
-                            )
-                        } else {
-                            // No consent form needed
-                            // Load ads if we can show any type (personalized or non-personalized)
-                            if (canShowPersonalized || canShowNonPersonalized) {
-                                Log.d("MainActivity", "No consent form needed, loading interstitial ad")
-                                AdMobMediationManager.loadInterstitialAd()
-                            } else {
-                                Log.d("MainActivity", "Cannot show any ads yet")
-                            }
-                            
-                            // Resume splash screen
-                            splash.resume()
-                        }
-                    },
-                    onConsentInfoUpdateFailure = { error ->
-                        Log.e("MainActivity", "Failed to update consent info: $error")
-                        
-                        // Even if consent update fails, try to load ad if non-personalized ads are allowed
-                        if (AdMobMediationManager.canShowNonPersonalizedAds()) {
-                            Log.d("MainActivity", "Loading non-personalized ad after consent failure")
-                            AdMobMediationManager.loadInterstitialAd()
-                        }
-                        splash.resume()
-                    }
-                )
-            }
+
+
+        val appLovinConfig = AppLovinConfig(
+            sdkKey = "sTOrf_0s7y7dzVqfTPRR0Ck_synT0Xrs0DgfChVKedyc7nGgAi6BwrAnnxEoT3dTHJ7T0dpfFmGNXX3hE9u9_2",
+            bannerAdUnitId = "",
+            interstitialAdUnitId = "",
+            rewardedAdUnitId = "",
+            mrecAdUnitId = "",
+            nativeAdUnitId = "",
+            enableTestMode = true,
+            verboseLogging = true,
+            creativeDebuggerEnabled = true,
+            showAdsInDebug = true
         )
-        
+
+        MzgsHelper.initSplashWithAdmobShow(this,admobConfig)
+
+
+
         setContent {
             MzgsAndroidHelperTheme {
                 AdMobTestScreen()
@@ -190,51 +103,7 @@ class MainActivity : ComponentActivity() {
     
 
     
-    // Example: Three different ways to initialize and use ads
-    
-    // Method 2: Using separate initialization methods
-    private fun initAdmob() {
-        val adConfig = AdMobConfig(
-            appId = "",
-            bannerAdUnitId = "",
-            interstitialAdUnitId ="",
-            rewardedAdUnitId = "",
-            rewardedInterstitialAdUnitId = "",
-            nativeAdUnitId = "",
-            appOpenAdUnitId = "",
-            enableAppOpenAd = true,
-            enableTestMode = true,
-            testDeviceIds = listOf("YOUR_TEST_DEVICE_ID"),
-            showAdsInDebug = true,
-            showInterstitialsInDebug = true,
-            showAppOpenAdInDebug = true,
-            showBannersInDebug = true,
-            showNativeAdsInDebug = true,
-            showRewardedAdsInDebug = true,
-            debugRequireConsentAlways = false  // Set to true to always show consent form for testing
-        )
-        
-        AdMobMediationManager.init(
-            context = this,
-            config = adConfig,
-            onInitComplete = {
-                Log.d("MainActivity", "AdMob initialized with all configured features")
-                
-                // Check if we can show ads (consent obtained)
 
-                if (AdMobMediationManager.canShowAds()) {
-                    Log.d("MainActivity", "Consent obtained, loading interstitial ad")
-                    // Load interstitial ad immediately so it's ready after splash
-                    AdMobMediationManager.loadInterstitialAd()
-                } else {
-                    Log.d("MainActivity", "Waiting for consent before loading ads")
-                    // For EU users, consent form will show first
-                    // We need to wait for consent before loading ads
-                }
-            }
-        )
-    }
-    
     // Method 3: Initialize AppLovin MAX directly
     private fun initApplovinMax() {
         val appLovinConfig = AppLovinConfig(
@@ -408,6 +277,11 @@ fun AdMobTestScreen() {
             // Helper functions section
             item {
                 HelperFunctionsCard()
+            }
+            
+            // Ads Helper Section - Main showcase
+            item {
+                AdsHelperCard()
             }
             
             // Splash Screen Test Section  
@@ -1271,6 +1145,384 @@ fun SplashScreenTestCard() {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSecondaryContainer
             )
+        }
+    }
+}
+
+@Composable
+fun AdsHelperCard() {
+    val context = LocalContext.current
+    val activity = context as? Activity
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    
+    // States for ad loading
+    var interstitialLoaded by remember { mutableStateOf(false) }
+    var rewardedLoaded by remember { mutableStateOf(false) }
+    var rewardedInterstitialLoaded by remember { mutableStateOf(false) }
+    var appOpenLoaded by remember { mutableStateOf(false) }
+    var userCoins by remember { mutableStateOf(0) }
+    
+    // Load ads on initialization
+    LaunchedEffect(Unit) {
+        // Load interstitial ad
+        AdMobMediationManager.loadInterstitialAd(
+            onAdLoaded = {
+                interstitialLoaded = true
+                Log.d("AdsHelper", "Interstitial loaded")
+            },
+            onAdFailedToLoad = { error ->
+                interstitialLoaded = false
+                Log.e("AdsHelper", "Interstitial failed: ${error.message}")
+            }
+        )
+        
+        // Load rewarded ad
+        AdMobMediationManager.loadRewardedAd(
+            onAdLoaded = {
+                rewardedLoaded = true
+                Log.d("AdsHelper", "Rewarded ad loaded")
+            },
+            onAdFailedToLoad = { error ->
+                rewardedLoaded = false
+                Log.e("AdsHelper", "Rewarded ad failed: ${error.message}")
+            }
+        )
+        
+        // Load rewarded interstitial ad
+        AdMobMediationManager.loadRewardedInterstitialAd(
+            onAdLoaded = {
+                rewardedInterstitialLoaded = true
+                Log.d("AdsHelper", "Rewarded interstitial loaded")
+            },
+            onAdFailedToLoad = { error ->
+                rewardedInterstitialLoaded = false
+                Log.e("AdsHelper", "Rewarded interstitial failed: ${error.message}")
+            }
+        )
+    }
+    
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                "Ads Helper - Unified Ad System",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            
+            Text(
+                "All ads auto-loaded on init. Just click to show!",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Interstitial Ad
+            OutlinedCard(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Interstitial Ad",
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            if (Ads.isAnyInterstitialReady()) "Ready ✓" else "Loading...",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (Ads.isAnyInterstitialReady()) 
+                                MaterialTheme.colorScheme.primary 
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Button(
+                        onClick = {
+                            if (Ads.showInterstitial()) {
+                                interstitialLoaded = false
+                                // Reload for next time
+                                AdMobMediationManager.loadInterstitialAd()
+                            } else {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("Interstitial not ready")
+                                }
+                            }
+                        },
+                        enabled = Ads.isAnyInterstitialReady()
+                    ) {
+                        Text("Show")
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Rewarded Ad
+            OutlinedCard(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Rewarded Ad",
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "Coins: $userCoins",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            if (Ads.isAnyRewardedAdReady()) "Ready ✓" else "Loading...",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (Ads.isAnyRewardedAdReady()) 
+                                MaterialTheme.colorScheme.primary 
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Button(
+                        onClick = {
+                            activity?.let { act ->
+                                AdMobMediationManager.setCurrentActivity(act)
+                                if (AdMobMediationManager.showRewardedAd(
+                                    activity = act,
+                                    onUserEarnedReward = { reward ->
+                                        userCoins += reward.amount
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar(
+                                                "Earned ${reward.amount} ${reward.type}!"
+                                            )
+                                        }
+                                    }
+                                )) {
+                                    rewardedLoaded = false
+                                    // Reload for next time
+                                    AdMobMediationManager.loadRewardedAd()
+                                }
+                            }
+                        },
+                        enabled = Ads.isAnyRewardedAdReady()
+                    ) {
+                        Text("Watch (+10)")
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Rewarded Interstitial Ad
+            OutlinedCard(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Rewarded Interstitial",
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            if (rewardedInterstitialLoaded) "Ready ✓" else "Loading...",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (rewardedInterstitialLoaded) 
+                                MaterialTheme.colorScheme.primary 
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Button(
+                        onClick = {
+                            activity?.let { act ->
+                                AdMobMediationManager.setCurrentActivity(act)
+                                if (AdMobMediationManager.showRewardedInterstitialAd(
+                                    activity = act,
+                                    onUserEarnedReward = { reward ->
+                                        userCoins += reward.amount
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar(
+                                                "Earned ${reward.amount} ${reward.type}!"
+                                            )
+                                        }
+                                    }
+                                )) {
+                                    rewardedInterstitialLoaded = false
+                                    // Reload for next time
+                                    AdMobMediationManager.loadRewardedInterstitialAd()
+                                }
+                            }
+                        },
+                        enabled = rewardedInterstitialLoaded
+                    ) {
+                        Text("Show")
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // App Open Ad
+            OutlinedCard(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "App Open Ad",
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "Shows on app resume",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    Button(
+                        onClick = {
+                            if (Ads.showAppOpenAd()) {
+                                Log.d("AdsHelper", "App open ad shown")
+                            } else {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("App open ad not ready")
+                                }
+                            }
+                        }
+                    ) {
+                        Text("Show")
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Banner Ad
+            OutlinedCard(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Banner Ad",
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "Auto-displayed below",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // Banner container
+                    AndroidView(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(60.dp),
+                        factory = { ctx ->
+                            FrameLayout(ctx).apply {
+                                activity?.let { act ->
+                                    Ads.showBanner(act, this, Ads.BannerSize.ADAPTIVE)
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // MREC Ad
+            OutlinedCard(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        "MREC Ad (300x250)",
+                        fontWeight = FontWeight.Bold
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // MREC container
+                    AndroidView(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(250.dp),
+                        factory = { ctx ->
+                            FrameLayout(ctx).apply {
+                                activity?.let { act ->
+                                    Ads.showMREC(act, this)
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Native Ad
+            OutlinedCard(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp)
+                ) {
+                    Text(
+                        "Native Ad",
+                        fontWeight = FontWeight.Bold
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // Native ad container
+                    AndroidView(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .wrapContentHeight(),
+                        factory = { ctx ->
+                            FrameLayout(ctx).apply {
+                                activity?.let { act ->
+                                    Ads.showNativeAd(act, this)
+                                }
+                            }
+                        }
+                    )
+                }
+            }
         }
     }
 }

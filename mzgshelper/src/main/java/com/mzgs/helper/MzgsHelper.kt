@@ -9,10 +9,14 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
 import android.util.Log
+import androidx.activity.ComponentActivity
+
 import android.widget.Toast
 import androidx.annotation.RequiresPermission
+import com.google.android.ump.ConsentDebugSettings
 import com.mzgs.helper.admob.AdMobConfig
 import com.mzgs.helper.admob.AdMobMediationManager
+import com.mzgs.helper.analytics.FirebaseAnalyticsManager
 import com.mzgs.helper.applovin.AppLovinConfig
 import com.mzgs.helper.applovin.AppLovinMediationManager
 import kotlinx.coroutines.CoroutineScope
@@ -32,7 +36,122 @@ object MzgsHelper {
     fun showToast(context: Context, message: String, duration: Int = Toast.LENGTH_SHORT) {
         Toast.makeText(context, message, duration).show()
     }
-    
+
+    fun initSplashWithAdmobShow(activity: ComponentActivity, admobConfig: AdMobConfig ){
+
+// Initialize Simple Splash Screen with progress
+        val splash = SimpleSplashHelper.Builder(activity)
+            .setDuration(Remote.getLong("splash_time", 10000))
+            .setRotateLogo(true)
+            .showProgress(true)
+            .onComplete {
+                Log.d("MainActivity", "Splash screen completed")
+
+                // Show interstitial ad if ready
+                if (AdMobMediationManager.isInterstitialReady()) {
+                    Log.d("MainActivity", "Showing interstitial ad after splash")
+                    AdMobMediationManager.showInterstitialAd()
+                } else {
+                    Log.d("MainActivity", "Interstitial ad not ready after splash")
+                    FirebaseAnalyticsManager.logEvent("onstart_ad_not_ready")
+                }
+            }
+            .build()
+
+        // Start splash screen normally
+        splash.pause()
+        splash.show()
+
+
+        Ads.initAdMob(
+            config = admobConfig,
+            onInitComplete = {
+                Log.d("MainActivity", "AdMob initialized")
+
+                // Request consent info update
+                // Check if app is in debug mode for consent testing
+                val isDebugMode = MzgsHelper.isDebugMode(activity)
+                AdMobMediationManager.requestConsentInfoUpdate(
+                    underAgeOfConsent = false,
+                    debugGeography = if (isDebugMode && admobConfig.debugRequireConsentAlways)
+                        ConsentDebugSettings.DebugGeography.DEBUG_GEOGRAPHY_EEA else null,
+                    testDeviceHashedId = if (isDebugMode && admobConfig.debugRequireConsentAlways)
+                        "TEST-DEVICE-HASHED-ID" else null,
+                    onConsentInfoUpdateSuccess = {
+                        Log.d("MainActivity", "Consent info updated")
+
+                        // Check if we can show ads (either personalized or non-personalized)
+                        val canShowPersonalized = AdMobMediationManager.canShowAds()
+                        val canShowNonPersonalized =
+                            AdMobMediationManager.canShowNonPersonalizedAds()
+
+                        Log.d(
+                            "MainActivity",
+                            "Can show personalized: $canShowPersonalized, non-personalized: $canShowNonPersonalized"
+                        )
+
+                        // Check if consent form needs to be shown
+                        if (AdMobMediationManager.isConsentFormAvailable()) {
+                            Log.d("MainActivity", "Showing consent form")
+                            AdMobMediationManager.showConsentForm(
+                                activity = activity,
+                                onConsentFormDismissed = { formError ->
+                                    if (formError != null) {
+                                        Log.e(
+                                            "MainActivity",
+                                            "Consent form error: ${formError.message}"
+                                        )
+                                    }
+                                    Log.d("MainActivity", "Consent form dismissed")
+
+                                    // After consent form is dismissed, load interstitial ad
+                                    // We can load ads even if only non-personalized ads are allowed
+                                    if (AdMobMediationManager.canShowAds() || AdMobMediationManager.canShowNonPersonalizedAds()) {
+                                        Log.d(
+                                            "MainActivity",
+                                            "Loading interstitial ad after consent"
+                                        )
+                                        AdMobMediationManager.loadInterstitialAd()
+                                    }
+
+                                    // Resume splash screen
+                                    splash.resume()
+                                }
+                            )
+                        } else {
+                            // No consent form needed
+                            // Load ads if we can show any type (personalized or non-personalized)
+                            if (canShowPersonalized || canShowNonPersonalized) {
+                                Log.d(
+                                    "MainActivity",
+                                    "No consent form needed, loading interstitial ad"
+                                )
+                                AdMobMediationManager.loadInterstitialAd()
+                            } else {
+                                Log.d("MainActivity", "Cannot show any ads yet")
+                            }
+
+                            // Resume splash screen
+                            splash.resume()
+                        }
+                    },
+                    onConsentInfoUpdateFailure = { error ->
+                        Log.e("MainActivity", "Failed to update consent info: $error")
+
+                        // Even if consent update fails, try to load ad if non-personalized ads are allowed
+                        if (AdMobMediationManager.canShowNonPersonalizedAds()) {
+                            Log.d(
+                                "MainActivity",
+                                "Loading non-personalized ad after consent failure"
+                            )
+                            AdMobMediationManager.loadInterstitialAd()
+                        }
+                        splash.resume()
+                    }
+                )
+            })
+
+    }
 
     
     @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
