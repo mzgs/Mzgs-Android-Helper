@@ -46,6 +46,7 @@ import com.mzgs.helper.p
 
 class MainActivity : ComponentActivity() {
     
+    private var isSplashComplete = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -106,7 +107,7 @@ class MainActivity : ComponentActivity() {
             appLovinConfig  ,
             onFinish = {
                 Log.d("MainActivity", "Splash and ad sequence completed")
-
+                isSplashComplete.value = true
 
             },
             onFinishAndApplovinReady = {
@@ -120,7 +121,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MzgsAndroidHelperTheme {
-                AdMobTestScreen()
+                AdMobTestScreen(isSplashComplete = isSplashComplete.value)
             }
         }
 
@@ -161,7 +162,7 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AdMobTestScreen() {
+fun AdMobTestScreen(isSplashComplete: Boolean = false) {
     val context = LocalContext.current
     val activity = context as? Activity
     val appLovinManager = remember { AppLovinMediationManager.getInstance(context) }
@@ -267,7 +268,7 @@ fun AdMobTestScreen() {
             
             // Ads Helper Section - Main showcase
             item {
-                AdsHelperCard()
+                AdsHelperCard(isSplashComplete = isSplashComplete)
             }
             
             // Splash Screen Test Section  
@@ -381,7 +382,7 @@ fun SplashScreenTestCard() {
 }
 
 @Composable
-fun AdsHelperCard() {
+fun AdsHelperCard(isSplashComplete: Boolean = false) {
     val context = LocalContext.current
     val activity = context as? Activity
     val scope = rememberCoroutineScope()
@@ -685,12 +686,13 @@ fun AdsHelperCard() {
                                         FrameLayout.LayoutParams.MATCH_PARENT,
                                         FrameLayout.LayoutParams.WRAP_CONTENT
                                     )
-                                    // Load banner immediately when view is created
-                                    activity?.let { act ->
-                                        // Activity is auto-tracked via lifecycle callbacks
-                                        Log.d("AdsHelper", "Loading banner ad on create")
-                                        Ads.showBanner(act, this, Ads.BannerSize.ADAPTIVE)
-                                    }
+                                }
+                            },
+                            update = { frameLayout ->
+                                // Load banner only after splash is complete
+                                if (isSplashComplete) {
+                                    Log.d("AdsHelper", "Loading banner ad after splash complete")
+                                    Ads.showBanner(frameLayout, Ads.BannerSize.ADAPTIVE)
                                 }
                             }
                         )
@@ -733,11 +735,8 @@ fun AdsHelperCard() {
                                         FrameLayout.LayoutParams.MATCH_PARENT
                                     )
                                     // Load MREC immediately when view is created
-                                    activity?.let { act ->
-                                        // Activity is auto-tracked via lifecycle callbacks
-                                        Log.d("AdsHelper", "Loading MREC ad on create")
-                                        Ads.showMREC(act, this)
-                                    }
+                                    Log.d("AdsHelper", "Loading MREC ad on create")
+                                    Ads.showMREC(this)
                                 }
                             }
                         )
@@ -768,9 +767,7 @@ fun AdsHelperCard() {
                             .wrapContentHeight(),
                         factory = { ctx ->
                             FrameLayout(ctx).apply {
-                                activity?.let { act ->
-                                    Ads.showNativeAd(act, this)
-                                }
+                                Ads.showNativeAd(this)
                             }
                         }
                     )

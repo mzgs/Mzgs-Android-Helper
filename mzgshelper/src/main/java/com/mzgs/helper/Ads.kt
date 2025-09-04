@@ -217,10 +217,15 @@ object Ads : Application.ActivityLifecycleCallbacks {
     
     @JvmStatic
     fun showBanner(
-        activity: Activity,
         container: ViewGroup,
         adSize: BannerSize = BannerSize.ADAPTIVE
     ): Boolean {
+        val activity = getCurrentActivity()
+        if (activity == null) {
+            Log.e(TAG, "No current activity available for showing banner")
+            return false
+        }
+        
         val adsOrder = getAdsOrder()
         
         Log.d(TAG, "Attempting to show banner with order: $adsOrder")
@@ -337,10 +342,14 @@ object Ads : Application.ActivityLifecycleCallbacks {
     
     @JvmStatic
     fun showNativeAd(
-        activity: Activity,
         container: ViewGroup,
         layoutResId: Int? = null
     ): Boolean {
+        val activity = getCurrentActivity()
+        if (activity == null) {
+            Log.e(TAG, "No current activity available for showing native ad")
+            return false
+        }
         val adsOrder = getAdsOrder()
         
         Log.d(TAG, "Attempting to show native ad with order: $adsOrder")
@@ -443,9 +452,13 @@ object Ads : Application.ActivityLifecycleCallbacks {
     
     @JvmStatic
     fun showMREC(
-        activity: Activity,
         container: ViewGroup
     ): Boolean {
+        val activity = getCurrentActivity()
+        if (activity == null) {
+            Log.e(TAG, "No current activity available for showing MREC")
+            return false
+        }
         val adsOrder = getAdsOrder()
         
         Log.d(TAG, "Attempting to show MREC with order: $adsOrder")
