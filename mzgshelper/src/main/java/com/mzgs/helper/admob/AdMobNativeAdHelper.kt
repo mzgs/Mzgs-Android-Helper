@@ -40,7 +40,7 @@ class AdMobNativeAdHelper(private val context: Context) {
         numberOfAds: Int = 1
     ) {
         val adManager = AdMobMediationManager.getInstance(context)
-        val adUnitId = adManager.getConfig()?.getEffectiveNativeAdUnitId() ?: ""
+        val adUnitId = adManager.getConfig()?.nativeAdUnitId ?: ""
         if (adUnitId.isEmpty()) {
             Log.e(TAG, "No native ad unit ID configured")
             return

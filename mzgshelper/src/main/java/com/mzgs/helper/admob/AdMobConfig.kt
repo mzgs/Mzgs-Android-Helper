@@ -45,42 +45,6 @@ data class AdMobConfig(
         }
     }
     
-    fun getEffectiveBannerAdUnitId(context: android.content.Context? = null): String {
-        // SAFETY: Only use test ads if in debug mode AND enableTestMode is true
-        val useTestAds = context?.let { MzgsHelper.isDebugMode(it) && enableTestMode } ?: enableTestMode
-        return if (useTestAds) TEST_BANNER_AD_UNIT_ID else bannerAdUnitId
-    }
-    
-    fun getEffectiveInterstitialAdUnitId(context: android.content.Context? = null): String {
-        // SAFETY: Only use test ads if in debug mode AND enableTestMode is true
-        val useTestAds = context?.let { MzgsHelper.isDebugMode(it) && enableTestMode } ?: enableTestMode
-        return if (useTestAds) TEST_INTERSTITIAL_AD_UNIT_ID else interstitialAdUnitId
-    }
-    
-    fun getEffectiveRewardedAdUnitId(context: android.content.Context? = null): String {
-        // SAFETY: Only use test ads if in debug mode AND enableTestMode is true
-        val useTestAds = context?.let { MzgsHelper.isDebugMode(it) && enableTestMode } ?: enableTestMode
-        return if (useTestAds) TEST_REWARDED_AD_UNIT_ID else rewardedAdUnitId
-    }
-    
-    fun getEffectiveRewardedInterstitialAdUnitId(context: android.content.Context? = null): String {
-        // SAFETY: Only use test ads if in debug mode AND enableTestMode is true
-        val useTestAds = context?.let { MzgsHelper.isDebugMode(it) && enableTestMode } ?: enableTestMode
-        return if (useTestAds) TEST_REWARDED_INTERSTITIAL_AD_UNIT_ID else rewardedInterstitialAdUnitId
-    }
-    
-    fun getEffectiveNativeAdUnitId(context: android.content.Context? = null): String {
-        // SAFETY: Only use test ads if in debug mode AND enableTestMode is true
-        val useTestAds = context?.let { MzgsHelper.isDebugMode(it) && enableTestMode } ?: enableTestMode
-        return if (useTestAds) TEST_NATIVE_AD_UNIT_ID else nativeAdUnitId
-    }
-    
-    fun getEffectiveAppOpenAdUnitId(context: android.content.Context? = null): String {
-        // SAFETY: Only use test ads if in debug mode AND enableTestMode is true
-        val useTestAds = context?.let { MzgsHelper.isDebugMode(it) && enableTestMode } ?: enableTestMode
-        return if (useTestAds) TEST_APP_OPEN_AD_UNIT_ID else appOpenAdUnitId
-    }
-    
     // Debug control methods - these only affect DEBUG builds
     fun shouldShowAds(context: android.content.Context): Boolean {
         // In release mode, always show ads

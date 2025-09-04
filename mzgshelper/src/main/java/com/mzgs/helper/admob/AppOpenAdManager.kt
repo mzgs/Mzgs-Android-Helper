@@ -113,7 +113,7 @@ class AppOpenAdManager(
             return
         }
         
-        val adUnitId = config.getEffectiveAppOpenAdUnitId()
+        val adUnitId = config.appOpenAdUnitId
         if (adUnitId.isEmpty()) {
             Log.w(TAG, "App open ad unit ID is empty")
             return
@@ -200,7 +200,7 @@ class AppOpenAdManager(
             
             override fun onAdClicked() {
                 Log.d(TAG, "App open ad clicked")
-                val adUnitId = config.getEffectiveAppOpenAdUnitId()
+                val adUnitId = config.appOpenAdUnitId
                 FirebaseAnalyticsManager.logAdClicked(
                     adType = "app_open",
                     adUnitId = adUnitId,
@@ -210,7 +210,7 @@ class AppOpenAdManager(
             
             override fun onAdImpression() {
                 Log.d(TAG, "App open ad impression recorded")
-                val adUnitId = config.getEffectiveAppOpenAdUnitId()
+                val adUnitId = config.appOpenAdUnitId
                 FirebaseAnalyticsManager.logAdImpression(
                     adType = "app_open",
                     adUnitId = adUnitId,

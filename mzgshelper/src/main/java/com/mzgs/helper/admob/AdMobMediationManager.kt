@@ -45,7 +45,21 @@ object AdMobMediationManager {
     @JvmStatic
     fun init(context: Context, config: AdMobConfig, onInitComplete: () -> Unit = {}) {
         this.contextRef = WeakReference(context.applicationContext)
-        this.adConfig = config
+        
+        // Override config with test IDs if in debug mode and test mode enabled
+        this.adConfig = if (MzgsHelper.isDebugMode(context) && config.enableTestMode) {
+            config.copy(
+                bannerAdUnitId = AdMobConfig.TEST_BANNER_AD_UNIT_ID,
+                interstitialAdUnitId = AdMobConfig.TEST_INTERSTITIAL_AD_UNIT_ID,
+                rewardedAdUnitId = AdMobConfig.TEST_REWARDED_AD_UNIT_ID,
+                rewardedInterstitialAdUnitId = AdMobConfig.TEST_REWARDED_INTERSTITIAL_AD_UNIT_ID,
+                nativeAdUnitId = AdMobConfig.TEST_NATIVE_AD_UNIT_ID,
+                appOpenAdUnitId = AdMobConfig.TEST_APP_OPEN_AD_UNIT_ID
+            )
+        } else {
+            config
+        }
+        
         this.consentInformation = UserMessagingPlatform.getConsentInformation(context)
         
         // Activity tracking is handled by Ads class
@@ -366,7 +380,7 @@ object AdMobMediationManager {
         onAdLoaded: () -> Unit = {},
         onAdFailedToLoad: (LoadAdError) -> Unit = {}
     ) {
-        val effectiveAdUnitId = adConfig?.getEffectiveInterstitialAdUnitId(contextRef?.get()) ?: ""
+        val effectiveAdUnitId = adConfig?.interstitialAdUnitId ?: ""
         if (effectiveAdUnitId.isEmpty()) {
             Log.e(TAG, "No interstitial ad unit ID configured")
             return
@@ -440,7 +454,7 @@ object AdMobMediationManager {
                 interstitialAd = null
                 // Auto-reload the interstitial ad
                 adConfig?.let { config ->
-                    val adUnitId = config.getEffectiveInterstitialAdUnitId(contextRef?.get())
+                    val adUnitId = config.interstitialAdUnitId
                     if (adUnitId.isNotEmpty()) {
                         Log.d(TAG, "Auto-reloading interstitial ad")
                         loadInterstitialAd(adUnitId)
@@ -501,7 +515,7 @@ object AdMobMediationManager {
                         interstitialAd = null
                         // Auto-reload the interstitial ad
                         adConfig?.let { config ->
-                            val adUnitId = config.getEffectiveInterstitialAdUnitId(contextRef?.get())
+                            val adUnitId = config.interstitialAdUnitId
                             if (adUnitId.isNotEmpty()) {
                                 Log.d(TAG, "Auto-reloading interstitial ad")
                                 loadInterstitialAd(adUnitId)
@@ -542,7 +556,7 @@ object AdMobMediationManager {
         onAdLoaded: () -> Unit = {},
         onAdFailedToLoad: (LoadAdError) -> Unit = {}
     ) {
-        val effectiveAdUnitId = adConfig?.getEffectiveRewardedAdUnitId(contextRef?.get()) ?: ""
+        val effectiveAdUnitId = adConfig?.rewardedAdUnitId ?: ""
         if (effectiveAdUnitId.isEmpty()) {
             Log.e(TAG, "No rewarded ad unit ID configured")
             return
@@ -616,7 +630,7 @@ object AdMobMediationManager {
                 rewardedAd = null
                 // Auto-reload the rewarded ad
                 adConfig?.let { config ->
-                    val adUnitId = config.getEffectiveRewardedAdUnitId(contextRef?.get())
+                    val adUnitId = config.rewardedAdUnitId
                     if (adUnitId.isNotEmpty()) {
                         Log.d(TAG, "Auto-reloading rewarded ad")
                         loadRewardedAd(adUnitId)
@@ -687,7 +701,7 @@ object AdMobMediationManager {
         onAdLoaded: () -> Unit = {},
         onAdFailedToLoad: (LoadAdError) -> Unit = {}
     ) {
-        val effectiveAdUnitId = adConfig?.getEffectiveRewardedInterstitialAdUnitId(contextRef?.get()) ?: ""
+        val effectiveAdUnitId = adConfig?.rewardedInterstitialAdUnitId ?: ""
         if (effectiveAdUnitId.isEmpty()) {
             Log.e(TAG, "No rewarded interstitial ad unit ID configured")
             return
@@ -761,7 +775,7 @@ object AdMobMediationManager {
                 rewardedInterstitialAd = null
                 // Auto-reload the rewarded interstitial ad
                 adConfig?.let { config ->
-                    val adUnitId = config.getEffectiveRewardedInterstitialAdUnitId(contextRef?.get())
+                    val adUnitId = config.rewardedInterstitialAdUnitId
                     if (adUnitId.isNotEmpty()) {
                         Log.d(TAG, "Auto-reloading rewarded interstitial ad")
                         loadRewardedInterstitialAd(adUnitId)
