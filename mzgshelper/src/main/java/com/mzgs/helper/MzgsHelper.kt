@@ -30,8 +30,8 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 fun p(obj: Any) {
-    Log.d("mzgs", obj.toString())
-    Log.d("mzgs", "-------------------------------------------------------")
+    Log.d("mzgslog", obj.toString())
+    Log.d("mzgslog", "-------------------------------------------------------")
 }
 
 object MzgsHelper {

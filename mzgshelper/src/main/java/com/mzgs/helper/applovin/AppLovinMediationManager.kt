@@ -156,12 +156,51 @@ object AppLovinMediationManager : Application.ActivityLifecycleCallbacks {
     
     @JvmStatic
     fun showMediationDebugger() {
-        maxSdk?.showMediationDebugger()
+        if (!isInitialized) {
+            Log.e(TAG, "Unable to show mediation debugger: SDK not initialized. Call init() first.")
+            return
+        }
+        
+        val activity = currentActivityRef?.get()
+        if (activity == null) {
+            Log.e(TAG, "Unable to show mediation debugger: No current activity available")
+            return
+        }
+        
+        try {
+            maxSdk?.showMediationDebugger()
+            Log.d(TAG, "Showing mediation debugger")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to show mediation debugger: ${e.message}", e)
+        }
+    }
+    
+    @JvmStatic
+    fun showMediationDebugger(activity: Activity) {
+        // Store the activity reference first
+        currentActivityRef = WeakReference(activity)
+        
+        if (!isInitialized) {
+            Log.e(TAG, "Unable to show mediation debugger: SDK not initialized. Call init() first.")
+            return
+        }
+        
+        try {
+            maxSdk?.showMediationDebugger()
+            Log.d(TAG, "Showing mediation debugger with provided activity")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to show mediation debugger: ${e.message}", e)
+        }
     }
     
     @JvmStatic
     fun showCreativeDebugger() {
-        maxSdk?.showCreativeDebugger()
+        if (maxSdk != null) {
+            // Creative debugger doesn't require activity
+            maxSdk?.showCreativeDebugger()
+        } else {
+            Log.e(TAG, "Unable to show creative debugger: SDK not initialized")
+        }
     }
     
     @JvmStatic

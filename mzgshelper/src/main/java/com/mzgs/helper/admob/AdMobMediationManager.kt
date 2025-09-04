@@ -25,6 +25,7 @@ import com.google.android.ump.ConsentRequestParameters
 import com.google.android.ump.FormError
 import com.google.android.ump.UserMessagingPlatform
 import com.mzgs.helper.MzgsHelper
+import com.mzgs.helper.p
 import java.lang.ref.WeakReference
 
 object AdMobMediationManager : Application.ActivityLifecycleCallbacks {
@@ -74,6 +75,8 @@ object AdMobMediationManager : Application.ActivityLifecycleCallbacks {
             .build()
         
         MobileAds.setRequestConfiguration(requestConfiguration)
+        
+
         
         MobileAds.initialize(context) { initializationStatus ->
             isInitialized = true
@@ -183,7 +186,15 @@ object AdMobMediationManager : Application.ActivityLifecycleCallbacks {
             },
             { error ->
                 Log.e(TAG, "Failed to update consent info: ${error.message}")
-                onConsentInfoUpdateFailure(error.message)
+                // Check if it's a network error and provide better messaging
+                val errorMessage = when {
+                    error.message.contains("Error making request", ignoreCase = true) ->
+                        "Network error. Please check internet connection."
+                    error.message.contains("timeout", ignoreCase = true) ->
+                        "Request timed out. Please try again."
+                    else -> error.message
+                }
+                onConsentInfoUpdateFailure(errorMessage)
             }
         )
     }
@@ -360,6 +371,7 @@ object AdMobMediationManager : Application.ActivityLifecycleCallbacks {
         onAdFailedToLoad: (LoadAdError) -> Unit = {}
     ) {
         val effectiveAdUnitId = adConfig?.getEffectiveInterstitialAdUnitId(contextRef?.get()) ?: ""
+        p(effectiveAdUnitId)
         if (effectiveAdUnitId.isEmpty()) {
             Log.e(TAG, "No interstitial ad unit ID configured")
             return

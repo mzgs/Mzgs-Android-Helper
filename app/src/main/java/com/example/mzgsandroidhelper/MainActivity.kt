@@ -51,6 +51,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
+        // Initialize WebView early to prevent JavaScript engine errors
+        try {
+            android.webkit.WebView(this).destroy()
+        } catch (e: Exception) {
+            Log.d("MainActivity", "WebView pre-initialization: ${e.message}")
+        }
 
         FirebaseAnalyticsManager.initialize(this)
         Remote.init(this)
@@ -58,7 +64,7 @@ class MainActivity : ComponentActivity() {
 
 
         val admobConfig = AdMobConfig(
-            appId = "",
+            appId = "ca-app-pub-8689213949805403~6434330617",
             bannerAdUnitId = "",
             interstitialAdUnitId = "",
             rewardedAdUnitId = "",
@@ -109,7 +115,8 @@ class MainActivity : ComponentActivity() {
             },
             onFinishAndApplovinReady = {
 
-                p("applovin init finsihed")
+
+                p(  "AppLovin SDK initialized successfully")
                 AppLovinMediationManager.loadInterstitialAd()
 
             }
@@ -178,7 +185,7 @@ fun AdMobTestScreen() {
             adManager.requestConsentInfoUpdate(
                 underAgeOfConsent = false,
                 debugGeography = ConsentDebugSettings.DebugGeography.DEBUG_GEOGRAPHY_EEA,
-                testDeviceHashedId = null,
+                testDeviceHashedId = "3d6496d1-4784-4b96-bf5e-2d61200765de", // Use the same test device ID
                 onConsentInfoUpdateSuccess = {
                     consentStatus = "Consent obtained"
                     Log.d("Consent", "Ready to show ads")
@@ -235,7 +242,10 @@ fun AdMobTestScreen() {
                         ) {
                             Button(
                                 onClick = {
-                                    appLovinManager.showMediationDebugger()
+                                    // Call with activity directly
+                                    activity?.let {
+                                        AppLovinMediationManager.showMediationDebugger(it)
+                                    } ?: Log.e("MainActivity", "Activity context not available")
                                 },
                                 modifier = Modifier.weight(1f),
                                 colors = ButtonDefaults.buttonColors(
@@ -248,7 +258,11 @@ fun AdMobTestScreen() {
                             
                             Button(
                                 onClick = {
-                                    appLovinManager.showCreativeDebugger()
+                                    // Ensure we have the latest activity reference before showing debugger
+                                    activity?.let {
+                                        AppLovinMediationManager.getInstance(it)
+                                        appLovinManager.showCreativeDebugger()
+                                    } ?: Log.e("MainActivity", "Activity context not available")
                                 },
                                 modifier = Modifier.weight(1f),
                                 colors = ButtonDefaults.buttonColors(
