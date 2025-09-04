@@ -3,46 +3,63 @@ package com.example.mzgsandroidhelper
 import android.app.Activity
 import android.os.Bundle
 import android.util.Log
+import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import android.widget.FrameLayout
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import com.example.mzgsandroidhelper.ui.theme.MzgsAndroidHelperTheme
-import com.google.android.gms.ads.AdSize
-import com.google.android.ump.ConsentDebugSettings
+import com.mzgs.helper.Ads
 import com.mzgs.helper.MzgsHelper
 import com.mzgs.helper.Remote
 import com.mzgs.helper.SimpleSplashHelper
-import com.mzgs.helper.admob.*
+import com.mzgs.helper.admob.AdMobConfig
+import com.mzgs.helper.admob.AdMobMediationManager
+import com.mzgs.helper.analytics.FirebaseAnalyticsManager
 import com.mzgs.helper.applovin.AppLovinConfig
 import com.mzgs.helper.applovin.AppLovinMediationManager
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import androidx.lifecycle.lifecycleScope
-import com.mzgs.helper.Ads
-import com.mzgs.helper.analytics.FirebaseAnalyticsManager
 import com.mzgs.helper.p
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     
@@ -71,7 +88,7 @@ class MainActivity : ComponentActivity() {
             rewardedAdUnitId = "",
             rewardedInterstitialAdUnitId = "",
             nativeAdUnitId = "",
-            appOpenAdUnitId = "",
+            appOpenAdUnitId = "", // Will use test ID automatically when enableTestMode = true
             enableAppOpenAd = true,
             enableTestMode = true,
             testDeviceIds = listOf("3d6496d1-4784-4b96-bf5e-2d61200765de"),

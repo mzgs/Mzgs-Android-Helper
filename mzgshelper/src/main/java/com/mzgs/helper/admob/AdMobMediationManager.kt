@@ -120,11 +120,13 @@ object AdMobMediationManager {
             Log.d(TAG, "")
             
             // Initialize App Open Ad if configured
-            if (config.enableAppOpenAd) {
-                val application = context.applicationContext as? Application
-                if (application != null) {
-                    AppOpenAdManager.initialize(application, config)
-                    Log.d(TAG, "App Open Ad Manager initialized")
+            adConfig?.let { config ->
+                if (config.enableAppOpenAd) {
+                    val application = context.applicationContext as? Application
+                    if (application != null) {
+                        AppOpenAdManager.initialize(application, config)
+                        Log.d(TAG, "App Open Ad Manager initialized")
+                    }
                 }
             }
             
@@ -861,17 +863,34 @@ object AdMobMediationManager {
     
     @JvmStatic
     fun updateConfig(config: AdMobConfig) {
-        this.adConfig = config
-        
-        // Update App Open Ad Manager if needed
-        if (config.enableAppOpenAd) {
-            contextRef?.get()?.let { ctx ->
-                val application = ctx.applicationContext as? Application
-                if (application != null && AppOpenAdManager.getInstance() == null) {
-                    AppOpenAdManager.initialize(application, config)
-                    Log.d(TAG, "App Open Ad Manager initialized after config update")
+        contextRef?.get()?.let { context ->
+            // Override config with test IDs if in debug mode and test mode enabled
+            this.adConfig = if (MzgsHelper.isDebugMode(context) && config.enableTestMode) {
+                config.copy(
+                    bannerAdUnitId = AdMobConfig.TEST_BANNER_AD_UNIT_ID,
+                    interstitialAdUnitId = AdMobConfig.TEST_INTERSTITIAL_AD_UNIT_ID,
+                    rewardedAdUnitId = AdMobConfig.TEST_REWARDED_AD_UNIT_ID,
+                    rewardedInterstitialAdUnitId = AdMobConfig.TEST_REWARDED_INTERSTITIAL_AD_UNIT_ID,
+                    nativeAdUnitId = AdMobConfig.TEST_NATIVE_AD_UNIT_ID,
+                    appOpenAdUnitId = AdMobConfig.TEST_APP_OPEN_AD_UNIT_ID
+                )
+            } else {
+                config
+            }
+            
+            // Update App Open Ad Manager if needed
+            adConfig?.let { updatedConfig ->
+                if (updatedConfig.enableAppOpenAd) {
+                    val application = context.applicationContext as? Application
+                    if (application != null && AppOpenAdManager.getInstance() == null) {
+                        AppOpenAdManager.initialize(application, updatedConfig)
+                        Log.d(TAG, "App Open Ad Manager initialized after config update")
+                    }
                 }
             }
+        } ?: run {
+            // If context is not available, just update the config without test mode override
+            this.adConfig = config
         }
     }
     
