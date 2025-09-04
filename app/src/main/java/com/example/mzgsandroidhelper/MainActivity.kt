@@ -42,6 +42,7 @@ import kotlinx.coroutines.launch
 import androidx.lifecycle.lifecycleScope
 import com.mzgs.helper.Ads
 import com.mzgs.helper.analytics.FirebaseAnalyticsManager
+import com.mzgs.helper.p
 
 class MainActivity : ComponentActivity() {
     
@@ -66,7 +67,7 @@ class MainActivity : ComponentActivity() {
             appOpenAdUnitId = "",
             enableAppOpenAd = true,
             enableTestMode = true,
-            testDeviceIds = listOf("YOUR_TEST_DEVICE_ID"),
+            testDeviceIds = listOf("3d6496d1-4784-4b96-bf5e-2d61200765de"),
             showAdsInDebug = true,
             showInterstitialsInDebug = true,
             showAppOpenAdInDebug = true,
@@ -79,6 +80,7 @@ class MainActivity : ComponentActivity() {
 
         val appLovinConfig = AppLovinConfig(
             sdkKey = "sTOrf_0s7y7dzVqfTPRR0Ck_synT0Xrs0DgfChVKedyc7nGgAi6BwrAnnxEoT3dTHJ7T0dpfFmGNXX3hE9u9_2",
+            // Add your real AppLovin ad unit IDs here (from your AppLovin dashboard)
             bannerAdUnitId = "",
             interstitialAdUnitId = "",
             rewardedAdUnitId = "",
@@ -87,7 +89,9 @@ class MainActivity : ComponentActivity() {
             enableTestMode = true,
             verboseLogging = true,
             creativeDebuggerEnabled = true,
-            showAdsInDebug = true
+            showAdsInDebug = true,
+            // Add your device's advertising ID here to see test ads
+            testDeviceAdvertisingIds = listOf("3d6496d1-4784-4b96-bf5e-2d61200765de") // e.g., listOf("38400000-8cf0-11bd-b23e-10b96e40000d")
         )
 
         MzgsHelper.initSplashWithAdmobShow(
@@ -96,11 +100,11 @@ class MainActivity : ComponentActivity() {
             onFinish = {
                 Log.d("MainActivity", "Splash and ad sequence completed")
                 Ads.initAppLovinMax(appLovinConfig){
-                    p("")
+                    p("ApplovinMax init completed.")
+
                 }
             }
         )
-
 
 
         setContent {
@@ -109,7 +113,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
+
 
     
 
@@ -117,15 +121,18 @@ class MainActivity : ComponentActivity() {
     private fun initApplovinMax() {
         val appLovinConfig = AppLovinConfig(
             sdkKey = "sTOrf_0s7y7dzVqfTPRR0Ck_synT0Xrs0DgfChVKedyc7nGgAi6BwrAnnxEoT3dTHJ7T0dpfFmGNXX3hE9u9_2",
-            bannerAdUnitId = "",
-            interstitialAdUnitId = "",
-            rewardedAdUnitId = "",
-            mrecAdUnitId = "",
-            nativeAdUnitId = "",
+            // Add your real AppLovin ad unit IDs here (from your AppLovin dashboard)
+            bannerAdUnitId = "", // e.g., "abcd1234"
+            interstitialAdUnitId = "", // e.g., "efgh5678"
+            rewardedAdUnitId = "", // e.g., "ijkl9012"
+            mrecAdUnitId = "", // e.g., "mnop3456"
+            nativeAdUnitId = "", // e.g., "qrst7890"
             enableTestMode = true,
             verboseLogging = true,
             creativeDebuggerEnabled = true,
-            showAdsInDebug = true
+            showAdsInDebug = true,
+            // Add your device's advertising ID here to see test ads
+            testDeviceAdvertisingIds = listOf() // e.g., listOf("38400000-8cf0-11bd-b23e-10b96e40000d")
         )
         
         AppLovinMediationManager.init(
@@ -137,22 +144,7 @@ class MainActivity : ComponentActivity() {
         )
     }
     
-    // Example: Initialize both ad networks
-    private fun initializeAds() {
-        // You can initialize both networks separately
-        initAdmob()
-        initApplovinMax()
-        
-        // After initialization, you can use the Ads class to show ads
-        // The Ads class will automatically use the first available ad network
-        // based on the order configured in Remote config (ads_order)
-        
-        // Example usage after initialization:
-        // Ads.showInterstitial() - Shows interstitial from first available network
-        // Ads.showRewardedAd() - Shows rewarded ad from first available network
-        // Ads.showBanner(activity, container) - Shows banner from first available network
-    }
-}
+
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1604,4 +1596,5 @@ fun AdMobTestScreenPreview() {
     MzgsAndroidHelperTheme {
         AdMobTestScreen()
     }
+}
 }

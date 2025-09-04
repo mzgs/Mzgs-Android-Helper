@@ -77,11 +77,35 @@ object AdMobMediationManager : Application.ActivityLifecycleCallbacks {
         
         MobileAds.initialize(context) { initializationStatus ->
             isInitialized = true
-            Log.d(TAG, "AdMob SDK initialized")
             
-            initializationStatus.adapterStatusMap.forEach { (className, status) ->
-                Log.d(TAG, "Adapter: $className, Status: ${status.initializationState}, Latency: ${status.latency}ms")
+            // Log initialization status with test device info
+            Log.d(TAG, "")
+            Log.d(TAG, "|||------------------------------------------------------------|||")
+            Log.d(TAG, "|||                AdMob SDK INITIALIZED                       |||")
+            Log.d(TAG, "|||------------------------------------------------------------|||")
+            Log.d(TAG, "|||                                                            |||")
+            if (testDeviceIds.isNotEmpty()) {
+                Log.d(TAG, "|||  TEST MODE: ENABLED                                        |||")
+                Log.d(TAG, "|||  Test Device IDs (Hashed):                                |||")
+                testDeviceIds.forEach { id ->
+                    val displayId = if (id.length > 40) "${id.substring(0, 40)}..." else id
+                    Log.d(TAG, "|||  - $displayId")
+                }
+            } else {
+                Log.d(TAG, "|||  TEST MODE: DISABLED (No test device IDs)                 |||")
+                Log.d(TAG, "|||                                                            |||")
+                Log.d(TAG, "|||  Look for this in logcat to get your test device ID:      |||")
+                Log.d(TAG, "|||  'Use new ConsentDebugSettings.Builder().addTestDeviceHashedId(\"YOUR_ID\")'|||")
             }
+            Log.d(TAG, "|||                                                            |||")
+            Log.d(TAG, "|||  Mediation Adapters:                                       |||")
+            initializationStatus.adapterStatusMap.forEach { (className, status) ->
+                val shortName = className.substringAfterLast(".")
+                Log.d(TAG, "|||  - $shortName: ${status.initializationState}")
+            }
+            Log.d(TAG, "|||                                                            |||")
+            Log.d(TAG, "|||------------------------------------------------------------|||")
+            Log.d(TAG, "")
             
             // Initialize App Open Ad if configured
             if (config.enableAppOpenAd) {

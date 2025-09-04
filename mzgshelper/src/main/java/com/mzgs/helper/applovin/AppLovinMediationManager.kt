@@ -80,10 +80,32 @@ object AppLovinMediationManager : Application.ActivityLifecycleCallbacks {
             Log.d(TAG, "Creative Debugger: ${config.creativeDebuggerEnabled}")
             
             isInitialized = true
-            Log.d(TAG, "AppLovin MAX SDK initialized")
-            // Note: isTestModeEnabled is not available in current SDK version
-            Log.d(TAG, "Country Code: ${sdkConfig.countryCode}")
-            Log.d(TAG, "Consent Dialog State: ${sdkConfig.consentDialogState}")
+            
+            // Log initialization status with test device info
+            Log.d(TAG, "")
+            Log.d(TAG, "|||------------------------------------------------------------|||")
+            Log.d(TAG, "|||              AppLovin MAX SDK INITIALIZED                  |||")
+            Log.d(TAG, "|||------------------------------------------------------------|||")
+            Log.d(TAG, "|||                                                            |||")
+            if (testDeviceIds.isNotEmpty()) {
+                Log.d(TAG, "|||  TEST MODE: ENABLED                                        |||")
+                Log.d(TAG, "|||  Test Device IDs:                                          |||")
+                testDeviceIds.forEach { id ->
+                    Log.d(TAG, "|||  - $id")
+                }
+            } else {
+                Log.d(TAG, "|||  TEST MODE: DISABLED (No test device IDs)                 |||")
+                Log.d(TAG, "|||                                                            |||")
+                Log.d(TAG, "|||  To enable test ads:                                       |||")
+                Log.d(TAG, "|||  1. Get your GAID from Settings → Google → Ads            |||")
+                Log.d(TAG, "|||  2. Add to testDeviceAdvertisingIds in AppLovinConfig     |||")
+            }
+            Log.d(TAG, "|||                                                            |||")
+            Log.d(TAG, "|||  Country Code: ${sdkConfig.countryCode}")
+            Log.d(TAG, "|||  Consent Dialog State: ${sdkConfig.consentDialogState}")
+            Log.d(TAG, "|||                                                            |||")
+            Log.d(TAG, "|||------------------------------------------------------------|||")
+            Log.d(TAG, "")
             
             // Initialize App Open Ad if configured
             if (config.enableAppOpenAd) {

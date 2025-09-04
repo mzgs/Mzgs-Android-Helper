@@ -186,7 +186,7 @@ class SimpleSplashHelper(private val activity: ComponentActivity) {
                     max = 100
                     progress = 0
                     
-                    // Create custom drawable with rounded corners and green gradient
+                    // Create custom drawable with rounded corners and flat blue
                     val progressDrawable = android.graphics.drawable.LayerDrawable(
                         arrayOf(
                             // Background track
@@ -199,16 +199,11 @@ class SimpleSplashHelper(private val activity: ComponentActivity) {
                                 cornerRadius = 18f
                                 setColor(Color.TRANSPARENT)
                             },
-                            // Primary progress with green gradient
+                            // Primary progress with flat blue
                             android.graphics.drawable.ClipDrawable(
                                 GradientDrawable().apply {
                                     cornerRadius = 18f
-                                    colors = intArrayOf(
-                                        Color.parseColor("#81C784"), // Light green
-                                        Color.parseColor("#4CAF50"), // Medium green
-                                        Color.parseColor("#388E3C")  // Dark green
-                                    )
-                                    orientation = GradientDrawable.Orientation.LEFT_RIGHT
+                                    setColor(Color.parseColor("#2196F3")) // Flat blue color
                                 },
                                 Gravity.START,
                                 android.graphics.drawable.ClipDrawable.HORIZONTAL
@@ -233,9 +228,9 @@ class SimpleSplashHelper(private val activity: ComponentActivity) {
                         bottomMargin = 20
                     }
                     visibility = android.view.View.GONE
-                    // Green circular progress to match
+                    // Blue circular progress to match
                     indeterminateDrawable?.setColorFilter(
-                        Color.parseColor("#4CAF50"),
+                        Color.parseColor("#2196F3"),
                         android.graphics.PorterDuff.Mode.SRC_IN
                     )
                 }

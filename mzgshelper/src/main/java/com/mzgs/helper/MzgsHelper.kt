@@ -29,6 +29,11 @@ import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.*
 
+fun p(obj: Any) {
+    Log.d("mzgs", obj.toString())
+    Log.d("mzgs", "-------------------------------------------------------")
+}
+
 object MzgsHelper {
     
     private const val TAG = "MzgsHelper"

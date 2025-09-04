@@ -4,6 +4,8 @@ import android.app.Activity
 import android.app.Application
 import android.content.Context
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.ViewGroup
 import com.google.android.gms.ads.LoadAdError
@@ -33,6 +35,53 @@ object Ads : Application.ActivityLifecycleCallbacks {
             context.registerActivityLifecycleCallbacks(this)
         } else if (context.applicationContext is Application) {
             (context.applicationContext as Application).registerActivityLifecycleCallbacks(this)
+        }
+        
+        // Get and log the advertising ID
+        getAdvertisingId(context)
+    }
+    
+    private fun getAdvertisingId(context: Context) {
+        try {
+            // Get advertising ID in background thread
+            Thread {
+                try {
+                    val adInfo = com.google.android.gms.ads.identifier.AdvertisingIdClient.getAdvertisingIdInfo(context)
+                    val advertisingId = adInfo.id
+                    val isLimitAdTrackingEnabled = adInfo.isLimitAdTrackingEnabled
+                    
+                    // Log on main thread
+                    Handler(Looper.getMainLooper()).post {
+                        Log.d(TAG, "")
+                        Log.d(TAG, "|||============================================================|||")
+                        Log.d(TAG, "|||                  YOUR DEVICE ADVERTISING ID                |||")
+                        Log.d(TAG, "|||============================================================|||")
+                        Log.d(TAG, "|||                                                            |||")
+                        if (advertisingId != null && advertisingId != "00000000-0000-0000-0000-000000000000") {
+                            Log.d(TAG, "|||  GAID: $advertisingId  |||")
+                            Log.d(TAG, "|||                                                            |||")
+                            Log.d(TAG, "|||  Copy this ID and add it to:                              |||")
+                            Log.d(TAG, "|||  - testDeviceAdvertisingIds in AppLovinConfig             |||")
+                            Log.d(TAG, "|||  - testDeviceIds in AdMobConfig (hashed version)          |||")
+                        } else {
+                            Log.d(TAG, "|||  GAID: Not available or advertising tracking disabled     |||")
+                            Log.d(TAG, "|||                                                            |||")
+                            Log.d(TAG, "|||  To enable:                                                |||")
+                            Log.d(TAG, "|||  1. Go to Settings → Google → Ads                          |||")
+                            Log.d(TAG, "|||  2. Enable 'Opt out of Ads Personalization' OFF           |||")
+                        }
+                        Log.d(TAG, "|||                                                            |||")
+                        Log.d(TAG, "|||  Limit Ad Tracking: ${if (isLimitAdTrackingEnabled) "ENABLED" else "DISABLED"}                              |||")
+                        Log.d(TAG, "|||                                                            |||")
+                        Log.d(TAG, "|||============================================================|||")
+                        Log.d(TAG, "")
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to get advertising ID: ${e.message}")
+                }
+            }.start()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start advertising ID thread: ${e.message}")
         }
     }
     
@@ -122,7 +171,8 @@ object Ads : Application.ActivityLifecycleCallbacks {
     }
     
     private fun getAdsOrder(): List<String> {
-        return Remote.getStringArray("ads_order", listOf(APPLOVIN_MAX, ADMOB))
+        // Try AppLovin first, fallback to AdMob if not available
+        return listOf(APPLOVIN_MAX, ADMOB)
     }
     
     @JvmStatic
@@ -179,26 +229,31 @@ object Ads : Application.ActivityLifecycleCallbacks {
             when (network.lowercase()) {
                 APPLOVIN_MAX -> {
                     try {
-                        Log.d(TAG, "Attempting to show AppLovin MAX banner")
-                        val bannerHelper = com.mzgs.helper.applovin.AppLovinBannerHelper(activity)
-                        val bannerType = when (adSize) {
-                            BannerSize.ADAPTIVE, BannerSize.BANNER -> com.mzgs.helper.applovin.AppLovinBannerHelper.BannerType.BANNER
-                            BannerSize.MEDIUM_RECTANGLE -> com.mzgs.helper.applovin.AppLovinBannerHelper.BannerType.MREC
-                            BannerSize.LEADERBOARD -> com.mzgs.helper.applovin.AppLovinBannerHelper.BannerType.LEADER
-                            else -> com.mzgs.helper.applovin.AppLovinBannerHelper.BannerType.BANNER
-                        }
-                        bannerHelper.createBannerView(
-                            adUnitId = AppLovinMediationManager.getConfig()?.bannerAdUnitId ?: "",
-                            bannerType = bannerType,
-                            container = container as android.widget.FrameLayout,
-                            onAdLoaded = {
-                                Log.d(TAG, "AppLovin MAX banner loaded successfully")
-                            },
-                            onAdFailedToLoad = { error ->
-                                Log.e(TAG, "AppLovin MAX banner failed: ${error.message}")
+                        val adUnitId = AppLovinMediationManager.getConfig()?.bannerAdUnitId ?: ""
+                        if (adUnitId.isNotEmpty() && AppLovinMediationManager.isInitialized()) {
+                            Log.d(TAG, "Attempting to show AppLovin MAX banner")
+                            val bannerHelper = com.mzgs.helper.applovin.AppLovinBannerHelper(activity)
+                            val bannerType = when (adSize) {
+                                BannerSize.ADAPTIVE, BannerSize.BANNER -> com.mzgs.helper.applovin.AppLovinBannerHelper.BannerType.BANNER
+                                BannerSize.MEDIUM_RECTANGLE -> com.mzgs.helper.applovin.AppLovinBannerHelper.BannerType.MREC
+                                BannerSize.LEADERBOARD -> com.mzgs.helper.applovin.AppLovinBannerHelper.BannerType.LEADER
+                                else -> com.mzgs.helper.applovin.AppLovinBannerHelper.BannerType.BANNER
                             }
-                        )
-                        return true
+                            bannerHelper.createBannerView(
+                                adUnitId = adUnitId,
+                                bannerType = bannerType,
+                                container = container as android.widget.FrameLayout,
+                                onAdLoaded = {
+                                    Log.d(TAG, "AppLovin MAX banner loaded successfully")
+                                },
+                                onAdFailedToLoad = { error ->
+                                    Log.e(TAG, "AppLovin MAX banner failed: ${error.message}")
+                                }
+                            )
+                            return true
+                        } else {
+                            Log.d(TAG, "AppLovin MAX not initialized or no banner ad unit ID configured, skipping")
+                        }
                     } catch (e: Exception) {
                         Log.e(TAG, "Error showing AppLovin MAX banner: ${e.message}")
                     }
@@ -295,18 +350,23 @@ object Ads : Application.ActivityLifecycleCallbacks {
             when (network.lowercase()) {
                 APPLOVIN_MAX -> {
                     try {
-                        Log.d(TAG, "Attempting to show AppLovin MAX native ad")
-                        val nativeHelper = com.mzgs.helper.applovin.AppLovinNativeAdHelper(activity)
-                        nativeHelper.loadNativeAd(
-                            adUnitId = AppLovinMediationManager.getConfig()?.nativeAdUnitId ?: "",
-                            onAdLoaded = {
-                                Log.d(TAG, "AppLovin MAX native ad loaded successfully")
-                            },
-                            onAdFailedToLoad = { error ->
-                                Log.e(TAG, "AppLovin MAX native ad failed: ${error.message}")
-                            }
-                        )
-                        return true
+                        val adUnitId = AppLovinMediationManager.getConfig()?.nativeAdUnitId ?: ""
+                        if (adUnitId.isNotEmpty() && AppLovinMediationManager.isInitialized()) {
+                            Log.d(TAG, "Attempting to show AppLovin MAX native ad")
+                            val nativeHelper = com.mzgs.helper.applovin.AppLovinNativeAdHelper(activity)
+                            nativeHelper.loadNativeAd(
+                                adUnitId = adUnitId,
+                                onAdLoaded = {
+                                    Log.d(TAG, "AppLovin MAX native ad loaded successfully")
+                                },
+                                onAdFailedToLoad = { error ->
+                                    Log.e(TAG, "AppLovin MAX native ad failed: ${error.message}")
+                                }
+                            )
+                            return true
+                        } else {
+                            Log.d(TAG, "AppLovin MAX not initialized or no native ad unit ID configured, skipping")
+                        }
                     } catch (e: Exception) {
                         Log.e(TAG, "Error showing AppLovin MAX native ad: ${e.message}")
                     }
@@ -395,20 +455,25 @@ object Ads : Application.ActivityLifecycleCallbacks {
             when (network.lowercase()) {
                 APPLOVIN_MAX -> {
                     try {
-                        Log.d(TAG, "Attempting to show AppLovin MAX MREC")
-                        val bannerHelper = com.mzgs.helper.applovin.AppLovinBannerHelper(activity)
-                        bannerHelper.createBannerView(
-                            adUnitId = AppLovinMediationManager.getConfig()?.getEffectiveMrecAdUnitId() ?: "",
-                            bannerType = com.mzgs.helper.applovin.AppLovinBannerHelper.BannerType.MREC,
-                            container = container as android.widget.FrameLayout,
-                            onAdLoaded = {
-                                Log.d(TAG, "AppLovin MAX MREC loaded successfully")
-                            },
-                            onAdFailedToLoad = { error ->
-                                Log.e(TAG, "AppLovin MAX MREC failed: ${error.message}")
-                            }
-                        )
-                        return true
+                        val adUnitId = AppLovinMediationManager.getConfig()?.getEffectiveMrecAdUnitId() ?: ""
+                        if (adUnitId.isNotEmpty() && AppLovinMediationManager.isInitialized()) {
+                            Log.d(TAG, "Attempting to show AppLovin MAX MREC")
+                            val bannerHelper = com.mzgs.helper.applovin.AppLovinBannerHelper(activity)
+                            bannerHelper.createBannerView(
+                                adUnitId = adUnitId,
+                                bannerType = com.mzgs.helper.applovin.AppLovinBannerHelper.BannerType.MREC,
+                                container = container as android.widget.FrameLayout,
+                                onAdLoaded = {
+                                    Log.d(TAG, "AppLovin MAX MREC loaded successfully")
+                                },
+                                onAdFailedToLoad = { error ->
+                                    Log.e(TAG, "AppLovin MAX MREC failed: ${error.message}")
+                                }
+                            )
+                            return true
+                        } else {
+                            Log.d(TAG, "AppLovin MAX not initialized or no MREC ad unit ID configured, skipping")
+                        }
                     } catch (e: Exception) {
                         Log.e(TAG, "Error showing AppLovin MAX MREC: ${e.message}")
                     }
