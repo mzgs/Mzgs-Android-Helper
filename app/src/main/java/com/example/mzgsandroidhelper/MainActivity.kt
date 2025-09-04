@@ -97,21 +97,26 @@ class MainActivity : ComponentActivity() {
         MzgsHelper.initSplashWithAdmobShow(
             activity = this,
             admobConfig = admobConfig,
+            appLovinConfig  ,
             onFinish = {
                 Log.d("MainActivity", "Splash and ad sequence completed")
-                Ads.initAppLovinMax(appLovinConfig){
-                    p("ApplovinMax init completed.")
-
+                setContent {
+                    MzgsAndroidHelperTheme {
+                        AdMobTestScreen()
+                    }
                 }
+
+            },
+            onFinishAndApplovinReady = {
+
+                p("applovin init finsihed")
+                AppLovinMediationManager.loadInterstitialAd()
+
             }
         )
 
 
-        setContent {
-            MzgsAndroidHelperTheme {
-                AdMobTestScreen()
-            }
-        }
+
     }
 
 

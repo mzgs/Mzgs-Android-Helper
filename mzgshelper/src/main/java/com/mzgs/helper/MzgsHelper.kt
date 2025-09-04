@@ -45,8 +45,23 @@ object MzgsHelper {
     fun initSplashWithAdmobShow(
         activity: ComponentActivity, 
         admobConfig: AdMobConfig,
-        onFinish: (() -> Unit)? = null
+        appLovinConfig: AppLovinConfig,
+        onFinish: (() -> Unit)? = null,
+        onFinishAndApplovinReady: (() -> Unit)? = null
     ){
+
+        // Track completion states for onFinishAndApplovinReady callback
+        var isSplashFinished = false
+        var isApplovinReady = false
+        var isOnFinishCalled = false
+        var hasCalledFinishAndApplovinReady = false
+        
+        fun checkAndCallFinishAndApplovinReady() {
+            if (isSplashFinished && isApplovinReady && isOnFinishCalled && !hasCalledFinishAndApplovinReady) {
+                hasCalledFinishAndApplovinReady = true
+                onFinishAndApplovinReady?.invoke()
+            }
+        }
 
 // Initialize Simple Splash Screen with progress
         val splash = SimpleSplashHelper.Builder(activity)
@@ -55,6 +70,10 @@ object MzgsHelper {
             .showProgress(true)
             .onComplete {
                 Log.d("MainActivity", "Splash screen completed")
+                
+                // Mark splash as finished
+                isSplashFinished = true
+                checkAndCallFinishAndApplovinReady()
 
                 // Show interstitial ad if ready
                 if (AdMobMediationManager.isInterstitialReady()) {
@@ -63,6 +82,9 @@ object MzgsHelper {
                         onAdDismissed = {
                             Log.d("MainActivity", "Interstitial ad dismissed")
                             onFinish?.invoke()
+                            // Mark onFinish as called
+                            isOnFinishCalled = true
+                            checkAndCallFinishAndApplovinReady()
                         }
                     )
                 } else {
@@ -70,6 +92,9 @@ object MzgsHelper {
                     FirebaseAnalyticsManager.logEvent("onstart_ad_not_ready")
                     // Call onFinish when ad is not loaded
                     onFinish?.invoke()
+                    // Mark onFinish as called
+                    isOnFinishCalled = true
+                    checkAndCallFinishAndApplovinReady()
                 }
             }
             .build()
@@ -130,6 +155,13 @@ object MzgsHelper {
                                         AdMobMediationManager.loadInterstitialAd()
                                     }
 
+                                    Ads.initAppLovinMax(appLovinConfig){
+                                        p("ApplovinMax init completed.")
+                                        // Mark AppLovin as ready
+                                        isApplovinReady = true
+                                        checkAndCallFinishAndApplovinReady()
+                                    }
+
                                     // Resume splash screen
                                     splash.resume()
                                 }
@@ -145,6 +177,14 @@ object MzgsHelper {
                                 AdMobMediationManager.loadInterstitialAd()
                             } else {
                                 Log.d("MainActivity", "Cannot show any ads yet")
+                            }
+                            
+                            // Initialize AppLovin when no consent form needed
+                            Ads.initAppLovinMax(appLovinConfig){
+                                p("ApplovinMax init completed.")
+                                // Mark AppLovin as ready
+                                isApplovinReady = true
+                                checkAndCallFinishAndApplovinReady()
                             }
 
                             // Resume splash screen
@@ -162,6 +202,15 @@ object MzgsHelper {
                             )
                             AdMobMediationManager.loadInterstitialAd()
                         }
+                        
+                        // Initialize AppLovin even on consent failure
+                        Ads.initAppLovinMax(appLovinConfig){
+                            p("ApplovinMax init completed.")
+                            // Mark AppLovin as ready
+                            isApplovinReady = true
+                            checkAndCallFinishAndApplovinReady()
+                        }
+                        
                         splash.resume()
                     }
                 )
