@@ -8,17 +8,12 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.ViewGroup
-import com.google.android.gms.ads.LoadAdError
-import com.applovin.mediation.MaxError
-import com.mzgs.helper.admob.AdMobConfig
-import com.mzgs.helper.admob.AdMobMediationManager
-import com.mzgs.helper.applovin.AppLovinConfig
-import com.mzgs.helper.applovin.AppLovinMediationManager
+import com.mzgs.helper.admob.*
+import com.mzgs.helper.applovin.*
 import java.lang.ref.WeakReference
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
-import com.mzgs.helper.applovin.AppLovinBannerHelper
 
 object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
     private const val TAG = "Ads"
@@ -125,7 +120,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
         // Preload both AdMob and AppLovin app open ads for when app returns
         Handler(Looper.getMainLooper()).postDelayed({
             // Load AdMob app open ad if available
-            val admobAppOpenManager = com.mzgs.helper.admob.AppOpenAdManager.getInstance()
+            val admobAppOpenManager = AppOpenAdManager.getInstance()
             if (admobAppOpenManager != null) {
                 val context = applicationContext
                 if (context != null) {
@@ -135,7 +130,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
             }
             
             // Load AppLovin app open ad if available
-            val applovinAppOpenManager = com.mzgs.helper.applovin.AppLovinAppOpenAdManager.getInstance()
+            val applovinAppOpenManager = AppLovinAppOpenAdManager.getInstance()
             if (applovinAppOpenManager != null) {
                 Log.d(TAG, "Loading AppLovin app open ad for next app resume")
                 applovinAppOpenManager.loadAd()
@@ -308,10 +303,10 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
                             Log.d(TAG, "Attempting to show AppLovin MAX banner")
                             val bannerHelper = AppLovinBannerHelper(activity)
                             val bannerType = when (adSize) {
-                                BannerSize.ADAPTIVE, BannerSize.BANNER -> com.mzgs.helper.applovin.AppLovinBannerHelper.BannerType.BANNER
-                                BannerSize.MEDIUM_RECTANGLE -> com.mzgs.helper.applovin.AppLovinBannerHelper.BannerType.MREC
-                                BannerSize.LEADERBOARD -> com.mzgs.helper.applovin.AppLovinBannerHelper.BannerType.LEADER
-                                else -> com.mzgs.helper.applovin.AppLovinBannerHelper.BannerType.BANNER
+                                BannerSize.ADAPTIVE, BannerSize.BANNER -> AppLovinBannerHelper.BannerType.BANNER
+                                BannerSize.MEDIUM_RECTANGLE -> AppLovinBannerHelper.BannerType.MREC
+                                BannerSize.LEADERBOARD -> AppLovinBannerHelper.BannerType.LEADER
+                                else -> AppLovinBannerHelper.BannerType.BANNER
                             }
                             bannerHelper.createBannerView(
                                 adUnitId = adUnitId,
@@ -335,14 +330,14 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
                 ADMOB -> {
                     try {
                         Log.d(TAG, "Attempting to show AdMob banner")
-                        val bannerHelper = com.mzgs.helper.admob.BannerAdHelper(activity)
+                        val bannerHelper = BannerAdHelper(activity)
                         val bannerType = when (adSize) {
-                            BannerSize.ADAPTIVE -> com.mzgs.helper.admob.BannerAdHelper.BannerType.ADAPTIVE_BANNER
-                            BannerSize.BANNER -> com.mzgs.helper.admob.BannerAdHelper.BannerType.BANNER
-                            BannerSize.LARGE_BANNER -> com.mzgs.helper.admob.BannerAdHelper.BannerType.LARGE_BANNER
-                            BannerSize.MEDIUM_RECTANGLE -> com.mzgs.helper.admob.BannerAdHelper.BannerType.MEDIUM_RECTANGLE
-                            BannerSize.FULL_BANNER -> com.mzgs.helper.admob.BannerAdHelper.BannerType.FULL_BANNER
-                            BannerSize.LEADERBOARD -> com.mzgs.helper.admob.BannerAdHelper.BannerType.LEADERBOARD
+                            BannerSize.ADAPTIVE -> BannerAdHelper.BannerType.ADAPTIVE_BANNER
+                            BannerSize.BANNER -> BannerAdHelper.BannerType.BANNER
+                            BannerSize.LARGE_BANNER -> BannerAdHelper.BannerType.LARGE_BANNER
+                            BannerSize.MEDIUM_RECTANGLE -> BannerAdHelper.BannerType.MEDIUM_RECTANGLE
+                            BannerSize.FULL_BANNER -> BannerAdHelper.BannerType.FULL_BANNER
+                            BannerSize.LEADERBOARD -> BannerAdHelper.BannerType.LEADERBOARD
                         }
                         bannerHelper.createBannerView(
                             adUnitId = AdMobMediationManager.getConfig()?.bannerAdUnitId ?: "",
@@ -430,7 +425,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
                         val adUnitId = AppLovinMediationManager.getConfig()?.nativeAdUnitId ?: ""
                         if (adUnitId.isNotEmpty() && AppLovinMediationManager.isInitialized()) {
                             Log.d(TAG, "Attempting to show AppLovin MAX native ad")
-                            val nativeHelper = com.mzgs.helper.applovin.AppLovinNativeAdHelper(activity)
+                            val nativeHelper = AppLovinNativeAdHelper(activity)
                             nativeHelper.loadNativeAd(
                                 adUnitId = adUnitId,
                                 onAdLoaded = {
@@ -451,7 +446,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
                 ADMOB -> {
                     try {
                         Log.d(TAG, "Attempting to show AdMob native ad")
-                        val nativeHelper = com.mzgs.helper.admob.AdMobNativeAdHelper(activity)
+                        val nativeHelper = AdMobNativeAdHelper(activity)
                         nativeHelper.loadNativeAd(
                             onAdLoaded = { nativeAd ->
                                 Log.d(TAG, "AdMob native ad loaded successfully")
@@ -539,10 +534,10 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
                         val adUnitId = AppLovinMediationManager.getConfig()?.getEffectiveMrecAdUnitId() ?: ""
                         if (adUnitId.isNotEmpty() && AppLovinMediationManager.isInitialized()) {
                             Log.d(TAG, "Attempting to show AppLovin MAX MREC")
-                            val bannerHelper = com.mzgs.helper.applovin.AppLovinBannerHelper(activity)
+                            val bannerHelper = AppLovinBannerHelper(activity)
                             bannerHelper.createBannerView(
                                 adUnitId = adUnitId,
-                                bannerType = com.mzgs.helper.applovin.AppLovinBannerHelper.BannerType.MREC,
+                                bannerType = AppLovinBannerHelper.BannerType.MREC,
                                 container = container as android.widget.FrameLayout,
                                 onAdLoaded = {
                                     Log.d(TAG, "AppLovin MAX MREC loaded successfully")
@@ -562,7 +557,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
                 ADMOB -> {
                     try {
                         Log.d(TAG, "Attempting to show AdMob MREC")
-                        val mrecView = com.mzgs.helper.admob.AdMobMRECView(activity)
+                        val mrecView = AdMobMRECView(activity)
                         mrecView.loadMREC(
                             adUnitId = AdMobMediationManager.getConfig()?.bannerAdUnitId ?: "",
                             onAdLoaded = {
@@ -600,7 +595,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
         for (network in adsOrder) {
             when (network.lowercase()) {
                 APPLOVIN_MAX -> {
-                    val appOpenManager = com.mzgs.helper.applovin.AppLovinAppOpenAdManager.getInstance()
+                    val appOpenManager = AppLovinAppOpenAdManager.getInstance()
                     if (appOpenManager != null) {
                         Log.d(TAG, "Attempting to show AppLovin MAX app open ad")
                         appOpenManager.showAdIfAvailable()
@@ -609,7 +604,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
                     Log.d(TAG, "AppLovin MAX app open ad manager not initialized, trying next")
                 }
                 ADMOB -> {
-                    val appOpenManager = com.mzgs.helper.admob.AppOpenAdManager.getInstance()
+                    val appOpenManager = AppOpenAdManager.getInstance()
                     if (appOpenManager != null && activity != null) {
                         Log.d(TAG, "Attempting to show AdMob app open ad")
                         appOpenManager.showAdIfAvailable(activity)
