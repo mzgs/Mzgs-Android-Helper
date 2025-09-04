@@ -37,7 +37,11 @@ object MzgsHelper {
         Toast.makeText(context, message, duration).show()
     }
 
-    fun initSplashWithAdmobShow(activity: ComponentActivity, admobConfig: AdMobConfig ){
+    fun initSplashWithAdmobShow(
+        activity: ComponentActivity, 
+        admobConfig: AdMobConfig,
+        onFinish: (() -> Unit)? = null
+    ){
 
 // Initialize Simple Splash Screen with progress
         val splash = SimpleSplashHelper.Builder(activity)
@@ -50,10 +54,17 @@ object MzgsHelper {
                 // Show interstitial ad if ready
                 if (AdMobMediationManager.isInterstitialReady()) {
                     Log.d("MainActivity", "Showing interstitial ad after splash")
-                    AdMobMediationManager.showInterstitialAd()
+                    AdMobMediationManager.showInterstitialAd(
+                        onAdDismissed = {
+                            Log.d("MainActivity", "Interstitial ad dismissed")
+                            onFinish?.invoke()
+                        }
+                    )
                 } else {
                     Log.d("MainActivity", "Interstitial ad not ready after splash")
                     FirebaseAnalyticsManager.logEvent("onstart_ad_not_ready")
+                    // Call onFinish when ad is not loaded
+                    onFinish?.invoke()
                 }
             }
             .build()

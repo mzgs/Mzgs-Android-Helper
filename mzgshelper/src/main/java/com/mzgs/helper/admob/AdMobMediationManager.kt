@@ -437,32 +437,71 @@ object AdMobMediationManager : Application.ActivityLifecycleCallbacks {
     }
     
     @JvmStatic
-    fun showInterstitialAd(): Boolean {
+    fun showInterstitialAd(onAdDismissed: (() -> Unit)? = null): Boolean {
         val activity = currentActivityRef?.get()
         if (activity == null) {
             Log.e(TAG, "No current activity available to show interstitial ad")
+            onAdDismissed?.invoke()
             return false
         }
-        return showInterstitialAd(activity)
+        return showInterstitialAd(activity, onAdDismissed)
     }
     
     @JvmStatic
-    fun showInterstitialAd(activity: Activity): Boolean {
+    fun showInterstitialAd(activity: Activity, onAdDismissed: (() -> Unit)? = null): Boolean {
         // Check debug flag
         adConfig?.let { config ->
             contextRef?.get()?.let { ctx ->
                 if (!config.shouldShowInterstitials(ctx)) {
                     Log.d(TAG, "Interstitial ads disabled in debug mode")
+                    onAdDismissed?.invoke()
                     return false
                 }
             }
         }
         
         return if (interstitialAd != null) {
+            // Set up callback for ad dismissal if provided
+            onAdDismissed?.let { callback ->
+                interstitialAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
+                    override fun onAdDismissedFullScreenContent() {
+                        Log.d(TAG, "Interstitial ad dismissed")
+                        callback.invoke()
+                        interstitialAd = null
+                        // Auto-reload the interstitial ad
+                        adConfig?.let { config ->
+                            val adUnitId = config.getEffectiveInterstitialAdUnitId(contextRef?.get())
+                            if (adUnitId.isNotEmpty()) {
+                                Log.d(TAG, "Auto-reloading interstitial ad")
+                                loadInterstitialAd(adUnitId)
+                            }
+                        }
+                    }
+                    
+                    override fun onAdFailedToShowFullScreenContent(error: AdError) {
+                        Log.e(TAG, "Failed to show interstitial: ${error.message}")
+                        callback.invoke()
+                        interstitialAd = null
+                    }
+                    
+                    override fun onAdShowedFullScreenContent() {
+                        Log.d(TAG, "Interstitial ad showed")
+                    }
+                    
+                    override fun onAdImpression() {
+                        Log.d(TAG, "Interstitial ad impression")
+                    }
+                    
+                    override fun onAdClicked() {
+                        Log.d(TAG, "Interstitial ad clicked")
+                    }
+                }
+            }
             interstitialAd?.show(activity)
             true
         } else {
             Log.w(TAG, "Interstitial ad not ready")
+            onAdDismissed?.invoke()
             false
         }
     }

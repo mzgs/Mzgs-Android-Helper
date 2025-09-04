@@ -90,7 +90,16 @@ class MainActivity : ComponentActivity() {
             showAdsInDebug = true
         )
 
-        MzgsHelper.initSplashWithAdmobShow(this,admobConfig)
+        MzgsHelper.initSplashWithAdmobShow(
+            activity = this,
+            admobConfig = admobConfig,
+            onFinish = {
+                Log.d("MainActivity", "Splash and ad sequence completed")
+                Ads.initAppLovinMax(appLovinConfig){
+                    p("")
+                }
+            }
+        )
 
 
 
