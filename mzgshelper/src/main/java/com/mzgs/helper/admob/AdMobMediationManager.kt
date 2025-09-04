@@ -371,7 +371,6 @@ object AdMobMediationManager : Application.ActivityLifecycleCallbacks {
         onAdFailedToLoad: (LoadAdError) -> Unit = {}
     ) {
         val effectiveAdUnitId = adConfig?.getEffectiveInterstitialAdUnitId(contextRef?.get()) ?: ""
-        p(effectiveAdUnitId)
         if (effectiveAdUnitId.isEmpty()) {
             Log.e(TAG, "No interstitial ad unit ID configured")
             return
