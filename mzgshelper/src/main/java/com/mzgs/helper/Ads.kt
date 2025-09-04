@@ -15,17 +15,26 @@ import com.mzgs.helper.admob.AdMobMediationManager
 import com.mzgs.helper.applovin.AppLovinConfig
 import com.mzgs.helper.applovin.AppLovinMediationManager
 import java.lang.ref.WeakReference
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
+import com.mzgs.helper.applovin.AppLovinBannerHelper
 
-object Ads : Application.ActivityLifecycleCallbacks {
+object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
     private const val TAG = "Ads"
     private const val ADMOB = "admob"
     private const val APPLOVIN_MAX = "applovin_max"
     
     private var applicationContext: Context? = null
     private var currentActivityRef: WeakReference<Activity>? = null
+    private var isFirstLaunch = true
+    private var appOpenAdEnabled = false
     
     fun init(context: Context) {
         applicationContext = context.applicationContext
+        
+        // Register for process lifecycle to detect app foreground/background
+        ProcessLifecycleOwner.get().lifecycle.addObserver(this)
         
         // Register for activity lifecycle callbacks
         if (context is Activity) {
@@ -90,6 +99,56 @@ object Ads : Application.ActivityLifecycleCallbacks {
         return currentActivityRef?.get()
     }
     
+    // Called when app comes to foreground
+    override fun onStart(owner: LifecycleOwner) {
+        super.onStart(owner)
+        Log.d(TAG, "App came to foreground, isFirstLaunch: $isFirstLaunch")
+        
+        // Don't show on first launch, only when returning from background
+        if (!isFirstLaunch && appOpenAdEnabled) {
+            // Use a small delay to ensure activity is ready
+            Handler(Looper.getMainLooper()).postDelayed({
+                Log.d(TAG, "Attempting to show app open ad after returning from background")
+                showAppOpenAd()
+            }, 100)
+        } else if (isFirstLaunch) {
+            isFirstLaunch = false
+            Log.d(TAG, "First launch detected, not showing app open ad")
+        }
+    }
+    
+    // Called when app goes to background
+    override fun onStop(owner: LifecycleOwner) {
+        super.onStop(owner)
+        Log.d(TAG, "App going to background - preloading app open ads for next time")
+        
+        // Preload both AdMob and AppLovin app open ads for when app returns
+        Handler(Looper.getMainLooper()).postDelayed({
+            // Load AdMob app open ad if available
+            val admobAppOpenManager = com.mzgs.helper.admob.AppOpenAdManager.getInstance()
+            if (admobAppOpenManager != null) {
+                val context = applicationContext
+                if (context != null) {
+                    Log.d(TAG, "Fetching AdMob app open ad for next app resume")
+                    admobAppOpenManager.fetchAd(context)
+                }
+            }
+            
+            // Load AppLovin app open ad if available
+            val applovinAppOpenManager = com.mzgs.helper.applovin.AppLovinAppOpenAdManager.getInstance()
+            if (applovinAppOpenManager != null) {
+                Log.d(TAG, "Loading AppLovin app open ad for next app resume")
+                applovinAppOpenManager.loadAd()
+            }
+        }, 500) // Small delay to ensure smooth background transition
+    }
+    
+    @JvmStatic
+    fun enableAppOpenAds(enabled: Boolean) {
+        appOpenAdEnabled = enabled
+        Log.d(TAG, "App open ads ${if (enabled) "enabled" else "disabled"}")
+    }
+    
     @JvmStatic
     fun initAdMob(
         config: AdMobConfig,
@@ -102,6 +161,11 @@ object Ads : Application.ActivityLifecycleCallbacks {
         }
         Log.d(TAG, "Initializing AdMob through Ads helper")
         AdMobMediationManager.init(context, config, onInitComplete)
+        
+        // Enable app open ads if configured
+        if (config.enableAppOpenAd) {
+            enableAppOpenAds(true)
+        }
     }
     
     @JvmStatic
@@ -116,6 +180,11 @@ object Ads : Application.ActivityLifecycleCallbacks {
         }
         Log.d(TAG, "Initializing AppLovin MAX through Ads helper")
         AppLovinMediationManager.init(context, config, onInitComplete)
+        
+        // Enable app open ads if configured
+        if (config.enableAppOpenAd) {
+            enableAppOpenAds(true)
+        }
     }
     
     @JvmStatic
@@ -237,7 +306,7 @@ object Ads : Application.ActivityLifecycleCallbacks {
                         val adUnitId = AppLovinMediationManager.getConfig()?.bannerAdUnitId ?: ""
                         if (adUnitId.isNotEmpty() && AppLovinMediationManager.isInitialized()) {
                             Log.d(TAG, "Attempting to show AppLovin MAX banner")
-                            val bannerHelper = com.mzgs.helper.applovin.AppLovinBannerHelper(activity)
+                            val bannerHelper = AppLovinBannerHelper(activity)
                             val bannerType = when (adSize) {
                                 BannerSize.ADAPTIVE, BannerSize.BANNER -> com.mzgs.helper.applovin.AppLovinBannerHelper.BannerType.BANNER
                                 BannerSize.MEDIUM_RECTANGLE -> com.mzgs.helper.applovin.AppLovinBannerHelper.BannerType.MREC

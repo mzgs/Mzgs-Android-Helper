@@ -2,12 +2,7 @@ package com.mzgs.helper.applovin
 
 import android.app.Activity
 import android.app.Application
-import android.os.Bundle
 import android.util.Log
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.ProcessLifecycleOwner
 import com.applovin.mediation.MaxAd
 import com.applovin.mediation.MaxAdListener
 import com.applovin.mediation.MaxError
@@ -18,10 +13,9 @@ import java.util.Date
 class AppLovinAppOpenAdManager private constructor(
     private val application: Application,
     private val config: AppLovinConfig
-) : Application.ActivityLifecycleCallbacks, LifecycleEventObserver {
+) {
     
     private var appOpenAd: MaxAppOpenAd? = null
-    private var currentActivity: Activity? = null
     private var loadTime: Long = 0
     private var isShowingAd = false
     
@@ -45,24 +39,10 @@ class AppLovinAppOpenAdManager private constructor(
         }
     }
     
-    init {
-        application.registerActivityLifecycleCallbacks(this)
-        ProcessLifecycleOwner.get().lifecycle.addObserver(this)
-        
-        // Don't load on app start - will load when app goes to background
-        // or when explicitly requested
-    }
+    // No init needed - no lifecycle callbacks to register
     
-    override fun onStateChanged(source: LifecycleOwner, event: Lifecycle.Event) {
-        when (event) {
-            Lifecycle.Event.ON_START -> {
-                if (!isShowingAd) {
-                    showAdIfAvailable()
-                }
-            }
-            else -> {}
-        }
-    }
+    // Lifecycle methods removed - Ads class handles app lifecycle centrally
+    // The Ads class will call loadAd() and showAdIfAvailable() as needed
     
     fun loadAd() {
         if (!config.shouldShowAppOpenAd(application)) {
@@ -155,7 +135,7 @@ class AppLovinAppOpenAdManager private constructor(
             return
         }
         
-        currentActivity?.let { activity ->
+        com.mzgs.helper.Ads.getCurrentActivity()?.let { activity ->
             if (shouldNotShowAppOpenAd(activity)) {
                 Log.d(TAG, "Skipping app open ad for excluded activity: ${activity.javaClass.simpleName}")
                 return
@@ -203,7 +183,7 @@ class AppLovinAppOpenAdManager private constructor(
             return
         }
         
-        currentActivity = activity
+        // Activity tracked via Ads.getCurrentActivity()
         
         if (isAdAvailable() && !isShowingAd) {
             appOpenAd?.showAd()
@@ -212,33 +192,5 @@ class AppLovinAppOpenAdManager private constructor(
         }
     }
     
-    fun pauseAutoShow() {
-        ProcessLifecycleOwner.get().lifecycle.removeObserver(this)
-    }
-    
-    fun resumeAutoShow() {
-        ProcessLifecycleOwner.get().lifecycle.addObserver(this)
-    }
-    
-    override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
-    
-    override fun onActivityStarted(activity: Activity) {
-        currentActivity = activity
-    }
-    
-    override fun onActivityResumed(activity: Activity) {
-        currentActivity = activity
-    }
-    
-    override fun onActivityPaused(activity: Activity) {}
-    
-    override fun onActivityStopped(activity: Activity) {}
-    
-    override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
-    
-    override fun onActivityDestroyed(activity: Activity) {
-        if (currentActivity == activity) {
-            currentActivity = null
-        }
-    }
+    // Activity lifecycle callbacks removed - using Ads.getCurrentActivity() instead
 }

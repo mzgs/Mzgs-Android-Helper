@@ -7,9 +7,6 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import androidx.lifecycle.DefaultLifecycleObserver
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.ProcessLifecycleOwner
 import com.google.android.gms.ads.AdError
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.FullScreenContentCallback
@@ -21,7 +18,7 @@ import java.util.Date
 class AppOpenAdManager(
     private val application: Application,
     private val config: AdMobConfig
-) : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
+) {
     
     companion object {
         private const val TAG = "AppOpenAdManager"
@@ -46,66 +43,22 @@ class AppOpenAdManager(
     private var isLoadingAd = false
     private var isShowingAd = false
     private var loadTime: Long = 0
-    private var currentActivity: Activity? = null
     private var isFirstLaunch = true
     
-    init {
-        application.registerActivityLifecycleCallbacks(this)
-    }
+    // No need for init - no lifecycle callbacks to register
     
     private fun setup() {
         Log.d(TAG, "App Open Ad Manager initialized with enableAppOpenAd: ${config.enableAppOpenAd}")
         
-        // Register for app lifecycle events AFTER initialization
-        ProcessLifecycleOwner.get().lifecycle.addObserver(this)
+        // Don't register for lifecycle - Ads class handles this centrally
+        // ProcessLifecycleOwner.get().lifecycle.addObserver(this) - REMOVED
         
         // Don't load on app start - will load when app goes to background
         // or when explicitly requested
     }
     
-    // Called when app comes to foreground
-    override fun onStart(owner: LifecycleOwner) {
-        super.onStart(owner)
-        Log.d(TAG, "onStart - App in foreground, isFirstLaunch: $isFirstLaunch")
-        
-        // Don't show on first launch, only when returning from background
-        if (!isFirstLaunch && config.shouldShowAppOpenAd(application)) {
-            // Use a small delay to ensure activity is ready
-            Handler(Looper.getMainLooper()).postDelayed({
-                currentActivity?.let { activity ->
-                    if (!activity.isFinishing && !isShowingAd) {
-                        Log.d(TAG, "Attempting to show app open ad after returning from background")
-                        showAdIfAvailable(activity)
-                    }
-                }
-            }, 100)
-        } else if (isFirstLaunch) {
-            isFirstLaunch = false
-            Log.d(TAG, "First launch detected, not showing ad")
-        } else if (!config.shouldShowAppOpenAd(application)) {
-            Log.d(TAG, "App open ads disabled for debug mode")
-        }
-    }
-    
-    // Called when app goes to background
-    override fun onStop(owner: LifecycleOwner) {
-        super.onStop(owner)
-        Log.d(TAG, "onStop - App going to background")
-        
-        if (config.shouldShowAppOpenAd(application)) {
-            // Preload ad for next time
-            Handler(Looper.getMainLooper()).postDelayed({
-                currentActivity?.let { activity ->
-                    if (!isAdAvailable() && !isLoadingAd) {
-                        Log.d(TAG, "Fetching ad for next app open")
-                        fetchAd(activity)
-                    } else {
-                        Log.d(TAG, "Ad already available or loading, skipping fetch")
-                    }
-                }
-            }, 100)
-        }
-    }
+    // Lifecycle methods removed - Ads class handles app lifecycle centrally
+    // The Ads class will call fetchAd() and showAdIfAvailable() as needed
     
     fun fetchAd(context: Context) {
         if (!config.shouldShowAppOpenAd(context)) {
@@ -182,7 +135,7 @@ class AppOpenAdManager(
                 appOpenAd = null
                 isShowingAd = false
                 // Immediately fetch next ad
-                currentActivity?.let { fetchAd(it) }
+                com.mzgs.helper.Ads.getCurrentActivity()?.let { fetchAd(it) }
             }
             
             override fun onAdFailedToShowFullScreenContent(adError: AdError) {
@@ -190,7 +143,7 @@ class AppOpenAdManager(
                 appOpenAd = null
                 isShowingAd = false
                 // Try to fetch a new ad
-                currentActivity?.let { fetchAd(it) }
+                com.mzgs.helper.Ads.getCurrentActivity()?.let { fetchAd(it) }
             }
             
             override fun onAdShowedFullScreenContent() {
@@ -306,38 +259,7 @@ class AppOpenAdManager(
         Log.d(TAG, "show() method called on ad")
     }
     
-    // Activity lifecycle callbacks
-    override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
-        Log.d(TAG, "onActivityCreated: ${activity.localClassName}")
-    }
-    
-    override fun onActivityStarted(activity: Activity) {
-        currentActivity = activity
-        Log.d(TAG, "onActivityStarted: ${activity.localClassName}, currentActivity set")
-    }
-    
-    override fun onActivityResumed(activity: Activity) {
-        currentActivity = activity
-        Log.d(TAG, "onActivityResumed: ${activity.localClassName}, currentActivity updated")
-    }
-    
-    override fun onActivityPaused(activity: Activity) {
-        Log.d(TAG, "onActivityPaused: ${activity.localClassName}")
-    }
-    
-    override fun onActivityStopped(activity: Activity) {
-        Log.d(TAG, "onActivityStopped: ${activity.localClassName}")
-    }
-    
-    override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
-    
-    override fun onActivityDestroyed(activity: Activity) {
-        Log.d(TAG, "onActivityDestroyed: ${activity.localClassName}")
-        if (currentActivity == activity) {
-            currentActivity = null
-            Log.d(TAG, "currentActivity cleared")
-        }
-    }
+    // Activity lifecycle callbacks removed - using Ads.getCurrentActivity() instead
     
     fun isShowingAd(): Boolean = isShowingAd
     
@@ -349,14 +271,14 @@ class AppOpenAdManager(
             isShowingAd = false
             loadTime = 0
         } else if (config.enableAppOpenAd) {
-            currentActivity?.let { fetchAd(it) }
+            com.mzgs.helper.Ads.getCurrentActivity()?.let { fetchAd(it) }
         }
     }
     
     // Manual method to show ad (for testing)
     fun showAdManually() {
         Log.d(TAG, "Manual show ad requested")
-        currentActivity?.let { activity ->
+        com.mzgs.helper.Ads.getCurrentActivity()?.let { activity ->
             showAdIfAvailable(activity)
         } ?: Log.e(TAG, "No current activity available for manual show")
     }
