@@ -37,9 +37,20 @@ fun p(obj: Any) {
 object MzgsHelper {
     
     private const val TAG = "MzgsHelper"
+    private var weakContext: java.lang.ref.WeakReference<Context>? = null
     
-    fun showToast(context: Context, message: String, duration: Int = Toast.LENGTH_SHORT) {
-        Toast.makeText(context, message, duration).show()
+    fun init(context: Context) {
+        weakContext = java.lang.ref.WeakReference(context.applicationContext)
+    }
+    
+    private fun getContext(): Context? {
+        return weakContext?.get()
+    }
+    
+    fun showToast(message: String, duration: Int = Toast.LENGTH_SHORT) {
+        getContext()?.let {
+            Toast.makeText(it, message, duration).show()
+        }
     }
 
     fun initSplashWithAdmobShow(
@@ -111,7 +122,7 @@ object MzgsHelper {
 
                 // Request consent info update
                 // Check if app is in debug mode for consent testing
-                val isDebugMode = MzgsHelper.isDebugMode(activity)
+                val isDebugMode = MzgsHelper.isDebugMode()
                 AdMobMediationManager.requestConsentInfoUpdate(
                     underAgeOfConsent = false,
                     debugGeography = if (isDebugMode && admobConfig.debugRequireConsentAlways)
@@ -220,7 +231,8 @@ object MzgsHelper {
 
     
     @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
-    fun isNetworkAvailable(context: Context): Boolean {
+    fun isNetworkAvailable(): Boolean {
+        val context = getContext() ?: return false
         val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
         val network = connectivityManager.activeNetwork ?: return false
@@ -231,7 +243,8 @@ object MzgsHelper {
     }
 
     
-    fun getAppVersion(context: Context): String {
+    fun getAppVersion(): String {
+        val context = getContext() ?: return "Unknown"
         return try {
             val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 context.packageManager.getPackageInfo(context.packageName, PackageManager.PackageInfoFlags.of(0))
@@ -246,7 +259,8 @@ object MzgsHelper {
         }
     }
     
-    fun getAppVersionCode(context: Context): Long {
+    fun getAppVersionCode(): Long {
+        val context = getContext() ?: return -1L
         return try {
             val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 context.packageManager.getPackageInfo(context.packageName, PackageManager.PackageInfoFlags.of(0))
@@ -266,6 +280,16 @@ object MzgsHelper {
             -1L
         }
     }
+
+    fun isSafe(): Boolean {
+        return try {
+
+            MzgsHelper.getAppVersion().toDouble() <= Remote.getDouble("safe", 0.9)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            true // Default to safe if there's an error
+        }
+    }
     
     /**
      * Checks if the application is running in debug mode.
@@ -282,7 +306,8 @@ object MzgsHelper {
      * Note: This checks the FLAG_DEBUGGABLE flag which is automatically set by Android
      * based on the build type (debug vs release) in your build.gradle
      */
-    fun isDebugMode(context: Context): Boolean {
+    fun isDebugMode(): Boolean {
+        val context = getContext() ?: return false
         return try {
             val applicationInfo = context.applicationInfo
             (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
@@ -325,7 +350,7 @@ object Remote {
         url?.takeIf { it.isNotEmpty() }?.let { configUrl ->
             CoroutineScope(Dispatchers.IO).launch { 
                 // Check network connectivity before attempting to fetch
-                if (isNetworkAvailable(context)) {
+                if (isNetworkAvailable()) {
                     fetchRemoteConfig(configUrl)
                 } else {
                     Log.w("Remote", "Network not available, using default values")
@@ -337,7 +362,8 @@ object Remote {
     /**
      * Check if network is available
      */
-    private fun isNetworkAvailable(context: Context): Boolean {
+    private fun isNetworkAvailable(): Boolean {
+        val context = applicationContext ?: return false
         return try {
             val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
             val network = connectivityManager.activeNetwork

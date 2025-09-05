@@ -58,7 +58,7 @@ object AppLovinMediationManager : Application.ActivityLifecycleCallbacks {
         }
         
         // SAFETY: Only set test device IDs in debug builds
-        val testDeviceIds = if (MzgsHelper.isDebugMode(context)) {
+        val testDeviceIds = if (MzgsHelper.isDebugMode()) {
             config.testDeviceAdvertisingIds
         } else {
             emptyList() // Never use test device IDs in release

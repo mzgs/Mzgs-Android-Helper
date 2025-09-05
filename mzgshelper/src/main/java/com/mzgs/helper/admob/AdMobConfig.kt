@@ -51,7 +51,7 @@ data class AdMobConfig(
     // Debug control methods - these only affect DEBUG builds
     fun shouldShowAds(context: android.content.Context): Boolean {
         // In release mode, always show ads
-        if (!MzgsHelper.isDebugMode(context)) return true
+        if (!MzgsHelper.isDebugMode()) return true
         
         // In debug mode, check the master switch
         return showAdsInDebug
@@ -59,31 +59,31 @@ data class AdMobConfig(
     
     fun shouldShowInterstitials(context: android.content.Context): Boolean {
         if (!shouldShowAds(context)) return false
-        if (!MzgsHelper.isDebugMode(context)) return true
+        if (!MzgsHelper.isDebugMode()) return true
         return showInterstitialsInDebug
     }
     
     fun shouldShowAppOpenAd(context: android.content.Context): Boolean {
         if (!shouldShowAds(context)) return false
-        if (!MzgsHelper.isDebugMode(context)) return enableAppOpenAd
+        if (!MzgsHelper.isDebugMode()) return enableAppOpenAd
         return enableAppOpenAd && showAppOpenAdInDebug
     }
     
     fun shouldShowBanners(context: android.content.Context): Boolean {
         if (!shouldShowAds(context)) return false
-        if (!MzgsHelper.isDebugMode(context)) return true
+        if (!MzgsHelper.isDebugMode()) return true
         return showBannersInDebug
     }
     
     fun shouldShowNativeAds(context: android.content.Context): Boolean {
         if (!shouldShowAds(context)) return false
-        if (!MzgsHelper.isDebugMode(context)) return true
+        if (!MzgsHelper.isDebugMode()) return true
         return showNativeAdsInDebug
     }
     
     fun shouldShowRewardedAds(context: android.content.Context): Boolean {
         if (!shouldShowAds(context)) return false
-        if (!MzgsHelper.isDebugMode(context)) return true
+        if (!MzgsHelper.isDebugMode()) return true
         return showRewardedAdsInDebug
     }
 }

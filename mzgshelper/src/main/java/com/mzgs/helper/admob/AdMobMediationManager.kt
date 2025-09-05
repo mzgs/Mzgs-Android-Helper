@@ -47,7 +47,7 @@ object AdMobMediationManager {
         this.contextRef = WeakReference(context.applicationContext)
         
         // Override config with test IDs if in debug mode and test mode enabled
-        this.adConfig = if (MzgsHelper.isDebugMode(context) && config.enableTestMode) {
+        this.adConfig = if (MzgsHelper.isDebugMode() && config.enableTestMode) {
             config.copy(
                 bannerAdUnitId = AdMobConfig.TEST_BANNER_AD_UNIT_ID,
                 interstitialAdUnitId = AdMobConfig.TEST_INTERSTITIAL_AD_UNIT_ID,
@@ -74,7 +74,7 @@ object AdMobMediationManager {
         }
         
         // SAFETY: Only set test device IDs in debug builds
-        val testDeviceIds = if (MzgsHelper.isDebugMode(context)) {
+        val testDeviceIds = if (MzgsHelper.isDebugMode()) {
             config.testDeviceIds
         } else {
             emptyList() // Never use test device IDs in release
@@ -221,7 +221,7 @@ object AdMobMediationManager {
         val shouldForceShow = adConfig?.let { config ->
             contextRef?.get()?.let { context ->
                 // CRITICAL: Must be debug mode AND flag enabled
-                MzgsHelper.isDebugMode(context) && config.debugRequireConsentAlways
+                MzgsHelper.isDebugMode() && config.debugRequireConsentAlways
             }
         } ?: false
         
@@ -292,7 +292,7 @@ object AdMobMediationManager {
         adConfig?.let { config ->
             contextRef?.get()?.let { context ->
                 // CRITICAL: Must be debug mode AND flag enabled - NEVER affects release
-                if (MzgsHelper.isDebugMode(context) && config.debugRequireConsentAlways) {
+                if (MzgsHelper.isDebugMode() && config.debugRequireConsentAlways) {
                     Log.d(TAG, "DEBUG ONLY: Forcing consent form availability for testing")
                     return true
                 }
@@ -866,7 +866,7 @@ object AdMobMediationManager {
     fun updateConfig(config: AdMobConfig) {
         contextRef?.get()?.let { context ->
             // Override config with test IDs if in debug mode and test mode enabled
-            this.adConfig = if (MzgsHelper.isDebugMode(context) && config.enableTestMode) {
+            this.adConfig = if (MzgsHelper.isDebugMode() && config.enableTestMode) {
                 config.copy(
                     bannerAdUnitId = AdMobConfig.TEST_BANNER_AD_UNIT_ID,
                     interstitialAdUnitId = AdMobConfig.TEST_INTERSTITIAL_AD_UNIT_ID,

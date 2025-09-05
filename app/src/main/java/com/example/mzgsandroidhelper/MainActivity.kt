@@ -74,7 +74,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
-
+        // Initialize MzgsHelper with application context
+        MzgsHelper.init(this)
 
         FirebaseAnalyticsManager.initialize(this)
         Remote.init(this)
@@ -125,13 +126,14 @@ class MainActivity : ComponentActivity() {
             appLovinConfig  ,
             onFinish = {
                 Log.d("MainActivity", "Splash and ad sequence completed")
-                isSplashComplete.value = true
+
 
             },
             onFinishAndApplovinReady = {
 
 
                 p(  "AppLovin SDK initialized successfully")
+                isSplashComplete.value = true
                 AppLovinMediationManager.loadInterstitialAd()
 
             }
@@ -507,7 +509,7 @@ fun SplashScreenTestCard() {
                                 .showProgress(false)
                                 .onComplete { 
                                     Log.d("SplashTest", "5 second splash completed")
-                                    MzgsHelper.showToast(context, "Splash completed!")
+                                    MzgsHelper.showToast("Splash completed!")
                                 }
                                 .build()
                                 .show()
