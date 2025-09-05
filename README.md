@@ -17,25 +17,9 @@ Android helper library with utility tools and comprehensive ad mediation support
 
 ### Using JitPack
 
-#### Option 1: Quick Setup (Recommended)
+**Important:** This library requires the Mintegral Maven repository for AppLovin mediation adapters.
 
-Add this single line to your `settings.gradle.kts` to include all required repositories:
-
-```kotlin
-apply(from = "https://raw.githubusercontent.com/mzgs/Mzgs-Android-Helper/main/mzgshelper-init.gradle.kts")
-```
-
-Then add the dependency to your app's `build.gradle.kts`:
-
-```kotlin
-dependencies {
-    implementation("com.github.mzgs:Mzgs-Android-Helper:v1.0.4")
-}
-```
-
-#### Option 2: Manual Setup
-
-If you prefer to configure repositories manually, add to your `settings.gradle.kts`:
+Add the required repositories to your `settings.gradle.kts`:
 
 ```kotlin
 dependencyResolutionManagement {
@@ -44,7 +28,7 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         maven { url = uri("https://jitpack.io") }
-        // Required for AppLovin mediation adapters
+        // Required: Mintegral repository for AppLovin mediation adapters
         maven { url = uri("https://dl-maven-android.mintegral.com/repository/mbridge_android_sdk_oversea") }
     }
 }
@@ -54,9 +38,11 @@ Then add the dependency to your app's `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("com.github.mzgs:Mzgs-Android-Helper:v1.0.4")
+    implementation("com.github.mzgs:Mzgs-Android-Helper:v1.0.5")
 }
 ```
+
+⚠️ **Note:** The Mintegral repository is mandatory. Without it, you'll get build errors related to AppLovin mediation adapters.
 
 ### Local Module
 
