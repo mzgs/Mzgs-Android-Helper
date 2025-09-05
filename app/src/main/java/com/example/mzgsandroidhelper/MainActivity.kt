@@ -127,6 +127,9 @@ class MainActivity : ComponentActivity() {
             appLovinConfig  ,
             onFinish = {
                 Log.d("MainActivity", "Splash and ad sequence completed")
+                MzgsHelper.setRestrictedCountriesFromRemoteConfig()
+                MzgsHelper.setIsAllowedCountry()
+
 
 
             },

@@ -303,6 +303,44 @@ object MzgsHelper {
         }
     }
 
+    /**
+     * Check if the current country is allowed based on phone countries and IP country
+     */
+    fun setIsAllowedCountry() {
+        // Get all phone countries
+        val phoneCountries = getPhoneCountry()
+        
+        // Check if any phone country is in the restricted list
+        val phoneCountryRestricted = phoneCountries.any { country ->
+            restrictedCountries.contains(country)
+        }
+        
+        // Check if IP country is in the restricted list
+        val ipCountryRestricted = IPCountry?.let { country ->
+            restrictedCountries.contains(country)
+        } ?: false
+        
+        // Set isAllowedCountry to false if any country is restricted
+        isAllowedCountry = !(phoneCountryRestricted || ipCountryRestricted)
+        
+        Log.d("LibHelper", "Phone countries: $phoneCountries")
+        Log.d("LibHelper", "IP country: $IPCountry")
+        Log.d("LibHelper", "Is allowed country: $isAllowedCountry")
+    }
+
+    /**
+     * Set restricted countries from remote configuration
+     */
+    fun setRestrictedCountriesFromRemoteConfig() {
+        try {
+            val remoteCountries = Remote.getStringArray("restrictedCountries", restrictedCountries)
+            restrictedCountries = remoteCountries.map { it.uppercase(Locale.ROOT) }
+            Log.d("LibHelper", "Restricted countries set from remote config: $restrictedCountries")
+        } catch (e: Exception) {
+            Log.e("LibHelper", "Error setting restricted countries from remote config, keeping default list", e)
+        }
+    }
+
     
     @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
     fun isNetworkAvailable(): Boolean {
