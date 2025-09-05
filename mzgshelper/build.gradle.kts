@@ -5,6 +5,14 @@ plugins {
     id("maven-publish")
 }
 
+// Add repositories for module dependencies
+repositories {
+    google()
+    mavenCentral()
+    // Mintegral (Mbridge) Maven repository for AppLovin mediation
+    maven { url = uri("https://dl-maven-android.mintegral.com/repository/mbridge_android_sdk_oversea") }
+}
+
 android {
     namespace = "com.mzgs.helper"
     compileSdk = 36
@@ -131,6 +139,15 @@ afterEvaluate {
                     name.set("MzgsHelper")
                     description.set("Android helper library for AdMob and AppLovin integration")
                     url.set("https://github.com/mzgs/Mzgs-Android-Helper")
+                    
+                    // Add required repositories for consumers
+                    withXml {
+                        val repositoriesNode = asNode().appendNode("repositories")
+                        val repositoryNode = repositoriesNode.appendNode("repository")
+                        repositoryNode.appendNode("id", "mintegral")
+                        repositoryNode.appendNode("name", "Mintegral Maven Repository")
+                        repositoryNode.appendNode("url", "https://dl-maven-android.mintegral.com/repository/mbridge_android_sdk_oversea")
+                    }
                     
                     licenses {
                         license {

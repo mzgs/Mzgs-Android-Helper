@@ -17,7 +17,7 @@ Android helper library with utility tools and comprehensive ad mediation support
 
 ### Using JitPack
 
-Add JitPack repository to your root `build.gradle.kts` or `settings.gradle.kts`:
+Add JitPack and Mintegral repositories to your root `build.gradle.kts` or `settings.gradle.kts`:
 
 ```kotlin
 dependencyResolutionManagement {
@@ -26,6 +26,8 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         maven { url = uri("https://jitpack.io") }
+        // Required for AppLovin mediation adapters
+        maven { url = uri("https://dl-maven-android.mintegral.com/repository/mbridge_android_sdk_oversea") }
     }
 }
 ```
@@ -34,7 +36,7 @@ Add the dependency to your app's `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("com.github.mzgs:Mzgs-Android-Helper:v1.0.2")
+    implementation("com.github.mzgs:Mzgs-Android-Helper:v1.0.3")
 }
 ```
 
