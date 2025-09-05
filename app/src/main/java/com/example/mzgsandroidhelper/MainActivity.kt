@@ -293,7 +293,7 @@ fun AdMobTestScreen(isSplashComplete: Boolean = false) {
             
             // Ads Helper Section - Main showcase
             item {
-                AdsHelperCard(isSplashComplete = isSplashComplete)
+                AdsHelperCard(isSplashComplete = isSplashComplete, snackbarHostState = snackbarHostState)
             }
             
             // Splash Screen Test Section  
@@ -558,11 +558,10 @@ fun SplashScreenTestCard() {
 }
 
 @Composable
-fun AdsHelperCard(isSplashComplete: Boolean = false) {
+fun AdsHelperCard(isSplashComplete: Boolean = false, snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }) {
     val context = LocalContext.current
     val activity = context as? Activity
     val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
     
     // States for ad loading
     var interstitialLoaded by remember { mutableStateOf(false) }
@@ -661,6 +660,44 @@ fun AdsHelperCard(isSplashComplete: Boolean = false) {
                         }
                     ) {
                         Text("Show")
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Interstitial with Cycle
+            OutlinedCard(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Interstitial Cycle Test",
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "Shows ad every 3 clicks",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Button(
+                        onClick = {
+                            // Call the cycle method - shows ad every 3 clicks
+                            Ads.showInterstitialWithCycle("testButton", 3)
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Button clicked! Ad will show every 3rd click")
+                            }
+                        }
+                    ) {
+                        Text("Test Cycle")
                     }
                 }
             }
