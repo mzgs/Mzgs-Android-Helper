@@ -106,7 +106,7 @@ class MainActivity : ComponentActivity() {
 
 
         val appLovinConfig = AppLovinConfig(
-            sdkKey = "sTOrf_0s7y7dzVqfTPRR0Ck_synT0Xrs0DgfChVKedyc7nGgAi6BwrAnnxEoT3dTHJ7T0dpfFmGNXX3hE9u9_2",
+            sdkKey = "sTOrf_0s7y7dzVqfTPRR0Ck_synT0Xrs0DgfChVKedyc7nGgAi6BwrAnnxEoT3dTHJ7T0dpfFmGNXX3hE9u9_",
             // Add your real AppLovin ad unit IDs here (from your AppLovin dashboard)
             bannerAdUnitId = "",
             interstitialAdUnitId = "",
