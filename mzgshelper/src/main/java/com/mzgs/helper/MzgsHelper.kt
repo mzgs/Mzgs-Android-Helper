@@ -39,6 +39,10 @@ object MzgsHelper {
     
     private const val TAG = "MzgsHelper"
     private var weakContext: java.lang.ref.WeakReference<Context>? = null
+    var restrictedCountries: List<String> = listOf(
+        "UK", "US", "GB", "CN", "MX", "JP", "KR", "AR", "HK", "IN",
+        "PK", "TR", "VN", "RU", "SG", "MO", "TW", "PY"
+    )
     
     fun init(context: Context) {
         weakContext = java.lang.ref.WeakReference(context.applicationContext)

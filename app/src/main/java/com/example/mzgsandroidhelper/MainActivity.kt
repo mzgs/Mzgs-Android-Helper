@@ -75,7 +75,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         
 
+
         MzgsHelper.init(this)
+
 
         FirebaseAnalyticsManager.initialize(this)
         Remote.init(this)
