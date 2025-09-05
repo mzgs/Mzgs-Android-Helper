@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("maven-publish")
 }
 
 android {
@@ -13,6 +14,13 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
+    }
+
+    publishing {
+        singleVariant("release") {
+            withSourcesJar()
+            withJavadocJar()
+        }
     }
 
     buildTypes {
@@ -106,4 +114,44 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)
 
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            create<MavenPublication>("release") {
+                from(components["release"])
+                
+                groupId = "com.github.MustafaZeynelYazgan"
+                artifactId = "mzgshelper"
+                version = "1.0.0"
+                
+                pom {
+                    name.set("MzgsHelper")
+                    description.set("Android helper library for AdMob and AppLovin integration")
+                    url.set("https://github.com/MustafaZeynelYazgan/Mzgs-Android-Helper")
+                    
+                    licenses {
+                        license {
+                            name.set("The Apache License, Version 2.0")
+                            url.set("http://www.apache.org/licenses/LICENSE-2.0.txt")
+                        }
+                    }
+                    
+                    developers {
+                        developer {
+                            id.set("MustafaZeynelYazgan")
+                            name.set("Mustafa Zeynel Yazgan")
+                        }
+                    }
+                    
+                    scm {
+                        connection.set("scm:git:github.com/MustafaZeynelYazgan/Mzgs-Android-Helper.git")
+                        developerConnection.set("scm:git:ssh://github.com/MustafaZeynelYazgan/Mzgs-Android-Helper.git")
+                        url.set("https://github.com/MustafaZeynelYazgan/Mzgs-Android-Helper/tree/main")
+                    }
+                }
+            }
+        }
+    }
 }
