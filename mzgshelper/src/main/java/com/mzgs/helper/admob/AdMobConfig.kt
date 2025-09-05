@@ -10,6 +10,7 @@ data class AdMobConfig(
     val rewardedAdUnitId: String = "",
     val rewardedInterstitialAdUnitId: String = "",
     val nativeAdUnitId: String = "",
+    val mrecAdUnitId: String = "",
     val appOpenAdUnitId: String = "",
     val enableAppOpenAd: Boolean = false,
     val testDeviceIds: List<String> = emptyList(),
@@ -29,6 +30,7 @@ data class AdMobConfig(
         const val TEST_REWARDED_AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917"
         const val TEST_REWARDED_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/5354046379"
         const val TEST_NATIVE_AD_UNIT_ID = "ca-app-pub-3940256099942544/2247696110"
+        const val TEST_MREC_AD_UNIT_ID = "ca-app-pub-3940256099942544/6300978111"  // Same as banner for MREC in test
         const val TEST_APP_OPEN_AD_UNIT_ID = "ca-app-pub-3940256099942544/9257395921"
         
         fun createTestConfig(): AdMobConfig {
@@ -38,6 +40,7 @@ data class AdMobConfig(
                 rewardedAdUnitId = TEST_REWARDED_AD_UNIT_ID,
                 rewardedInterstitialAdUnitId = TEST_REWARDED_INTERSTITIAL_AD_UNIT_ID,
                 nativeAdUnitId = TEST_NATIVE_AD_UNIT_ID,
+                mrecAdUnitId = TEST_MREC_AD_UNIT_ID,
                 appOpenAdUnitId = TEST_APP_OPEN_AD_UNIT_ID,
                 enableAppOpenAd = true,
                 enableTestMode = true

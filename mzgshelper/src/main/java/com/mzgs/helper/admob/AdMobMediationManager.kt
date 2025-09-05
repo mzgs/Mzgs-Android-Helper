@@ -54,6 +54,7 @@ object AdMobMediationManager {
                 rewardedAdUnitId = AdMobConfig.TEST_REWARDED_AD_UNIT_ID,
                 rewardedInterstitialAdUnitId = AdMobConfig.TEST_REWARDED_INTERSTITIAL_AD_UNIT_ID,
                 nativeAdUnitId = AdMobConfig.TEST_NATIVE_AD_UNIT_ID,
+                mrecAdUnitId = AdMobConfig.TEST_MREC_AD_UNIT_ID,
                 appOpenAdUnitId = AdMobConfig.TEST_APP_OPEN_AD_UNIT_ID
             )
         } else {
@@ -872,6 +873,7 @@ object AdMobMediationManager {
                     rewardedAdUnitId = AdMobConfig.TEST_REWARDED_AD_UNIT_ID,
                     rewardedInterstitialAdUnitId = AdMobConfig.TEST_REWARDED_INTERSTITIAL_AD_UNIT_ID,
                     nativeAdUnitId = AdMobConfig.TEST_NATIVE_AD_UNIT_ID,
+                    mrecAdUnitId = AdMobConfig.TEST_MREC_AD_UNIT_ID,
                     appOpenAdUnitId = AdMobConfig.TEST_APP_OPEN_AD_UNIT_ID
                 )
             } else {

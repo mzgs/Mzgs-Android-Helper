@@ -22,6 +22,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -69,12 +74,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
-        // Initialize WebView early to prevent JavaScript engine errors
-        try {
-            android.webkit.WebView(this).destroy()
-        } catch (e: Exception) {
-            Log.d("MainActivity", "WebView pre-initialization: ${e.message}")
-        }
+
 
         FirebaseAnalyticsManager.initialize(this)
         Remote.init(this)
@@ -88,7 +88,8 @@ class MainActivity : ComponentActivity() {
             rewardedAdUnitId = "",
             rewardedInterstitialAdUnitId = "",
             nativeAdUnitId = "",
-            appOpenAdUnitId = "", // Will use test ID automatically when enableTestMode = true
+            mrecAdUnitId = "",
+            appOpenAdUnitId = "",
             enableAppOpenAd = true,
             enableTestMode = true,
             testDeviceIds = listOf("3d6496d1-4784-4b96-bf5e-2d61200765de"),
@@ -173,6 +174,7 @@ class MainActivity : ComponentActivity() {
             }
         )
     }
+}
     
 
 
@@ -292,10 +294,161 @@ fun AdMobTestScreen(isSplashComplete: Boolean = false) {
             item {
                 SplashScreenTestCard()
             }
+            
+            // Search Section with Ads
+            item {
+                SearchWithAdsCard()
+            }
         }
     }
 }
 
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SearchWithAdsCard() {
+    var searchQuery by remember { mutableStateOf("") }
+    var showResults by remember { mutableStateOf(false) }
+    
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                "Search with Native Ads",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onTertiaryContainer
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Search Input Field
+            TextField(
+                value = searchQuery,
+                onValueChange = { 
+                    searchQuery = it
+                    showResults = it.isNotEmpty()
+                },
+                placeholder = { Text("Search for products...") },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.Search,
+                        contentDescription = "Search",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = TextFieldDefaults.colors(
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                    focusedContainerColor = MaterialTheme.colorScheme.surface
+                ),
+                singleLine = true
+            )
+            
+            // Search Results
+            if (showResults) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    "Search Results for: \"$searchQuery\"",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // Display 5 dummy results with ad as 2nd item
+                for (index in 0..4) {
+                    when (index) {
+                        1 -> {
+                            // Show Adaptive Banner as 2nd item
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                                ),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                            ) {
+                                // Adaptive Banner Container
+                                Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .heightIn(min = 50.dp)
+                                            .wrapContentHeight(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        AndroidView(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .wrapContentHeight(),
+                                            factory = { ctx ->
+                                                FrameLayout(ctx).apply {
+                                                    layoutParams = FrameLayout.LayoutParams(
+                                                        FrameLayout.LayoutParams.MATCH_PARENT,
+                                                        FrameLayout.LayoutParams.WRAP_CONTENT
+                                                    )
+                                                    // Load adaptive banner ad
+                                                    Ads.showBanner(this, Ads.BannerSize.ADAPTIVE)
+                                                }
+                                            }
+                                        )
+                                    }
+                            }
+                        }
+                        else -> {
+                            // Regular search result item
+                            OutlinedCard(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            "Product ${index + 1}: ${searchQuery}",
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            "Great product matching your search",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            "$${(20 + index * 10)}.99",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                    Button(
+                                        onClick = {
+                                            Log.d("Search", "View product ${index + 1}")
+                                        },
+                                        modifier = Modifier.padding(start = 8.dp)
+                                    ) {
+                                        Text("View")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
 @Composable
 fun SplashScreenTestCard() {
@@ -801,5 +954,4 @@ fun AdMobTestScreenPreview() {
     MzgsAndroidHelperTheme {
         AdMobTestScreen()
     }
-}
 }

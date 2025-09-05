@@ -559,7 +559,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
                         Log.d(TAG, "Attempting to show AdMob MREC")
                         val mrecView = AdMobMRECView(activity)
                         mrecView.loadMREC(
-                            adUnitId = AdMobMediationManager.getConfig()?.bannerAdUnitId ?: "",
+                            adUnitId = AdMobMediationManager.getConfig()?.mrecAdUnitId ?: "",
                             onAdLoaded = {
                                 Log.d(TAG, "AdMob MREC loaded successfully")
                                 container.removeAllViews()
