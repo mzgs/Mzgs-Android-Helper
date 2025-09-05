@@ -26,6 +26,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import com.google.android.play.core.review.ReviewManagerFactory
 import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.*
@@ -429,6 +430,43 @@ object MzgsHelper {
         }
     }
     
+    /**
+     * Shows the native in-app rating dialog using Google Play In-App Review API
+     * 
+     * @param activity The activity from which to show the review dialog
+     * @param rateName The name used for tracking rating events, defaults to "rate"
+     * @param showAtCounts Optional array of counts at which to show the rating dialog
+     */
+    fun showInappRate(activity: ComponentActivity, rateName: String = "rate", showAtCounts: List<Int> = emptyList()) {
+        if (showAtCounts.isNotEmpty()) {
+            val ac = ActionCounter.increaseGet(rateName)
+            if (!showAtCounts.contains(ac)) {
+                return
+            }
+        }
+        
+        try {
+            val manager = ReviewManagerFactory.create(activity)
+            val request = manager.requestReviewFlow()
+            
+            request.addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    val reviewInfo = task.result
+                    
+                    val flow = manager.launchReviewFlow(activity, reviewInfo)
+                    flow.addOnCompleteListener { _ ->
+                        Log.d("LibHelper", "In-app review flow completed")
+                    }
+                } else {
+                    Log.e("LibHelper", "Error requesting in-app review: ${task.exception}")
+                }
+            }
+            
+            ActionCounter.increase("${rateName}_inapp_rate_showed")
+        } catch (e: Exception) {
+            Log.e("LibHelper", "Error showing in-app review dialog", e)
+        }
+    }
 
 }
 
