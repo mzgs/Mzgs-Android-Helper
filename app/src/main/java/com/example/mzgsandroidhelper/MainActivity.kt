@@ -575,18 +575,7 @@ fun AdsHelperCard(isSplashComplete: Boolean = false) {
     LaunchedEffect(activity) {
         // Activity is now automatically tracked via lifecycle callbacks
         Log.d("AdsHelper", "Activity auto-tracked for AdMob")
-        
-        // Load interstitial ad
-        AdMobMediationManager.loadInterstitialAd(
-            onAdLoaded = {
-                interstitialLoaded = true
-                Log.d("AdsHelper", "Interstitial loaded")
-            },
-            onAdFailedToLoad = { error ->
-                interstitialLoaded = false
-                Log.e("AdsHelper", "Interstitial failed: ${error.message}")
-            }
-        )
+
         
         // Load rewarded ad
         AdMobMediationManager.loadRewardedAd(

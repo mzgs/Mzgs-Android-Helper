@@ -280,6 +280,30 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
     }
     
     @JvmStatic
+    fun showInterstitialWithCycle(name: String, defaultValue: Int = 3) {
+        // Get the cycle value from remote config
+        val cycleValue = Remote.getInt(name, defaultValue)
+        
+        // Increment counter using ActionCounter and get the new value
+        val currentCounter = ActionCounter.increaseGet(name)
+        
+        Log.d(TAG, "Interstitial cycle for '$name': counter=$currentCounter, cycle=$cycleValue")
+        
+        // Check if we should show the ad using modulo
+        if (currentCounter % cycleValue == 0) {
+            // Show interstitial ad
+            val shown = showInterstitial()
+            if (shown) {
+                Log.d(TAG, "Showing interstitial ad for cycle '$name' at counter $currentCounter (every $cycleValue calls)")
+            } else {
+                Log.d(TAG, "Failed to show interstitial ad for cycle '$name' at counter $currentCounter")
+            }
+        } else {
+            Log.d(TAG, "Not showing interstitial for '$name', counter=$currentCounter (shows every $cycleValue calls)")
+        }
+    }
+    
+    @JvmStatic
     fun showBanner(
         container: ViewGroup,
         adSize: BannerSize = BannerSize.ADAPTIVE
