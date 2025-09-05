@@ -66,6 +66,7 @@ object MzgsHelper {
         activity: ComponentActivity, 
         admobConfig: AdMobConfig,
         appLovinConfig: AppLovinConfig,
+        defaultSplashTime: Long = 10000,
         onFinish: (() -> Unit)? = null,
         onFinishAndApplovinReady: (() -> Unit)? = null
     ){
@@ -85,7 +86,7 @@ object MzgsHelper {
 
 // Initialize Simple Splash Screen with progress
         val splash = SimpleSplashHelper.Builder(activity)
-            .setDuration(Remote.getLong("splash_time", 10000))
+            .setDuration(Remote.getLong("splash_time", defaultSplashTime))
             .setRotateLogo(true)
             .showProgress(true)
             .onComplete {

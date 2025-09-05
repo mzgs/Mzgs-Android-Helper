@@ -34,7 +34,7 @@ Add the dependency to your app's `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("com.github.mzgs:Mzgs-Android-Helper:v1.0.1")
+    implementation("com.github.mzgs:Mzgs-Android-Helper:v1.0.2")
 }
 ```
 
@@ -339,6 +339,7 @@ class MainActivity : ComponentActivity() {
             activity = this,
             admobConfig = admobConfig,
             appLovinConfig = appLovinConfig,
+            defaultSplashTime = 10000, // Optional: default splash duration in milliseconds (default: 10000)
             onFinish = {
                 Log.d("MainActivity", "Splash and ad sequence completed")
                 MzgsHelper.setRestrictedCountriesFromRemoteConfig()
@@ -478,6 +479,35 @@ fun MyApp(isSplashComplete: Boolean) {
 5. **First ad placement**: After 2-3 content items
 
 ## 🔧 Advanced Features
+
+### Splash Screen with AdMob
+
+The `initSplashWithAdmobShow` method provides a complete splash screen experience with automatic AdMob interstitial ad display:
+
+```kotlin
+MzgsHelper.initSplashWithAdmobShow(
+    activity = this,
+    admobConfig = admobConfig,
+    appLovinConfig = appLovinConfig,
+    defaultSplashTime = 10000, // Optional: splash duration in ms (default: 10000)
+    onFinish = {
+        // Called when splash and ad sequence is complete
+    },
+    onFinishAndApplovinReady = {
+        // Called when both splash is complete AND AppLovin is initialized
+    }
+)
+```
+
+#### Parameters:
+- `activity`: The ComponentActivity instance
+- `admobConfig`: AdMob configuration object
+- `appLovinConfig`: AppLovin configuration object  
+- `defaultSplashTime`: Optional splash duration in milliseconds (default: 10000ms/10 seconds)
+  - This value is used as fallback when remote config "splash_time" is not available
+  - Can be overridden by remote configuration
+- `onFinish`: Callback when splash and ad sequence completes
+- `onFinishAndApplovinReady`: Callback when both splash completes AND AppLovin SDK is ready
 
 ### Remote Configuration
 
