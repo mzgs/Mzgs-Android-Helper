@@ -18,7 +18,8 @@ materialIconsExtended = "1.7.8"
 okhttp = "5.1.0"
 playServicesAds = "24.5.0"
 firebaseBom = "34.1.0"
-playReview = "2.0.1"
+review = "2.0.2"
+reviewKtx = "2.0.2"
 userMessagingPlatform = "3.2.0"
 
 [libraries]
@@ -48,8 +49,8 @@ okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 play-services-ads = { group = "com.google.android.gms", name = "play-services-ads", version.ref = "playServicesAds" }
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics" }
-review = { group = "com.google.android.play", name = "review", version.ref = "playReview" }
-review-ktx = { group = "com.google.android.play", name = "review-ktx", version.ref = "playReview" }
+review = { group = "com.google.android.play", name = "review", version.ref = "review" }
+review-ktx = { group = "com.google.android.play", name = "review-ktx", version.ref = "reviewKtx" }
 user-messaging-platform = { group = "com.google.android.ump", name = "user-messaging-platform", version.ref = "userMessagingPlatform" }
 facebook = { group = "com.google.ads.mediation", name = "facebook", version = "6.18.0.0" }
 unity = { group = "com.google.ads.mediation", name = "unity", version = "4.13.0.0" }
