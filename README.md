@@ -17,7 +17,25 @@ Android helper library with utility tools and comprehensive ad mediation support
 
 ### Using JitPack
 
-Add JitPack and Mintegral repositories to your root `build.gradle.kts` or `settings.gradle.kts`:
+#### Option 1: Quick Setup (Recommended)
+
+Add this single line to your `settings.gradle.kts` to include all required repositories:
+
+```kotlin
+apply(from = "https://raw.githubusercontent.com/mzgs/Mzgs-Android-Helper/main/mzgshelper-init.gradle.kts")
+```
+
+Then add the dependency to your app's `build.gradle.kts`:
+
+```kotlin
+dependencies {
+    implementation("com.github.mzgs:Mzgs-Android-Helper:v1.0.4")
+}
+```
+
+#### Option 2: Manual Setup
+
+If you prefer to configure repositories manually, add to your `settings.gradle.kts`:
 
 ```kotlin
 dependencyResolutionManagement {
@@ -32,11 +50,11 @@ dependencyResolutionManagement {
 }
 ```
 
-Add the dependency to your app's `build.gradle.kts`:
+Then add the dependency to your app's `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("com.github.mzgs:Mzgs-Android-Helper:v1.0.3")
+    implementation("com.github.mzgs:Mzgs-Android-Helper:v1.0.4")
 }
 ```
 

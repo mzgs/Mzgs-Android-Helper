@@ -140,15 +140,6 @@ afterEvaluate {
                     description.set("Android helper library for AdMob and AppLovin integration")
                     url.set("https://github.com/mzgs/Mzgs-Android-Helper")
                     
-                    // Add required repositories for consumers
-                    withXml {
-                        val repositoriesNode = asNode().appendNode("repositories")
-                        val repositoryNode = repositoriesNode.appendNode("repository")
-                        repositoryNode.appendNode("id", "mintegral")
-                        repositoryNode.appendNode("name", "Mintegral Maven Repository")
-                        repositoryNode.appendNode("url", "https://dl-maven-android.mintegral.com/repository/mbridge_android_sdk_oversea")
-                    }
-                    
                     licenses {
                         license {
                             name.set("The Apache License, Version 2.0")
