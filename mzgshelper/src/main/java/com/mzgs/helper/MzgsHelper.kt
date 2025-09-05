@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
+import android.telephony.TelephonyManager
 import android.util.Log
 import androidx.activity.ComponentActivity
 
@@ -375,7 +376,75 @@ object Remote {
             false
         }
     }
-    
+
+
+    fun getPhoneCountry(context: Context): List<String> {
+        val countries = mutableListOf<String>()
+
+        try {
+            val telephonyManager = context.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
+            telephonyManager?.let {
+                // Add SIM country code if available
+                val simCountry = it.simCountryIso?.uppercase(Locale.ROOT)
+                if (!simCountry.isNullOrEmpty()) {
+                    countries.add(simCountry)
+                    Log.d("LibHelper", "SIM country: $simCountry")
+                }
+
+                // Add network country code if available
+                val networkCountry = it.networkCountryIso?.uppercase(Locale.ROOT)
+                if (!networkCountry.isNullOrEmpty() && !countries.contains(networkCountry)) {
+                    countries.add(networkCountry)
+                    Log.d("LibHelper", "Network country: $networkCountry")
+                }
+            }
+
+            // Add system locale country (from phone settings)
+            val localeCountry = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                context.resources.configuration.locales[0].country
+            } else {
+                @Suppress("DEPRECATION")
+                context.resources.configuration.locale.country
+            }
+            if (!localeCountry.isNullOrEmpty()) {
+                val upperLocale = localeCountry.uppercase(Locale.ROOT)
+                if (!countries.contains(upperLocale)) {
+                    countries.add(upperLocale)
+                    Log.d("LibHelper", "Locale country from settings: $upperLocale")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("LibHelper", "Error getting phone countries", e)
+        }
+
+        Log.d("LibHelper", "All detected countries: ${countries.joinToString(", ")}")
+        return countries
+    }
+
+    /**
+     * Check country using IP geolocation
+     */
+    suspend fun getCountryFromIP(): String? {
+        return withContext(Dispatchers.IO) {
+            try {
+                val url = URL("https://ipinfo.io/json")
+                val connection = url.openConnection()
+                connection.connectTimeout = 5000
+                connection.readTimeout = 5000
+
+                val response = connection.getInputStream().bufferedReader().use { it.readText() }
+                val json = JSONObject(response)
+                json.optString("country")?.uppercase(Locale.ROOT)
+            } catch (e: Exception) {
+                Log.e("LibHelper", "Error getting country from IP", e)
+                null
+            }
+        }
+    }
+
+
+
+
     /**
      * Fetch remote configuration from URL
      * This is now a private method called internally by init
@@ -529,6 +598,142 @@ object Remote {
      */
     fun getApplicationContext(): Context? {
         return applicationContext
+    }
+}
+
+
+
+
+object Pref {
+    private val sharedPreferences by lazy {
+        Remote.getApplicationContext()?.getSharedPreferences("AppPreferences", Context.MODE_PRIVATE)
+    }
+
+    fun <T> get(key: String, defaultValue: T): T {
+        val prefs = sharedPreferences ?: return defaultValue
+
+        @Suppress("UNCHECKED_CAST")
+        return when (defaultValue) {
+            is String -> prefs.getString(key, defaultValue) as T
+            is Int -> prefs.getInt(key, defaultValue) as T
+            is Boolean -> prefs.getBoolean(key, defaultValue) as T
+            is Float -> prefs.getFloat(key, defaultValue) as T
+            is Long -> prefs.getLong(key, defaultValue) as T
+            is Double -> getDouble(key, defaultValue) as T
+            else -> defaultValue
+        }
+    }
+
+    fun <T> set(key: String, value: T?) {
+        val prefs = sharedPreferences ?: return
+        val editor = prefs.edit()
+
+        when (value) {
+            is String -> editor.putString(key, value)
+            is Int -> editor.putInt(key, value)
+            is Boolean -> editor.putBoolean(key, value)
+            is Float -> editor.putFloat(key, value)
+            is Long -> editor.putLong(key, value)
+            is Double -> editor.putString(key, value.toString())
+            else -> return
+        }
+
+        editor.apply()
+    }
+
+    fun remove(key: String) {
+        sharedPreferences?.edit()?.remove(key)?.apply()
+    }
+
+    fun exists(key: String): Boolean {
+        return sharedPreferences?.contains(key) ?: false
+    }
+
+    fun clearAll() {
+        sharedPreferences?.edit()?.clear()?.apply()
+    }
+
+    fun getString(key: String, defaultValue: String): String {
+        return sharedPreferences?.getString(key, defaultValue) ?: defaultValue
+    }
+
+    fun getBool(key: String, defaultValue: Boolean): Boolean {
+        return if (exists(key)) sharedPreferences!!.getBoolean(key, false) else defaultValue
+    }
+
+    fun getFloat(key: String, defaultValue: Float): Float {
+        return if (exists(key)) sharedPreferences!!.getFloat(key, 0f) else defaultValue
+    }
+
+    fun getInt(key: String, defaultValue: Int): Int {
+        return if (exists(key)) sharedPreferences!!.getInt(key, 0) else defaultValue
+    }
+
+    fun getDouble(key: String, defaultValue: Double): Double {
+        return if (exists(key)) {
+            try {
+                sharedPreferences!!.getString(key, null)?.toDouble() ?: defaultValue
+            } catch (e: NumberFormatException) {
+                defaultValue
+            }
+        } else {
+            defaultValue
+        }
+    }
+}
+
+object ActionCounter {
+    private val analyticData = mutableMapOf<String, Int>()
+
+    fun initAnalyticData() {
+        keys().forEach { analyticData[it] = get(it) }
+    }
+
+    fun increase(key: String, parameters: Map<String, Any> = emptyMap()) {
+        val newValue = get(key) + 1
+        Pref.set(key, newValue)
+        analyticData[key] = newValue
+        val keyList = keys().toMutableList()
+        if (!keyList.contains(key)) {
+            keyList.add(key)
+            saveKeys(keyList)
+        }
+    }
+
+    fun increaseGet(key: String): Int {
+        increase(key)
+        return get(key)
+    }
+
+    fun keys(): List<String> {
+        val keyListJson = Pref.getString("keyList", "")
+        if (keyListJson.isEmpty()) return emptyList()
+
+        return try {
+            val jsonArray = JSONObject("{\"keys\":$keyListJson}").getJSONArray("keys")
+            val result = mutableListOf<String>()
+            for (i in 0 until jsonArray.length()) {
+                result.add(jsonArray.getString(i))
+            }
+            result
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+
+    fun saveKeys(keyList: List<String>) {
+        try {
+            val jsonArray = org.json.JSONArray()
+            keyList.forEach { jsonArray.put(it) }
+            Pref.set("keyList", jsonArray.toString())
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun get(key: String): Int {
+        return Pref.getInt(key, 0)
     }
 }
 
