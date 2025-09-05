@@ -318,6 +318,8 @@ class MainActivity : ComponentActivity() {
             appLovinConfig = appLovinConfig,
             onFinish = {
                 Log.d("MainActivity", "Splash and ad sequence completed")
+                MzgsHelper.setRestrictedCountriesFromRemoteConfig()
+                MzgsHelper.setIsAllowedCountry()
             },
             onFinishAndApplovinReady = {
                 Log.d("MainActivity", "AppLovin SDK initialized successfully")
