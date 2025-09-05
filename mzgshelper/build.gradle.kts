@@ -76,6 +76,19 @@ dependencies {
 
     // Google Mobile Ads SDK (required by the adapter)
     implementation(libs.play.services.ads)
+    
+    // AdMob Mediation Adapters
+    // Unity Ads adapter for AdMob mediation
+    implementation("com.google.ads.mediation:unity:4.16.1.0")
+    
+    // AppLovin adapter for AdMob mediation  
+    implementation("com.google.ads.mediation:applovin:13.0.1.0")
+    
+    // Mintegral adapter for AdMob mediation
+    implementation("com.google.ads.mediation:mintegral:16.9.91.1")
+    
+    // Liftoff (Vungle) adapter for AdMob mediation
+    implementation("com.google.ads.mediation:vungle:7.4.2.0")
 
     // Unity Ads Adapter for AppLovin MAX
     implementation("com.applovin.mediation:unityads-adapter:4.16.1.0")
