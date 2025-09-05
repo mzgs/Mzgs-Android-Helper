@@ -77,11 +77,10 @@ class MainActivity : ComponentActivity() {
 
 
         MzgsHelper.init(this)
-
-
         FirebaseAnalyticsManager.initialize(this)
         Remote.init(this)
         Ads.init(this)
+        MzgsHelper.setIPCountry()
 
 
         val admobConfig = AdMobConfig(

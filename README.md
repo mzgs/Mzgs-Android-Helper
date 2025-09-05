@@ -275,6 +275,7 @@ class MainActivity : ComponentActivity() {
         FirebaseAnalyticsManager.initialize(this)
         Remote.init(this)
         Ads.init(this)
+        MzgsHelper.setIPCountry()
         
         val admobConfig = AdMobConfig(
             appId = "ca-app-pub-XXXXX~XXXXX",

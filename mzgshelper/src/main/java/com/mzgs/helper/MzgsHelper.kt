@@ -45,6 +45,7 @@ object MzgsHelper {
     )
 
     var isAllowedCountry = true
+    var IPCountry: String? = null
     
     fun init(context: Context) {
         weakContext = java.lang.ref.WeakReference(context.applicationContext)
@@ -236,6 +237,72 @@ object MzgsHelper {
 
     }
 
+
+    fun getPhoneCountry(): List<String> {
+        val countries = mutableListOf<String>()
+        val context = getContext()
+        try {
+            val telephonyManager = context?.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
+            telephonyManager?.let {
+                // Add SIM country code if available
+                val simCountry = it.simCountryIso?.uppercase(Locale.ROOT)
+                if (!simCountry.isNullOrEmpty()) {
+                    countries.add(simCountry)
+                    Log.d("LibHelper", "SIM country: $simCountry")
+                }
+
+                // Add network country code if available
+                val networkCountry = it.networkCountryIso?.uppercase(Locale.ROOT)
+                if (!networkCountry.isNullOrEmpty() && !countries.contains(networkCountry)) {
+                    countries.add(networkCountry)
+                    Log.d("LibHelper", "Network country: $networkCountry")
+                }
+            }
+
+            // Add system locale country (from phone settings)
+            val localeCountry = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                context?.resources?.configuration?.locales[0]?.country
+            } else {
+                @Suppress("DEPRECATION")
+                context?.resources?.configuration?.locale?.country
+            }
+            if (!localeCountry.isNullOrEmpty()) {
+                val upperLocale = localeCountry.uppercase(Locale.ROOT)
+                if (!countries.contains(upperLocale)) {
+                    countries.add(upperLocale)
+                    Log.d("LibHelper", "Locale country from settings: $upperLocale")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("LibHelper", "Error getting phone countries", e)
+        }
+
+        Log.d("LibHelper", "All detected countries: ${countries.joinToString(", ")}")
+        return countries
+    }
+
+    /**
+     * Set country using IP geolocation (async, non-blocking)
+     */
+    fun setIPCountry() {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val url = URL("https://ipinfo.io/json")
+                val connection = url.openConnection()
+                connection.connectTimeout = 5000
+                connection.readTimeout = 9000
+
+                val response = connection.getInputStream().bufferedReader().use { it.readText() }
+                val json = JSONObject(response)
+                IPCountry = json.optString("country")?.uppercase(Locale.ROOT) ?: "US"
+                Log.d("LibHelper", "IP country set to: $IPCountry")
+            } catch (e: Exception) {
+                Log.e("LibHelper", "Error getting country from IP, defaulting to US", e)
+                IPCountry = "US"
+            }
+        }
+    }
+
     
     @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
     fun isNetworkAvailable(): Boolean {
@@ -357,93 +424,11 @@ object Remote {
         url?.takeIf { it.isNotEmpty() }?.let { configUrl ->
             CoroutineScope(Dispatchers.IO).launch { 
                 // Check network connectivity before attempting to fetch
-                if (isNetworkAvailable()) {
+                if (MzgsHelper.isNetworkAvailable()) {
                     fetchRemoteConfig(configUrl)
                 } else {
                     Log.w("Remote", "Network not available, using default values")
                 }
-            }
-        }
-    }
-    
-    /**
-     * Check if network is available
-     */
-    private fun isNetworkAvailable(): Boolean {
-        val context = applicationContext ?: return false
-        return try {
-            val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-            val network = connectivityManager.activeNetwork
-            val capabilities = connectivityManager.getNetworkCapabilities(network)
-            capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true &&
-                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
-        } catch (e: Exception) {
-            Log.e("Remote", "Error checking network availability", e)
-            false
-        }
-    }
-
-
-    fun getPhoneCountry(context: Context): List<String> {
-        val countries = mutableListOf<String>()
-
-        try {
-            val telephonyManager = context.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
-            telephonyManager?.let {
-                // Add SIM country code if available
-                val simCountry = it.simCountryIso?.uppercase(Locale.ROOT)
-                if (!simCountry.isNullOrEmpty()) {
-                    countries.add(simCountry)
-                    Log.d("LibHelper", "SIM country: $simCountry")
-                }
-
-                // Add network country code if available
-                val networkCountry = it.networkCountryIso?.uppercase(Locale.ROOT)
-                if (!networkCountry.isNullOrEmpty() && !countries.contains(networkCountry)) {
-                    countries.add(networkCountry)
-                    Log.d("LibHelper", "Network country: $networkCountry")
-                }
-            }
-
-            // Add system locale country (from phone settings)
-            val localeCountry = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                context.resources.configuration.locales[0].country
-            } else {
-                @Suppress("DEPRECATION")
-                context.resources.configuration.locale.country
-            }
-            if (!localeCountry.isNullOrEmpty()) {
-                val upperLocale = localeCountry.uppercase(Locale.ROOT)
-                if (!countries.contains(upperLocale)) {
-                    countries.add(upperLocale)
-                    Log.d("LibHelper", "Locale country from settings: $upperLocale")
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("LibHelper", "Error getting phone countries", e)
-        }
-
-        Log.d("LibHelper", "All detected countries: ${countries.joinToString(", ")}")
-        return countries
-    }
-
-    /**
-     * Check country using IP geolocation
-     */
-    suspend fun getCountryFromIP(): String? {
-        return withContext(Dispatchers.IO) {
-            try {
-                val url = URL("https://ipinfo.io/json")
-                val connection = url.openConnection()
-                connection.connectTimeout = 5000
-                connection.readTimeout = 5000
-
-                val response = connection.getInputStream().bufferedReader().use { it.readText() }
-                val json = JSONObject(response)
-                json.optString("country")?.uppercase(Locale.ROOT)
-            } catch (e: Exception) {
-                Log.e("LibHelper", "Error getting country from IP", e)
-                null
             }
         }
     }
