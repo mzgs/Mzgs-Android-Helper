@@ -43,6 +43,8 @@ object MzgsHelper {
         "UK", "US", "GB", "CN", "MX", "JP", "KR", "AR", "HK", "IN",
         "PK", "TR", "VN", "RU", "SG", "MO", "TW", "PY"
     )
+
+    var isAllowedCountry = true
     
     fun init(context: Context) {
         weakContext = java.lang.ref.WeakReference(context.applicationContext)
