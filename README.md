@@ -15,9 +15,32 @@ Android helper library with utility tools and comprehensive ad mediation support
 
 ## 📦 Installation
 
-### Add to your project
+### Using JitPack
 
-In your app's `build.gradle.kts`:
+Add JitPack repository to your root `build.gradle.kts` or `settings.gradle.kts`:
+
+```kotlin
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+        maven { url = uri("https://jitpack.io") }
+    }
+}
+```
+
+Add the dependency to your app's `build.gradle.kts`:
+
+```kotlin
+dependencies {
+    implementation("com.github.mzgs:Mzgs-Android-Helper:v1.0.1")
+}
+```
+
+### Local Module
+
+If you're using it as a local module in your project:
 
 ```kotlin
 dependencies {
