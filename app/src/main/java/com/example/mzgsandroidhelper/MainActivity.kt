@@ -74,7 +74,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
-        // Initialize MzgsHelper with application context
+
         MzgsHelper.init(this)
 
         FirebaseAnalyticsManager.initialize(this)

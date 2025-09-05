@@ -268,21 +268,46 @@ class MainActivity : ComponentActivity() {
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         
         // Initialize everything
+        MzgsHelper.init(this)
         FirebaseAnalyticsManager.initialize(this)
         Remote.init(this)
         Ads.init(this)
         
         val admobConfig = AdMobConfig(
             appId = "ca-app-pub-XXXXX~XXXXX",
+            bannerAdUnitId = "", // Leave empty for test ads in debug
+            interstitialAdUnitId = "",
+            rewardedAdUnitId = "",
+            rewardedInterstitialAdUnitId = "",
+            nativeAdUnitId = "",
+            mrecAdUnitId = "",
+            appOpenAdUnitId = "",
             enableAppOpenAd = true,
-            enableTestMode = BuildConfig.DEBUG
+            enableTestMode = BuildConfig.DEBUG,
+            testDeviceIds = listOf("YOUR_DEVICE_ID"),
+            showAdsInDebug = true,
+            showInterstitialsInDebug = true,
+            showAppOpenAdInDebug = true,
+            showBannersInDebug = true,
+            showNativeAdsInDebug = true,
+            showRewardedAdsInDebug = true
         )
         
         val appLovinConfig = AppLovinConfig(
             sdkKey = "YOUR_SDK_KEY",
-            enableTestMode = BuildConfig.DEBUG
+            bannerAdUnitId = "",
+            interstitialAdUnitId = "",
+            rewardedAdUnitId = "",
+            mrecAdUnitId = "",
+            nativeAdUnitId = "",
+            enableTestMode = BuildConfig.DEBUG,
+            verboseLogging = true,
+            creativeDebuggerEnabled = true,
+            showAdsInDebug = true,
+            testDeviceAdvertisingIds = listOf("YOUR_DEVICE_ID")
         )
         
         // Show splash with automatic ad display
@@ -291,7 +316,13 @@ class MainActivity : ComponentActivity() {
             admobConfig = admobConfig,
             appLovinConfig = appLovinConfig,
             onFinish = {
+                Log.d("MainActivity", "Splash and ad sequence completed")
+            },
+            onFinishAndApplovinReady = {
+                Log.d("MainActivity", "AppLovin SDK initialized successfully")
                 isSplashComplete.value = true
+                // Preload ads for better performance
+                AppLovinMediationManager.loadInterstitialAd()
             }
         )
         
@@ -301,6 +332,103 @@ class MainActivity : ComponentActivity() {
     }
 }
 ```
+
+### Using isSplashComplete to Show Ads
+
+```kotlin
+@Composable
+fun MyApp(isSplashComplete: Boolean) {
+    MzgsAndroidHelperTheme {
+        Scaffold(
+            bottomBar = {
+                // Show banner ad only after splash is complete
+                if (isSplashComplete) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .wrapContentHeight()
+                    ) {
+                        AndroidView(
+                            modifier = Modifier.fillMaxWidth(),
+                            factory = { context ->
+                                FrameLayout(context).apply {
+                                    // Load adaptive banner
+                                    Ads.showBanner(this, Ads.BannerSize.ADAPTIVE)
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+        ) { paddingValues ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            ) {
+                // Your main content here
+                Text("Welcome to the app!")
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Show MREC ad in content only after splash is complete
+                if (isSplashComplete) {
+                    Card(
+                        modifier = Modifier
+                            .width(300.dp)
+                            .height(250.dp)
+                            .align(Alignment.CenterHorizontally),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                    ) {
+                        AndroidView(
+                            modifier = Modifier.fillMaxSize(),
+                            factory = { context ->
+                                FrameLayout(context).apply {
+                                    // Load MREC ad
+                                    Ads.showMREC(this)
+                                }
+                            }
+                        )
+                    }
+                }
+                
+                // Alternative: Conditional ad loading in LazyColumn
+                LazyColumn {
+                    item {
+                        Text("Content Item 1")
+                    }
+                    
+                    // Insert ads only after splash
+                    if (isSplashComplete) {
+                        item {
+                            // Adaptive banner between content
+                            AndroidView(
+                                modifier = Modifier.fillMaxWidth(),
+                                factory = { context ->
+                                    FrameLayout(context).apply {
+                                        Ads.showBanner(this, Ads.BannerSize.ADAPTIVE)
+                                    }
+                                }
+                            )
+                        }
+                    }
+                    
+                    items(10) { index ->
+                        Text("Content Item ${index + 2}")
+                    }
+                }
+            }
+        }
+    }
+}
+```
+
+### Why Use isSplashComplete?
+
+1. **Prevents Ad Loading Conflicts**: Ensures splash screen ad completes before showing other ads
+2. **Better User Experience**: Avoids overwhelming users with multiple ads at startup
+3. **Performance**: Prevents simultaneous ad requests that could slow app launch
+4. **Ad Policy Compliance**: Helps maintain proper ad spacing and frequency
 
 ## 📊 Ad Formats Reference
 
