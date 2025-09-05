@@ -18,7 +18,7 @@ materialIconsExtended = "1.7.8"
 okhttp = "5.1.0"
 playServicesAds = "24.5.0"
 firebaseBom = "34.1.0"
-playReview = "2.0.2"
+playReview = "2.0.1"
 userMessagingPlatform = "3.2.0"
 
 [libraries]

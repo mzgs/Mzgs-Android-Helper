@@ -18,7 +18,8 @@ android {
 
     publishing {
         singleVariant("release") {
-            withSourcesJar()
+            // Disable sources jar to avoid issues with dependencies that don't provide sources
+            // withSourcesJar()
             withJavadocJar()
         }
     }
