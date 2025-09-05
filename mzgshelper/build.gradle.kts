@@ -122,14 +122,14 @@ afterEvaluate {
             create<MavenPublication>("release") {
                 from(components["release"])
                 
-                groupId = "com.github.MustafaZeynelYazgan"
+                groupId = "com.github.mzgs"
                 artifactId = "mzgshelper"
                 version = "1.0.0"
                 
                 pom {
                     name.set("MzgsHelper")
                     description.set("Android helper library for AdMob and AppLovin integration")
-                    url.set("https://github.com/MustafaZeynelYazgan/Mzgs-Android-Helper")
+                    url.set("https://github.com/mzgs/Mzgs-Android-Helper")
                     
                     licenses {
                         license {
@@ -140,15 +140,15 @@ afterEvaluate {
                     
                     developers {
                         developer {
-                            id.set("MustafaZeynelYazgan")
+                            id.set("mzgs")
                             name.set("Mustafa Zeynel Yazgan")
                         }
                     }
                     
                     scm {
-                        connection.set("scm:git:github.com/MustafaZeynelYazgan/Mzgs-Android-Helper.git")
-                        developerConnection.set("scm:git:ssh://github.com/MustafaZeynelYazgan/Mzgs-Android-Helper.git")
-                        url.set("https://github.com/MustafaZeynelYazgan/Mzgs-Android-Helper/tree/main")
+                        connection.set("scm:git:github.com/mzgs/Mzgs-Android-Helper.git")
+                        developerConnection.set("scm:git:ssh://github.com/mzgs/Mzgs-Android-Helper.git")
+                        url.set("https://github.com/mzgs/Mzgs-Android-Helper/tree/main")
                     }
                 }
             }
