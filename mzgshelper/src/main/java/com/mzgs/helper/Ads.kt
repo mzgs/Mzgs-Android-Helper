@@ -318,13 +318,28 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
         
         Log.d(TAG, "Attempting to show banner with order: $adsOrder")
         
-        for (network in adsOrder) {
-            when (network.lowercase()) {
+        if (adsOrder.isEmpty()) {
+            Log.e(TAG, "No ad networks configured")
+            return false
+        }
+        
+        // Get first and second networks
+        val firstNetwork = adsOrder.getOrNull(0)
+        val secondNetwork = adsOrder.getOrNull(1)
+        
+        // Helper function to try the second network
+        fun trySecondNetwork() {
+            if (secondNetwork == null) {
+                Log.d(TAG, "No second network to fallback to")
+                return
+            }
+            
+            when (secondNetwork.lowercase()) {
                 APPLOVIN_MAX -> {
                     try {
                         val adUnitId = AppLovinMediationManager.getConfig()?.bannerAdUnitId ?: ""
                         if (adUnitId.isNotEmpty() && AppLovinMediationManager.isInitialized()) {
-                            Log.d(TAG, "Attempting to show AppLovin MAX banner")
+                            Log.d(TAG, "Attempting to show AppLovin MAX banner as fallback")
                             val bannerHelper = AppLovinBannerHelper(activity)
                             val bannerType = when (adSize) {
                                 BannerSize.ADAPTIVE, BannerSize.BANNER -> AppLovinBannerHelper.BannerType.BANNER
@@ -337,15 +352,14 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
                                 bannerType = bannerType,
                                 container = container as android.widget.FrameLayout,
                                 onAdLoaded = {
-                                    Log.d(TAG, "AppLovin MAX banner loaded successfully")
+                                    Log.d(TAG, "AppLovin MAX banner loaded successfully (fallback)")
                                 },
                                 onAdFailedToLoad = { error ->
-                                    Log.e(TAG, "AppLovin MAX banner failed: ${error.message}")
+                                    Log.e(TAG, "AppLovin MAX banner also failed: ${error.message}")
                                 }
                             )
-                            return true
                         } else {
-                            Log.d(TAG, "AppLovin MAX not initialized or no banner ad unit ID configured, skipping")
+                            Log.d(TAG, "AppLovin MAX not initialized or no banner ad unit ID configured")
                         }
                     } catch (e: Exception) {
                         Log.e(TAG, "Error showing AppLovin MAX banner: ${e.message}")
@@ -353,7 +367,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
                 }
                 ADMOB -> {
                     try {
-                        Log.d(TAG, "Attempting to show AdMob banner")
+                        Log.d(TAG, "Attempting to show AdMob banner as fallback")
                         val bannerHelper = BannerAdHelper(activity)
                         val bannerType = when (adSize) {
                             BannerSize.ADAPTIVE -> BannerAdHelper.BannerType.ADAPTIVE_BANNER
@@ -368,25 +382,149 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
                             bannerType = bannerType,
                             container = container as android.widget.FrameLayout,
                             onAdLoaded = {
-                                Log.d(TAG, "AdMob banner loaded successfully")
+                                Log.d(TAG, "AdMob banner loaded successfully (fallback)")
                             },
                             onAdFailedToLoad = { error ->
-                                Log.e(TAG, "AdMob banner failed: ${error.message}")
+                                Log.e(TAG, "AdMob banner also failed: ${error.message}")
                             }
                         )
-                        return true
                     } catch (e: Exception) {
                         Log.e(TAG, "Error showing AdMob banner: ${e.message}")
                     }
                 }
-                else -> {
-                    Log.w(TAG, "Unknown ad network for banner: $network")
-                }
             }
         }
         
-        Log.d(TAG, "Failed to show banner from any network")
-        return false
+        // Try first network
+        when (firstNetwork?.lowercase()) {
+            APPLOVIN_MAX -> {
+                try {
+                    val adUnitId = AppLovinMediationManager.getConfig()?.bannerAdUnitId ?: ""
+                    if (adUnitId.isNotEmpty() && AppLovinMediationManager.isInitialized()) {
+                        Log.d(TAG, "Attempting to show AppLovin MAX banner (primary)")
+                        val bannerHelper = AppLovinBannerHelper(activity)
+                        val bannerType = when (adSize) {
+                            BannerSize.ADAPTIVE, BannerSize.BANNER -> AppLovinBannerHelper.BannerType.BANNER
+                            BannerSize.MEDIUM_RECTANGLE -> AppLovinBannerHelper.BannerType.MREC
+                            BannerSize.LEADERBOARD -> AppLovinBannerHelper.BannerType.LEADER
+                            else -> AppLovinBannerHelper.BannerType.BANNER
+                        }
+                        bannerHelper.createBannerView(
+                            adUnitId = adUnitId,
+                            bannerType = bannerType,
+                            container = container as android.widget.FrameLayout,
+                            onAdLoaded = {
+                                Log.d(TAG, "AppLovin MAX banner loaded successfully (primary)")
+                            },
+                            onAdFailedToLoad = { error ->
+                                Log.e(TAG, "AppLovin MAX banner failed: ${error.message}, trying fallback")
+                                trySecondNetwork()
+                            }
+                        )
+                        return true
+                    } else {
+                        Log.d(TAG, "AppLovin MAX not initialized or no banner ad unit ID configured, trying fallback")
+                        trySecondNetwork()
+                        return true
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error showing AppLovin MAX banner: ${e.message}, trying fallback")
+                    trySecondNetwork()
+                    return true
+                }
+            }
+            ADMOB -> {
+                try {
+                    Log.d(TAG, "Attempting to show AdMob banner (primary)")
+                    val bannerHelper = BannerAdHelper(activity)
+                    val bannerType = when (adSize) {
+                        BannerSize.ADAPTIVE -> BannerAdHelper.BannerType.ADAPTIVE_BANNER
+                        BannerSize.BANNER -> BannerAdHelper.BannerType.BANNER
+                        BannerSize.LARGE_BANNER -> BannerAdHelper.BannerType.LARGE_BANNER
+                        BannerSize.MEDIUM_RECTANGLE -> BannerAdHelper.BannerType.MEDIUM_RECTANGLE
+                        BannerSize.FULL_BANNER -> BannerAdHelper.BannerType.FULL_BANNER
+                        BannerSize.LEADERBOARD -> BannerAdHelper.BannerType.LEADERBOARD
+                    }
+                    bannerHelper.createBannerView(
+                        adUnitId = AdMobMediationManager.getConfig()?.bannerAdUnitId ?: "",
+                        bannerType = bannerType,
+                        container = container as android.widget.FrameLayout,
+                        onAdLoaded = {
+                            Log.d(TAG, "AdMob banner loaded successfully (primary)")
+                        },
+                        onAdFailedToLoad = { error ->
+                            Log.e(TAG, "AdMob banner failed: ${error.message}, trying fallback")
+                            trySecondNetwork()
+                        }
+                    )
+                    return true
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error showing AdMob banner: ${e.message}, trying fallback")
+                    trySecondNetwork()
+                    return true
+                }
+            }
+            else -> {
+                Log.e(TAG, "Unknown or no ad network configured")
+                return false
+            }
+        }
+    }
+    
+    @JvmStatic
+    fun showAdaptiveBanner(
+        container: ViewGroup
+    ): Boolean {
+        val activity = getCurrentActivity()
+        if (activity == null) {
+            Log.e(TAG, "No current activity available for showing adaptive banner")
+            return false
+        }
+        
+        Log.d(TAG, "Attempting to show AdMob adaptive banner")
+        
+        try {
+            val bannerHelper = BannerAdHelper(activity)
+            bannerHelper.createBannerView(
+                adUnitId = AdMobMediationManager.getConfig()?.bannerAdUnitId ?: "",
+                bannerType = BannerAdHelper.BannerType.ADAPTIVE_BANNER,
+                container = container as android.widget.FrameLayout,
+                onAdLoaded = {
+                    Log.d(TAG, "AdMob adaptive banner loaded successfully")
+                },
+                onAdFailedToLoad = { error ->
+                    Log.e(TAG, "AdMob adaptive banner failed: ${error.message}, attempting AppLovin banner")
+                    
+                    // Try AppLovin banner as fallback
+                    try {
+                        val adUnitId = AppLovinMediationManager.getConfig()?.bannerAdUnitId ?: ""
+                        if (adUnitId.isNotEmpty() && AppLovinMediationManager.isInitialized()) {
+                            Log.d(TAG, "Attempting to show AppLovin MAX banner as fallback")
+                            val appLovinHelper = AppLovinBannerHelper(activity)
+                            appLovinHelper.createBannerView(
+                                adUnitId = adUnitId,
+                                bannerType = AppLovinBannerHelper.BannerType.BANNER,
+                                container = container,
+                                onAdLoaded = {
+                                    Log.d(TAG, "AppLovin MAX banner loaded successfully as fallback")
+                                },
+                                onAdFailedToLoad = { appLovinError ->
+                                    Log.e(TAG, "AppLovin MAX banner also failed: ${appLovinError.message}")
+                                }
+                            )
+                        } else {
+                            Log.d(TAG, "AppLovin MAX not initialized or no banner ad unit ID configured")
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error showing AppLovin MAX banner as fallback: ${e.message}")
+                    }
+                }
+            )
+            return true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error showing AdMob adaptive banner: ${e.message}")
+            return false
+        }
     }
     
     @JvmStatic
@@ -547,32 +685,47 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
             Log.e(TAG, "No current activity available for showing MREC")
             return false
         }
+        
         val adsOrder = getAdsOrder()
         
         Log.d(TAG, "Attempting to show MREC with order: $adsOrder")
         
-        for (network in adsOrder) {
-            when (network.lowercase()) {
+        if (adsOrder.isEmpty()) {
+            Log.e(TAG, "No ad networks configured")
+            return false
+        }
+        
+        // Get first and second networks
+        val firstNetwork = adsOrder.getOrNull(0)
+        val secondNetwork = adsOrder.getOrNull(1)
+        
+        // Helper function to try the second network
+        fun trySecondNetwork() {
+            if (secondNetwork == null) {
+                Log.d(TAG, "No second network to fallback to for MREC")
+                return
+            }
+            
+            when (secondNetwork.lowercase()) {
                 APPLOVIN_MAX -> {
                     try {
                         val adUnitId = AppLovinMediationManager.getConfig()?.getEffectiveMrecAdUnitId() ?: ""
                         if (adUnitId.isNotEmpty() && AppLovinMediationManager.isInitialized()) {
-                            Log.d(TAG, "Attempting to show AppLovin MAX MREC")
+                            Log.d(TAG, "Attempting to show AppLovin MAX MREC as fallback")
                             val bannerHelper = AppLovinBannerHelper(activity)
                             bannerHelper.createBannerView(
                                 adUnitId = adUnitId,
                                 bannerType = AppLovinBannerHelper.BannerType.MREC,
                                 container = container as android.widget.FrameLayout,
                                 onAdLoaded = {
-                                    Log.d(TAG, "AppLovin MAX MREC loaded successfully")
+                                    Log.d(TAG, "AppLovin MAX MREC loaded successfully (fallback)")
                                 },
                                 onAdFailedToLoad = { error ->
-                                    Log.e(TAG, "AppLovin MAX MREC failed: ${error.message}")
+                                    Log.e(TAG, "AppLovin MAX MREC also failed: ${error.message}")
                                 }
                             )
-                            return true
                         } else {
-                            Log.d(TAG, "AppLovin MAX not initialized or no MREC ad unit ID configured, skipping")
+                            Log.d(TAG, "AppLovin MAX not initialized or no MREC ad unit ID configured")
                         }
                     } catch (e: Exception) {
                         Log.e(TAG, "Error showing AppLovin MAX MREC: ${e.message}")
@@ -580,32 +733,86 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
                 }
                 ADMOB -> {
                     try {
-                        Log.d(TAG, "Attempting to show AdMob MREC")
+                        Log.d(TAG, "Attempting to show AdMob MREC as fallback")
                         val mrecView = AdMobMRECView(activity)
                         mrecView.loadMREC(
                             adUnitId = AdMobMediationManager.getConfig()?.mrecAdUnitId ?: "",
                             onAdLoaded = {
-                                Log.d(TAG, "AdMob MREC loaded successfully")
+                                Log.d(TAG, "AdMob MREC loaded successfully (fallback)")
                                 container.removeAllViews()
                                 container.addView(mrecView)
                             },
                             onAdFailedToLoad = { error ->
-                                Log.e(TAG, "AdMob MREC failed: ${error.message}")
+                                Log.e(TAG, "AdMob MREC also failed: ${error.message}")
                             }
                         )
-                        return true
                     } catch (e: Exception) {
                         Log.e(TAG, "Error showing AdMob MREC: ${e.message}")
                     }
                 }
-                else -> {
-                    Log.w(TAG, "Unknown ad network for MREC: $network")
-                }
             }
         }
         
-        Log.d(TAG, "Failed to show MREC from any network")
-        return false
+        // Try first network
+        when (firstNetwork?.lowercase()) {
+            APPLOVIN_MAX -> {
+                try {
+                    val adUnitId = AppLovinMediationManager.getConfig()?.getEffectiveMrecAdUnitId() ?: ""
+                    if (adUnitId.isNotEmpty() && AppLovinMediationManager.isInitialized()) {
+                        Log.d(TAG, "Attempting to show AppLovin MAX MREC (primary)")
+                        val bannerHelper = AppLovinBannerHelper(activity)
+                        bannerHelper.createBannerView(
+                            adUnitId = adUnitId,
+                            bannerType = AppLovinBannerHelper.BannerType.MREC,
+                            container = container as android.widget.FrameLayout,
+                            onAdLoaded = {
+                                Log.d(TAG, "AppLovin MAX MREC loaded successfully (primary)")
+                            },
+                            onAdFailedToLoad = { error ->
+                                Log.e(TAG, "AppLovin MAX MREC failed: ${error.message}, trying fallback")
+                                trySecondNetwork()
+                            }
+                        )
+                        return true
+                    } else {
+                        Log.d(TAG, "AppLovin MAX not initialized or no MREC ad unit ID configured, trying fallback")
+                        trySecondNetwork()
+                        return true
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error showing AppLovin MAX MREC: ${e.message}, trying fallback")
+                    trySecondNetwork()
+                    return true
+                }
+            }
+            ADMOB -> {
+                try {
+                    Log.d(TAG, "Attempting to show AdMob MREC (primary)")
+                    val mrecView = AdMobMRECView(activity)
+                    mrecView.loadMREC(
+                        adUnitId = AdMobMediationManager.getConfig()?.mrecAdUnitId ?: "",
+                        onAdLoaded = {
+                            Log.d(TAG, "AdMob MREC loaded successfully (primary)")
+                            container.removeAllViews()
+                            container.addView(mrecView)
+                        },
+                        onAdFailedToLoad = { error ->
+                            Log.e(TAG, "AdMob MREC failed: ${error.message}, trying fallback")
+                            trySecondNetwork()
+                        }
+                    )
+                    return true
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error showing AdMob MREC: ${e.message}, trying fallback")
+                    trySecondNetwork()
+                    return true
+                }
+            }
+            else -> {
+                Log.e(TAG, "Unknown or no ad network configured for MREC")
+                return false
+            }
+        }
     }
     
     @JvmStatic
