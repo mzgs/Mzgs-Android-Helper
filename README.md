@@ -109,6 +109,10 @@ if (Ads.showInterstitial()) {
     Log.d("Ads", "Interstitial shown")
 }
 
+// Show interstitial with cycle control
+// Shows ad every N times based on remote config or default value
+Ads.showInterstitialWithCycle("button_click", 3) // Shows ad every 3rd click
+
 // Show rewarded ad
 if (Ads.showRewardedAd()) {
     Log.d("Ads", "Rewarded ad shown")
@@ -125,6 +129,140 @@ Ads.showMREC(mrecContainer)
 // Show App Open Ad
 Ads.showAppOpenAd()
 ```
+
+## 🔄 Interstitial Ads with Cycle Control
+
+The `showInterstitialWithCycle` method provides intelligent frequency capping for interstitial ads, preventing ad fatigue while maintaining monetization.
+
+### How It Works
+
+This method tracks how many times a specific action occurs and only shows an interstitial ad every N times, where N is configurable via Firebase Remote Config.
+
+### Usage
+
+```kotlin
+// Basic usage with default cycle
+Ads.showInterstitialWithCycle("button_click", 3) // Shows ad every 3rd click
+
+// Different cycles for different actions
+Ads.showInterstitialWithCycle("level_complete", 2)  // Every 2 levels
+Ads.showInterstitialWithCycle("item_viewed", 5)     // Every 5 items viewed
+Ads.showInterstitialWithCycle("search_performed", 4) // Every 4 searches
+```
+
+### Parameters
+
+- `name`: String - Unique identifier for the action being tracked
+- `defaultValue`: Int - Default cycle count (used when remote config value is not available)
+
+### Remote Configuration
+
+Configure cycle values in Firebase Remote Config:
+
+```json
+{
+  "button_click": 3,      // Show ad every 3 button clicks
+  "level_complete": 2,    // Show ad every 2 levels completed
+  "item_viewed": 5,       // Show ad every 5 items viewed
+  "search_performed": 4   // Show ad every 4 searches
+}
+```
+
+### Example Implementation
+
+```kotlin
+class GameActivity : AppCompatActivity() {
+    
+    // Level completion with cycle control
+    fun onLevelComplete() {
+        // Show interstitial every 2 levels (or value from remote config)
+        Ads.showInterstitialWithCycle("level_complete", 2)
+        
+        // Navigate to next level
+        startNextLevel()
+    }
+    
+    // Button click with cycle control
+    fun onSpecialButtonClick() {
+        // Show interstitial every 3 clicks (or value from remote config)
+        Ads.showInterstitialWithCycle("special_button", 3)
+        
+        // Perform button action
+        performButtonAction()
+    }
+    
+    // Product view with cycle control
+    fun onProductViewed(productId: String) {
+        // Track product view
+        trackProductView(productId)
+        
+        // Show interstitial every 5 product views
+        Ads.showInterstitialWithCycle("product_view", 5)
+    }
+}
+```
+
+### Compose Example
+
+```kotlin
+@Composable
+fun ContentList() {
+    var itemClickCount by remember { mutableStateOf(0) }
+    
+    LazyColumn {
+        items(contentItems) { item ->
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        // Handle item click
+                        navigateToDetail(item)
+                        
+                        // Show interstitial every 4 item clicks
+                        Ads.showInterstitialWithCycle("content_item_click", 4)
+                    }
+            ) {
+                // Content item UI
+                Text(item.title)
+            }
+        }
+    }
+}
+```
+
+### Benefits
+
+1. **Prevents Ad Fatigue**: Users don't see ads too frequently
+2. **Maintains Revenue**: Ensures ads are still shown regularly
+3. **Flexible Control**: Adjust frequency via remote config without app update
+4. **Action-Specific**: Different frequencies for different user actions
+5. **Persistent Tracking**: Counter persists across app sessions
+
+### How Counting Works
+
+- Each action has its own independent counter
+- Counters are stored persistently using SharedPreferences
+- Counter increments with each call
+- Ad shows when: `counter % cycleValue == 0`
+- Example: With cycle=3, ads show on counts 3, 6, 9, 12, etc.
+
+### Best Practices
+
+1. **Choose Appropriate Cycles**: 
+   - Frequent actions: Higher cycles (5-10)
+   - Rare actions: Lower cycles (2-3)
+
+2. **Use Descriptive Names**:
+   - Good: "level_complete", "search_performed", "item_purchased"
+   - Avoid: "action1", "click", "event"
+
+3. **Monitor Performance**:
+   - Track ad revenue vs user retention
+   - Adjust cycles based on analytics
+
+4. **Test Different Values**:
+   - A/B test different cycle values
+   - Find optimal balance for your app
 
 ## 📱 App Open Ads
 
