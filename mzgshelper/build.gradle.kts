@@ -5,14 +5,6 @@ plugins {
     id("maven-publish")
 }
 
-// Add repositories for module dependencies
-repositories {
-    google()
-    mavenCentral()
-    // Mintegral (Mbridge) Maven repository for AppLovin mediation
-    maven { url = uri("https://dl-maven-android.mintegral.com/repository/mbridge_android_sdk_oversea") }
-}
-
 android {
     namespace = "com.mzgs.helper"
     compileSdk = 36
