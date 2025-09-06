@@ -46,10 +46,12 @@ object MzgsHelper {
     )
 
     var isAllowedCountry = true
+    var isDebug = false
     var IPCountry: String? = null
     
     fun init(context: Context) {
         weakContext = java.lang.ref.WeakReference(context.applicationContext)
+        isDebug = isDebugMode()
     }
     
     private fun getContext(): Context? {
@@ -307,8 +309,19 @@ object MzgsHelper {
 
     /**
      * Check if the current country is allowed based on phone countries and IP country
+     * @param debugAllow Optional parameter to override the restriction check in debug mode
+     *                   - null: normal behavior (default)
+     *                   - true: force allow in debug mode
+     *                   - false: force restrict in debug mode
      */
-    fun setIsAllowedCountry() {
+    fun setIsAllowedCountry(debugAllow: Boolean? = null) {
+        // Handle debug override if provided and we're in debug mode
+        if (debugAllow != null && isDebug) {
+            isAllowedCountry = debugAllow
+            Log.d("LibHelper", "Debug mode with debugAllow=$debugAllow, setting isAllowedCountry to $debugAllow")
+            return
+        }
+        
         // Get all phone countries
         val phoneCountries = getPhoneCountry()
         

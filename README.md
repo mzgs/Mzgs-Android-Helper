@@ -38,7 +38,7 @@ Then add the dependency to your app's `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("com.github.mzgs:Mzgs-Android-Helper:v1.0.6")
+    implementation("com.github.mzgs:Mzgs-Android-Helper:v1.0.7")
 }
 ```
 
@@ -533,7 +533,10 @@ Remote.fetchRemoteValues(
 ### Firebase Analytics for Ads
 
 ```kotlin
-// Automatically tracked events:
+// Initialize Firebase Analytics
+FirebaseAnalyticsManager.initialize(context)
+
+// Automatically tracked ad events:
 // - ad_impression
 // - ad_clicked
 // - ad_load_success
@@ -541,7 +544,72 @@ Remote.fetchRemoteValues(
 // - ad_dismissed
 // - ad_reward_earned
 
-FirebaseAnalyticsManager.initialize(context)
+// Custom event logging examples:
+
+// Simple event without parameters
+FirebaseAnalyticsManager.logEvent("app_opened")
+
+// Event with custom parameters
+val params = Bundle().apply {
+    putString("button_name", "purchase")
+    putString("screen_name", "home")
+    putInt("button_index", 1)
+}
+FirebaseAnalyticsManager.logEvent("button_clicked", params)
+
+// User action tracking
+val actionParams = Bundle().apply {
+    putString("action_type", "share")
+    putString("content_type", "product")
+    putString("content_id", "12345")
+}
+FirebaseAnalyticsManager.logEvent("user_action", actionParams)
+
+// Screen view tracking
+val screenParams = Bundle().apply {
+    putString(FirebaseAnalytics.Param.SCREEN_NAME, "product_detail")
+    putString(FirebaseAnalytics.Param.SCREEN_CLASS, "ProductDetailActivity")
+}
+FirebaseAnalyticsManager.logEvent(FirebaseAnalytics.Event.SCREEN_VIEW, screenParams)
+
+// Purchase event
+val purchaseParams = Bundle().apply {
+    putString(FirebaseAnalytics.Param.CURRENCY, "USD")
+    putDouble(FirebaseAnalytics.Param.VALUE, 9.99)
+    putString(FirebaseAnalytics.Param.ITEM_ID, "premium_upgrade")
+}
+FirebaseAnalyticsManager.logEvent(FirebaseAnalytics.Event.PURCHASE, purchaseParams)
+
+// Level completion in a game
+val levelParams = Bundle().apply {
+    putString(FirebaseAnalytics.Param.LEVEL_NAME, "level_5")
+    putInt("score", 1500)
+    putInt("time_seconds", 120)
+    putBoolean("first_attempt", true)
+}
+FirebaseAnalyticsManager.logEvent("level_completed", levelParams)
+
+// Search event
+val searchParams = Bundle().apply {
+    putString(FirebaseAnalytics.Param.SEARCH_TERM, "kotlin tutorial")
+    putInt("results_count", 25)
+}
+FirebaseAnalyticsManager.logEvent(FirebaseAnalytics.Event.SEARCH, searchParams)
+
+// Ad-specific tracking (automatically handled by the library)
+FirebaseAnalyticsManager.logAdLoadSuccess(
+    adType = "interstitial",
+    adUnitId = "ca-app-pub-xxx",
+    adNetwork = "admob"
+)
+
+FirebaseAnalyticsManager.logAdRevenue(
+    adType = "rewarded",
+    adUnitId = "ca-app-pub-xxx",
+    revenue = 0.05,
+    currency = "USD",
+    adNetwork = "admob"
+)
 ```
 
 ### Consent Management
