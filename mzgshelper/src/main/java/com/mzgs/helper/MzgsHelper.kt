@@ -348,7 +348,7 @@ object MzgsHelper {
      */
     fun setRestrictedCountriesFromRemoteConfig() {
         try {
-            val remoteCountries = Remote.getStringArray("restrictedCountries", restrictedCountries)
+            val remoteCountries = Remote.getStringArray("restricted_countries", restrictedCountries)
             restrictedCountries = remoteCountries.map { it.uppercase(Locale.ROOT) }
             Log.d("LibHelper", "Restricted countries set from remote config: $restrictedCountries")
         } catch (e: Exception) {
