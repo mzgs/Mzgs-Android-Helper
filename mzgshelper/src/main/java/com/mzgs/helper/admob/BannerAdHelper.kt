@@ -1,6 +1,8 @@
 package com.mzgs.helper.admob
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.Gravity
 import android.view.ViewGroup
@@ -15,7 +17,13 @@ class BannerAdHelper(private val context: Context) {
     
     companion object {
         private const val TAG = "BannerAdHelper"
+        private const val AUTO_REFRESH_INTERVAL_MS = 60000L // 60 seconds
     }
+    
+    private var autoRefreshHandler: Handler? = null
+    private var autoRefreshRunnable: Runnable? = null
+    private var currentAdView: AdView? = null
+    private var lastAdLoadedTime: Long = 0
     
     /**
      * Banner types available
@@ -61,12 +69,18 @@ class BannerAdHelper(private val context: Context) {
             adListener = object : AdListener() {
                 override fun onAdLoaded() {
                     Log.d(TAG, "$bannerType ad loaded")
+                    lastAdLoadedTime = System.currentTimeMillis()
                     FirebaseAnalyticsManager.logAdLoadSuccess(
                         adType = "banner_$bannerType",
                         adUnitId = adUnitId,
                         adNetwork = "admob"
                     )
                     onAdLoaded()
+                    
+                    // Start auto-refresh for non-MREC banners
+                    if (bannerType != BannerType.MEDIUM_RECTANGLE) {
+                        startAutoRefresh(this@apply)
+                    }
                 }
                 
                 override fun onAdFailedToLoad(error: LoadAdError) {
@@ -81,7 +95,7 @@ class BannerAdHelper(private val context: Context) {
                     onAdFailedToLoad(error)
                     
                     // Auto-retry loading the banner after a delay
-                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    Handler(Looper.getMainLooper()).postDelayed({
                         Log.d(TAG, "Auto-retrying banner ad load after failure")
                         val retryRequest = AdRequest.Builder().build()
                         loadAd(retryRequest)
@@ -135,7 +149,46 @@ class BannerAdHelper(private val context: Context) {
         val adRequest = AdRequest.Builder().build()
         adView.loadAd(adRequest)
         
+        currentAdView = adView
+        
         return adView
+    }
+    
+    private fun startAutoRefresh(adView: AdView) {
+        // Cancel any existing refresh timer
+        stopAutoRefresh()
+        
+        // Get refresh interval from config or use default
+        val config = AdMobMediationManager.getInstance(context).getConfig()
+        val refreshInterval = config?.bannerAutoRefreshSeconds?.times(1000L) ?: AUTO_REFRESH_INTERVAL_MS
+        
+        if (refreshInterval <= 0) {
+            Log.d(TAG, "Auto-refresh disabled (interval: $refreshInterval)")
+            return
+        }
+        
+        autoRefreshHandler = Handler(Looper.getMainLooper())
+        autoRefreshRunnable = Runnable {
+            val timeSinceLastLoad = System.currentTimeMillis() - lastAdLoadedTime
+            if (timeSinceLastLoad >= refreshInterval && adView.parent != null) {
+                Log.d(TAG, "Auto-refreshing banner ad after ${refreshInterval/1000} seconds")
+                val adRequest = AdRequest.Builder().build()
+                adView.loadAd(adRequest)
+            }
+        }
+        
+        autoRefreshHandler?.postDelayed(autoRefreshRunnable!!, refreshInterval)
+        Log.d(TAG, "Auto-refresh scheduled for ${refreshInterval/1000} seconds")
+    }
+    
+    fun stopAutoRefresh() {
+        autoRefreshRunnable?.let { runnable ->
+            autoRefreshHandler?.removeCallbacks(runnable)
+        }
+        autoRefreshHandler = null
+        autoRefreshRunnable = null
+        currentAdView = null
+        Log.d(TAG, "Auto-refresh stopped")
     }
     
     /**

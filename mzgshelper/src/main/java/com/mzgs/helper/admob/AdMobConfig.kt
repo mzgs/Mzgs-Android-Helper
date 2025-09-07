@@ -13,6 +13,7 @@ data class AdMobConfig(
     val mrecAdUnitId: String = "",
     val appOpenAdUnitId: String = "",
     val enableAppOpenAd: Boolean = false,
+    val bannerAutoRefreshSeconds: Int = 60,  // Auto-refresh banner ads every X seconds (0 to disable)
     val testDeviceIds: List<String> = emptyList(),
     val enableTestMode: Boolean = false,
     // Debug-only flags (only work when BuildConfig.DEBUG is true)

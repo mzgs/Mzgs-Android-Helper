@@ -1,6 +1,8 @@
 package com.mzgs.helper.admob
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.util.AttributeSet
 import android.util.Log
 import android.view.View
@@ -16,12 +18,17 @@ class AdMobBannerView @JvmOverloads constructor(
     
     companion object {
         private const val TAG = "AdMobBannerView"
+        private const val AUTO_REFRESH_INTERVAL_MS = 60000L // 60 seconds
     }
     
     private var adView: AdView? = null
     private var adSize: AdSize = AdSize.BANNER
     private var adUnitId: String? = null
     private var isAdaptive: Boolean = false
+    private var autoRefreshHandler: Handler? = null
+    private var autoRefreshRunnable: Runnable? = null
+    private var isAutoRefreshEnabled: Boolean = true
+    private var lastAdLoadedTime: Long = 0
     
     init {
         layoutParams = ViewGroup.LayoutParams(
@@ -85,7 +92,13 @@ class AdMobBannerView @JvmOverloads constructor(
             adListener = object : AdListener() {
                 override fun onAdLoaded() {
                     Log.d(TAG, "Banner ad loaded")
+                    lastAdLoadedTime = System.currentTimeMillis()
                     onAdLoaded()
+                    
+                    // Start auto-refresh timer
+                    if (isAutoRefreshEnabled) {
+                        startAutoRefresh()
+                    }
                 }
                 
                 override fun onAdFailedToLoad(error: LoadAdError) {
@@ -93,7 +106,7 @@ class AdMobBannerView @JvmOverloads constructor(
                     onAdFailedToLoad(error)
                     
                     // Auto-retry loading the banner after a delay
-                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    Handler(Looper.getMainLooper()).postDelayed({
                         Log.d(TAG, "Auto-retrying banner ad load after failure")
                         val retryRequest = AdMobMediationManager.getInstance(context).createAdRequest()
                         loadAd(retryRequest)
@@ -136,6 +149,7 @@ class AdMobBannerView @JvmOverloads constructor(
     }
     
     fun destroy() {
+        stopAutoRefresh()
         adView?.destroy()
         adView = null
     }
@@ -150,8 +164,61 @@ class AdMobBannerView @JvmOverloads constructor(
         }
     }
     
+    private fun startAutoRefresh() {
+        // Cancel any existing refresh timer
+        stopAutoRefresh()
+        
+        // Get refresh interval from config or use default
+        val config = AdMobMediationManager.getInstance(context).getConfig()
+        val refreshInterval = config?.bannerAutoRefreshSeconds?.times(1000L) ?: AUTO_REFRESH_INTERVAL_MS
+        
+        if (refreshInterval <= 0) {
+            Log.d(TAG, "Auto-refresh disabled (interval: $refreshInterval)")
+            return
+        }
+        
+        autoRefreshHandler = Handler(Looper.getMainLooper())
+        autoRefreshRunnable = Runnable {
+            if (adView != null && isAutoRefreshEnabled) {
+                val timeSinceLastLoad = System.currentTimeMillis() - lastAdLoadedTime
+                if (timeSinceLastLoad >= refreshInterval) {
+                    Log.d(TAG, "Auto-refreshing banner ad after ${refreshInterval/1000} seconds")
+                    refreshAd()
+                }
+            }
+        }
+        
+        autoRefreshHandler?.postDelayed(autoRefreshRunnable!!, refreshInterval)
+        Log.d(TAG, "Auto-refresh scheduled for ${refreshInterval/1000} seconds")
+    }
+    
+    private fun stopAutoRefresh() {
+        autoRefreshRunnable?.let { runnable ->
+            autoRefreshHandler?.removeCallbacks(runnable)
+        }
+        autoRefreshHandler = null
+        autoRefreshRunnable = null
+        Log.d(TAG, "Auto-refresh stopped")
+    }
+    
+    fun setAutoRefreshEnabled(enabled: Boolean) {
+        isAutoRefreshEnabled = enabled
+        if (enabled && adView != null) {
+            startAutoRefresh()
+        } else {
+            stopAutoRefresh()
+        }
+    }
+    
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         destroy()
+    }
+    
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        if (isAutoRefreshEnabled && adView != null && lastAdLoadedTime > 0) {
+            startAutoRefresh()
+        }
     }
 }
