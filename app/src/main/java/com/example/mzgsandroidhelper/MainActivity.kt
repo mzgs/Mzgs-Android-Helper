@@ -399,7 +399,7 @@ fun SearchWithAdsCard() {
                                                         FrameLayout.LayoutParams.WRAP_CONTENT
                                                     )
                                                     // Load adaptive banner ad
-                                                    Ads.showBanner(this, Ads.BannerSize.ADAPTIVE)
+                                                    Ads.showBanner(this, Ads.BannerSize.LARGE_BANNER)
                                                 }
                                             }
                                         )

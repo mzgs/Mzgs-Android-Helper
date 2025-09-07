@@ -472,7 +472,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
     }
     
     @JvmStatic
-    fun showAdaptiveBanner(
+    fun showLargeBanner(
         container: ViewGroup
     ): Boolean {
         val activity = getCurrentActivity()
@@ -487,7 +487,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
             val bannerHelper = BannerAdHelper(activity)
             bannerHelper.createBannerView(
                 adUnitId = AdMobMediationManager.getConfig()?.bannerAdUnitId ?: "",
-                bannerType = BannerAdHelper.BannerType.ADAPTIVE_BANNER,
+                bannerType = BannerAdHelper.BannerType.LARGE_BANNER,
                 container = container as android.widget.FrameLayout,
                 onAdLoaded = {
                     Log.d(TAG, "AdMob adaptive banner loaded successfully")
