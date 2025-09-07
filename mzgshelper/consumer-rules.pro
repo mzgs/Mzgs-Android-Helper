@@ -5,16 +5,38 @@
 -dontwarn com.applovin.**
 -keep class com.applovin.** { *; }
 -keep class com.applovin.sdk.** { *; }
--keep class com.applovin.sdk.AppLovinSdkSettings { *; }
+
+# Keep AppLovinSdkSettings with all constructors and methods accessible
+-keep public class com.applovin.sdk.AppLovinSdkSettings {
+    public <init>(...);
+    public *;
+}
 -keepclassmembers class com.applovin.sdk.AppLovinSdkSettings {
-    <init>(...);
-    *;
+    public <init>(...);
+    public *;
+}
+
+# Keep AppLovinSdk and related classes accessible
+-keep public class com.applovin.sdk.AppLovinSdk {
+    public *;
+}
+-keep public class com.applovin.sdk.AppLovinSdkConfiguration {
+    public *;
 }
 
 # AppLovin Mediation Adapter Rules
 -keep class com.google.ads.mediation.applovin.** { *; }
 -keep class com.applovin.mediation.** { *; }
 -keep class com.applovin.mediation.rtb.** { *; }
+
+# Keep AppLovin wrapper classes used by mediation
+-keep public class com.google.ads.mediation.applovin.AppLovinSdkWrapper { *; }
+-keep public class com.google.ads.mediation.applovin.AppLovinInitializer { *; }
+-keep public class com.google.ads.mediation.applovin.AppLovinMediationAdapter { *; }
+
+# Keep AppLovin Ad classes
+-keep public class com.applovin.adview.** { *; }
+-keep public class com.applovin.impl.** { *; }
 
 # Google Mobile Ads SDK Rules
 -keep class com.google.android.gms.ads.** { *; }
