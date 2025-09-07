@@ -37,8 +37,10 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        }
     }
     buildFeatures {
         compose = true
@@ -84,8 +86,10 @@ dependencies {
     implementation(libs.google.adapter)
 
     // Google Mobile Ads SDK (required by the adapter)
-    implementation(libs.play.services.ads)
-    
+    // Using 'api' instead of 'implementation' to expose AdMob classes to consuming modules
+    api(libs.play.services.ads)
+
+
     // AdMob Mediation Adapters
     // Unity Ads adapter for AdMob mediation
     implementation("com.google.ads.mediation:unity:4.16.1.0")

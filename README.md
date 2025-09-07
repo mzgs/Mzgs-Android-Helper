@@ -54,6 +54,110 @@ dependencies {
 }
 ```
 
+## 📚 Required Libraries & Setup
+
+### If Using in Your App
+
+When integrating this library into your app, you'll need to add certain dependencies and configurations depending on which features you use:
+
+### 1. Google Services Plugin (Required for Firebase Features)
+
+If you're using Firebase features (Analytics, Remote Config), add the Google Services plugin:
+
+**In your app's `build.gradle.kts`:**
+```kotlin
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+    id("com.google.gms.google-services") // Add this line
+}
+```
+
+**In your project's root `build.gradle.kts` or `settings.gradle.kts`:**
+```kotlin
+plugins {
+    id("com.google.gms.google-services") version "4.4.2" apply false
+}
+```
+
+**Add `google-services.json`:**
+1. Go to [Firebase Console](https://console.firebase.google.com)
+2. Create or select your project
+3. Add your Android app
+4. Download `google-services.json`
+5. Place it in your `app/` directory
+
+### 2. AdMob SDK (Already Included)
+
+The AdMob SDK is already included and exposed by the library, so you don't need to add it separately. You can directly use AdMob classes like `LoadAdError` and `RewardItem` in your app.
+
+### 3. Firebase Analytics (Already Included)
+
+Firebase Analytics is also included in the library, so you don't need to add it separately. It's automatically available when you use the library.
+
+### 4. Permissions in AndroidManifest.xml
+
+Add these permissions to your app's `AndroidManifest.xml`:
+
+```xml
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+<uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
+
+<application>
+    <!-- AdMob App ID (Required if using AdMob) -->
+    <meta-data
+        android:name="com.google.android.gms.ads.APPLICATION_ID"
+        android:value="ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY" />
+    
+    <!-- AppLovin SDK Key (Required if using AppLovin) -->
+    <meta-data
+        android:name="applovin.sdk.key"
+        android:value="YOUR_SDK_KEY_HERE" />
+</application>
+```
+
+### 5. Complete Example Dependencies
+
+Here's a complete example of dependencies for an app using all features:
+
+```kotlin
+// app/build.gradle.kts
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+    id("com.google.gms.google-services")
+}
+
+dependencies {
+    // The library itself
+    implementation("com.github.mzgs:Mzgs-Android-Helper:v1.0.7")
+    // OR for local module
+    // implementation(project(":mzgshelper"))
+    
+    // That's it! AdMob SDK and Firebase are already included in the library
+    
+    // Your other dependencies...
+    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.compose.ui:ui:1.5.4")
+    // etc...
+}
+```
+
+### Common Issues & Solutions
+
+**Issue: "Cannot access class 'LoadAdError'"**
+- **Solution:** This should not occur with v1.0.7+. If using an older version or local module, ensure the library uses `api` instead of `implementation` for play-services-ads dependency
+
+**Issue: "Plugin [id: 'com.google.gms.google-services'] was not found"**
+- **Solution:** Add the plugin to your project-level build.gradle.kts as shown above
+
+**Issue: "File google-services.json is missing"**
+- **Solution:** Download from Firebase Console and place in your app/ directory
+
+**Issue: "The google-services Gradle plugin needs to be applied on a project with com.android.application"**
+- **Solution:** Only apply the plugin to your app module, not library modules
+
 ## 🎯 Quick Start with Unified Ads API
 
 ### 1. Initialize in Activity
@@ -833,6 +937,59 @@ val config = AdMobConfig(
         android:value="YOUR_SDK_KEY_HERE" />
 </application>
 ```
+
+## 🔌 Google Services Plugin Setup
+
+The Google Services plugin is required for Firebase integration (Analytics, Remote Config). 
+
+### Important: Application Module Only
+
+The `com.google.gms.google-services` plugin must be applied **only to application modules** (`com.android.application`), not to library modules (`com.android.library`).
+
+### Setup Instructions
+
+1. **Add the plugin to your app's `build.gradle.kts`** (not the library module):
+
+```kotlin
+// app/build.gradle.kts
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
+    id("com.google.gms.google-services") // Add this line
+}
+```
+
+2. **Add the Google Services classpath** to your project's `build.gradle.kts`:
+
+```kotlin
+// build.gradle.kts (Project level)
+plugins {
+    // ... other plugins
+    id("com.google.gms.google-services") version "4.4.2" apply false
+}
+```
+
+Or if using version catalogs in `gradle/libs.versions.toml`:
+
+```toml
+[versions]
+googleServices = "4.4.2"
+
+[plugins]
+google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
+```
+
+3. **Add your `google-services.json` file**:
+   - Download from Firebase Console
+   - Place in `app/google-services.json` (at app module root)
+
+### Why Application Module Only?
+
+- Firebase services require an application context
+- The plugin generates application-specific resources
+- Library modules should remain application-agnostic
+- This prevents build errors: "The google-services Gradle plugin needs to be applied on a project with com.android.application"
 
 ## 🔍 Troubleshooting
 

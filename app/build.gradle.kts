@@ -32,8 +32,10 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        }
     }
     buildFeatures {
         compose = true
@@ -52,9 +54,7 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     
-    // Google Mobile Ads SDK (required for using AdMob classes in app module)
-    implementation(libs.play.services.ads)
-    implementation(libs.user.messaging.platform)
+    // AdMob SDK is now exposed from mzgshelper module using 'api' configuration
     
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

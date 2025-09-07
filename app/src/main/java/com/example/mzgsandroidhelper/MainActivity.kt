@@ -4,6 +4,8 @@ import android.app.Activity
 import android.os.Bundle
 import android.util.Log
 import android.widget.FrameLayout
+import com.google.android.gms.ads.LoadAdError
+import com.google.android.gms.ads.rewarded.RewardItem
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -97,6 +99,7 @@ class MainActivity : ComponentActivity() {
             testDeviceIds = listOf("3d6496d1-4784-4b96-bf5e-2d61200765de"),
             showAdsInDebug = true,
             showInterstitialsInDebug = true,
+            bannerAutoRefreshSeconds = 30,
             showAppOpenAdInDebug = true,
             showBannersInDebug = true,
             showNativeAdsInDebug = true,
