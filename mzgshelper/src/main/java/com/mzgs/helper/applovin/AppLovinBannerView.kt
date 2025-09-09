@@ -25,8 +25,8 @@ fun AppLovinBannerView(
     onAdFailedToLoad: (MaxError) -> Unit = {},
     onAdClicked: () -> Unit = {}
 ) {
-    // Get the effective banner ad unit ID from config
-    val adUnitId = AppLovinMediationManager.getConfig()?.getEffectiveBannerAdUnitId() ?: ""
+    // Get the banner ad unit ID from config
+    val adUnitId = AppLovinMediationManager.getConfig()?.bannerAdUnitId ?: ""
     if (adUnitId.isEmpty()) {
         Log.e("AppLovinBannerView", "No banner ad unit ID configured")
         return
@@ -192,9 +192,9 @@ fun AppLovinBannerWithConfig(
     onAdClicked: () -> Unit = {}
 ) {
     val adUnitId = when (bannerType) {
-        AppLovinBannerHelper.BannerType.BANNER -> config.getEffectiveBannerAdUnitId()
-        AppLovinBannerHelper.BannerType.MREC -> config.getEffectiveMrecAdUnitId()
-        AppLovinBannerHelper.BannerType.LEADER -> config.getEffectiveBannerAdUnitId()
+        AppLovinBannerHelper.BannerType.BANNER -> config.bannerAdUnitId
+        AppLovinBannerHelper.BannerType.MREC -> config.mrecAdUnitId
+        AppLovinBannerHelper.BannerType.LEADER -> config.bannerAdUnitId
     }
     
     if (adUnitId.isEmpty() || adUnitId == "YOUR_TEST_BANNER_ID") {

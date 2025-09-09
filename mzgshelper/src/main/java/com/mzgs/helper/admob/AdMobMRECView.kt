@@ -8,6 +8,7 @@ import android.util.Log
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import com.google.android.gms.ads.*
+import com.mzgs.helper.MzgsHelper
 
 /**
  * MREC (Medium Rectangle) Ad View
@@ -58,7 +59,13 @@ class AdMobMRECView @JvmOverloads constructor(
         onAdClosed: () -> Unit = {},
         onAdClicked: () -> Unit = {}
     ) {
-        if (!AdMobMediationManager.getInstance(context).canShowAds()) {
+        // Check if ads are disabled in debug mode
+        if (MzgsHelper.debugNoAds) {
+            Log.d(TAG, "MREC load skipped (debugNoAds mode)")
+            return
+        }
+        
+        if (!AdMobManager.getInstance(context).canShowAds()) {
             Log.w(TAG, "Cannot show ads - consent not obtained")
             return
         }
@@ -178,7 +185,7 @@ class AdMobMRECView @JvmOverloads constructor(
         stopAutoRefresh()
         
         // Get refresh interval from config or use default
-        val config = AdMobMediationManager.getInstance(context).getConfig()
+        val config = AdMobManager.getInstance(context).getConfig()
         val refreshInterval = config?.bannerAutoRefreshSeconds?.times(1000L) ?: AUTO_REFRESH_INTERVAL_MS
         
         if (refreshInterval <= 0) {

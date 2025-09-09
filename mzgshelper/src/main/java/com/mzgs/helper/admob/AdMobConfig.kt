@@ -23,7 +23,8 @@ data class AdMobConfig(
     val showBannersInDebug: Boolean = true,  // Control banner ads in debug
     val showNativeAdsInDebug: Boolean = true,  // Control native ads in debug
     val showRewardedAdsInDebug: Boolean = true,  // Control rewarded ads in debug
-    val debugRequireConsentAlways: Boolean = false  // DEBUG ONLY: Forces consent form in debug builds ONLY - NEVER affects release
+    val debugRequireConsentAlways: Boolean = false,  // DEBUG ONLY: Forces consent form in debug builds ONLY - NEVER affects release
+    val debugEmptyIds: Boolean = false  // DEBUG ONLY: Use empty ad unit IDs in debug mode (prevents real ad loading)
 ) {
     companion object {
         const val TEST_BANNER_AD_UNIT_ID = "ca-app-pub-3940256099942544/6300978111"
@@ -52,7 +53,7 @@ data class AdMobConfig(
     // Debug control methods - these only affect DEBUG builds
     fun shouldShowAds(context: android.content.Context): Boolean {
         // In release mode, always show ads
-        if (!MzgsHelper.isDebugMode()) return true
+        if (!MzgsHelper.isDebug) return true
         
         // In debug mode, check the master switch
         return showAdsInDebug
@@ -60,31 +61,31 @@ data class AdMobConfig(
     
     fun shouldShowInterstitials(context: android.content.Context): Boolean {
         if (!shouldShowAds(context)) return false
-        if (!MzgsHelper.isDebugMode()) return true
+        if (!MzgsHelper.isDebug) return true
         return showInterstitialsInDebug
     }
     
     fun shouldShowAppOpenAd(context: android.content.Context): Boolean {
         if (!shouldShowAds(context)) return false
-        if (!MzgsHelper.isDebugMode()) return enableAppOpenAd
+        if (!MzgsHelper.isDebug) return enableAppOpenAd
         return enableAppOpenAd && showAppOpenAdInDebug
     }
     
     fun shouldShowBanners(context: android.content.Context): Boolean {
         if (!shouldShowAds(context)) return false
-        if (!MzgsHelper.isDebugMode()) return true
+        if (!MzgsHelper.isDebug) return true
         return showBannersInDebug
     }
     
     fun shouldShowNativeAds(context: android.content.Context): Boolean {
         if (!shouldShowAds(context)) return false
-        if (!MzgsHelper.isDebugMode()) return true
+        if (!MzgsHelper.isDebug) return true
         return showNativeAdsInDebug
     }
     
     fun shouldShowRewardedAds(context: android.content.Context): Boolean {
         if (!shouldShowAds(context)) return false
-        if (!MzgsHelper.isDebugMode()) return true
+        if (!MzgsHelper.isDebug) return true
         return showRewardedAdsInDebug
     }
 }

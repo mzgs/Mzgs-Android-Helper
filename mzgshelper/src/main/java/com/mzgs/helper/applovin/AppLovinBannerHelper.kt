@@ -7,6 +7,7 @@ import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import com.applovin.mediation.MaxAd
+import com.applovin.mediation.MaxAdFormat
 import com.applovin.mediation.MaxAdListener
 import com.applovin.mediation.MaxAdViewAdListener
 import com.applovin.mediation.MaxError
@@ -45,13 +46,9 @@ class AppLovinBannerHelper(private val context: Context) {
         container.removeAllViews()
         
         val adView = when (bannerType) {
-            BannerType.BANNER -> MaxAdView(adUnitId, context)
-            BannerType.MREC -> MaxAdView(adUnitId, context).apply {
-                setExtraParameter("ad_format", "MREC")
-            }
-            BannerType.LEADER -> MaxAdView(adUnitId, context).apply {
-                setExtraParameter("ad_format", "LEADER")
-            }
+            BannerType.BANNER -> MaxAdView(adUnitId, MaxAdFormat.BANNER, context)
+            BannerType.MREC -> MaxAdView(adUnitId, MaxAdFormat.MREC, context)
+            BannerType.LEADER -> MaxAdView(adUnitId, MaxAdFormat.LEADER, context)
         }
         
         adView.apply {
@@ -116,7 +113,7 @@ class AppLovinBannerHelper(private val context: Context) {
                 }
             })
             
-            setExtraParameter("adaptive_banner", "false")
+            // Adaptive banner configuration is now handled by the SDK automatically
             
             if (bannerType == BannerType.BANNER) {
                 setBackgroundColor(Color.TRANSPARENT)
@@ -184,7 +181,7 @@ class AppLovinBannerHelper(private val context: Context) {
         
         container.removeAllViews()
         
-        val adView = MaxAdView(adUnitId, context).apply {
+        val adView = MaxAdView(adUnitId, MaxAdFormat.BANNER, context).apply {
             setListener(object : MaxAdViewAdListener {
                 override fun onAdLoaded(ad: MaxAd) {
                     Log.d(TAG, "Adaptive banner ad loaded")
@@ -223,7 +220,7 @@ class AppLovinBannerHelper(private val context: Context) {
                 }
             })
             
-            setExtraParameter("adaptive_banner", "true")
+            // Adaptive banner configuration is now handled by the SDK automatically
             setBackgroundColor(Color.TRANSPARENT)
         }
         

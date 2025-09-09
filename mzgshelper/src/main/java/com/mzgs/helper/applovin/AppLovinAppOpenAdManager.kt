@@ -50,7 +50,7 @@ class AppLovinAppOpenAdManager private constructor(
             return
         }
         
-        val adUnitId = config.getEffectiveAppOpenAdUnitId()
+        val adUnitId = config.appOpenAdUnitId
         if (adUnitId.isEmpty()) {
             Log.w(TAG, "App open ad unit ID is empty")
             return

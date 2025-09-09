@@ -41,11 +41,18 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
             (context.applicationContext as Application).registerActivityLifecycleCallbacks(this)
         }
         
-        // Get and log the advertising ID
-        getAdvertisingId(context)
+        // Get and log the advertising ID (skip if ads are disabled)
+        if (!MzgsHelper.debugNoAds) {
+            getAdvertisingId(context)
+        }
     }
     
     private fun getAdvertisingId(context: Context) {
+        // Skip if ads are disabled in debug mode
+        if (MzgsHelper.debugNoAds) {
+            return
+        }
+        
         try {
             // Get advertising ID in background thread
             Thread {
@@ -155,7 +162,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
             return
         }
         Log.d(TAG, "Initializing AdMob through Ads helper")
-        AdMobMediationManager.init(context, config, onInitComplete)
+        AdMobManager.init(context, config, onInitComplete)
         
         // Enable app open ads if configured
         if (config.enableAppOpenAd) {
@@ -216,13 +223,13 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
     }
     
     @JvmStatic
-    fun getAdMobManager(): AdMobMediationManager? {
+    fun getAdMobManager(): AdMobManager? {
         val context = applicationContext
         if (context == null) {
             Log.e(TAG, "Ads.init() must be called before getAdMobManager()")
             return null
         }
-        return AdMobMediationManager.getInstance(context)
+        return AdMobManager.getInstance(context)
     }
     
     @JvmStatic
@@ -241,8 +248,14 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
     }
     
     @JvmStatic
-    fun showInterstitial(): Boolean {
-        val context = applicationContext ?: return false
+    fun showInterstitial(onAdClosed: (() -> Unit)? = null): Boolean {
+        // Check if ads are disabled in debug mode
+        if (MzgsHelper.debugNoAds) {
+            Log.d(TAG, "Interstitial ads skipped (debugNoAds mode)")
+            onAdClosed?.invoke()
+            return false
+        }
+
         val activity = currentActivityRef?.get()
         val adsOrder = getAdsOrder()
         
@@ -253,16 +266,20 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
                 APPLOVIN_MAX -> {
                     if (AppLovinMediationManager.isInterstitialReady()) {
                         Log.d(TAG, "Showing AppLovin MAX interstitial")
-                        return AppLovinMediationManager.showInterstitialAd()
+                        return if (activity != null) {
+                            AppLovinMediationManager.showInterstitialAd(activity, onAdClosed)
+                        } else {
+                            AppLovinMediationManager.showInterstitialAd(onAdClosed)
+                        }
                     }
                     Log.d(TAG, "AppLovin MAX interstitial not ready, trying next")
                 }
                 ADMOB -> {
-                    if (AdMobMediationManager.isInterstitialReady()) {
+                    if (AdMobManager.isInterstitialReady()) {
                         if (activity != null) {
                             // Activity is now tracked automatically via lifecycle callbacks
                             Log.d(TAG, "Showing AdMob interstitial")
-                            return AdMobMediationManager.showInterstitialAd()
+                            return AdMobManager.showInterstitialAd(onAdClosed)
                         } else {
                             Log.e(TAG, "No current activity available for AdMob interstitial")
                         }
@@ -276,11 +293,12 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
         }
         
         Log.d(TAG, "No interstitial ads ready from any network")
+        onAdClosed?.invoke()  // Call the callback if no ads were shown
         return false
     }
     
     @JvmStatic
-    fun showInterstitialWithCycle(name: String, defaultValue: Int = 3) {
+    fun showInterstitialWithCycle(name: String, defaultValue: Int = 3, onAdClosed: (() -> Unit)? = null) {
         // Get the cycle value from remote config
         val cycleValue = Remote.getInt(name, defaultValue)
         
@@ -292,7 +310,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
         // Check if we should show the ad using modulo
         if (currentCounter % cycleValue == 0) {
             // Show interstitial ad
-            val shown = showInterstitial()
+            val shown = showInterstitial(onAdClosed)
             if (shown) {
                 Log.d(TAG, "Showing interstitial ad for cycle '$name' at counter $currentCounter (every $cycleValue calls)")
             } else {
@@ -300,6 +318,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
             }
         } else {
             Log.d(TAG, "Not showing interstitial for '$name', counter=$currentCounter (shows every $cycleValue calls)")
+            onAdClosed?.invoke()  // Call the callback even if ad not shown due to cycle
         }
     }
     
@@ -308,6 +327,12 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
         container: ViewGroup,
         adSize: BannerSize = BannerSize.ADAPTIVE
     ): Boolean {
+        // Check if ads are disabled in debug mode
+        if (MzgsHelper.debugNoAds) {
+            Log.d(TAG, "Banner ads skipped (debugNoAds mode)")
+            return false
+        }
+        
         val activity = getCurrentActivity()
         if (activity == null) {
             Log.e(TAG, "No current activity available for showing banner")
@@ -378,7 +403,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
                             BannerSize.LEADERBOARD -> BannerAdHelper.BannerType.LEADERBOARD
                         }
                         bannerHelper.createBannerView(
-                            adUnitId = AdMobMediationManager.getConfig()?.bannerAdUnitId ?: "",
+                            adUnitId = AdMobManager.getConfig()?.bannerAdUnitId ?: "",
                             bannerType = bannerType,
                             container = container as android.widget.FrameLayout,
                             onAdLoaded = {
@@ -446,7 +471,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
                         BannerSize.LEADERBOARD -> BannerAdHelper.BannerType.LEADERBOARD
                     }
                     bannerHelper.createBannerView(
-                        adUnitId = AdMobMediationManager.getConfig()?.bannerAdUnitId ?: "",
+                        adUnitId = AdMobManager.getConfig()?.bannerAdUnitId ?: "",
                         bannerType = bannerType,
                         container = container as android.widget.FrameLayout,
                         onAdLoaded = {
@@ -486,7 +511,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
         try {
             val bannerHelper = BannerAdHelper(activity)
             bannerHelper.createBannerView(
-                adUnitId = AdMobMediationManager.getConfig()?.bannerAdUnitId ?: "",
+                adUnitId = AdMobManager.getConfig()?.bannerAdUnitId ?: "",
                 bannerType = BannerAdHelper.BannerType.LARGE_BANNER,
                 container = container as android.widget.FrameLayout,
                 onAdLoaded = {
@@ -545,11 +570,11 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
                     Log.d(TAG, "AppLovin MAX rewarded ad not ready, trying next")
                 }
                 ADMOB -> {
-                    if (AdMobMediationManager.isRewardedReady()) {
+                    if (AdMobManager.isRewardedReady()) {
                         if (activity != null) {
                             // Activity is now tracked automatically via lifecycle callbacks
                             Log.d(TAG, "Showing AdMob rewarded ad")
-                            return AdMobMediationManager.showRewardedAd()
+                            return AdMobManager.showRewardedAd()
                         } else {
                             Log.e(TAG, "No current activity available for AdMob rewarded ad")
                         }
@@ -644,7 +669,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
                     }
                 }
                 ADMOB -> {
-                    if (AdMobMediationManager.isInterstitialReady()) {
+                    if (AdMobManager.isInterstitialReady()) {
                         return true
                     }
                 }
@@ -666,7 +691,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
                     }
                 }
                 ADMOB -> {
-                    if (AdMobMediationManager.isRewardedReady()) {
+                    if (AdMobManager.isRewardedReady()) {
                         return true
                     }
                 }
@@ -680,6 +705,12 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
     fun showMREC(
         container: ViewGroup
     ): Boolean {
+        // Check if ads are disabled in debug mode
+        if (MzgsHelper.debugNoAds) {
+            Log.d(TAG, "MREC ads skipped (debugNoAds mode)")
+            return false
+        }
+        
         val activity = getCurrentActivity()
         if (activity == null) {
             Log.e(TAG, "No current activity available for showing MREC")
@@ -709,7 +740,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
             when (secondNetwork.lowercase()) {
                 APPLOVIN_MAX -> {
                     try {
-                        val adUnitId = AppLovinMediationManager.getConfig()?.getEffectiveMrecAdUnitId() ?: ""
+                        val adUnitId = AppLovinMediationManager.getConfig()?.mrecAdUnitId ?: ""
                         if (adUnitId.isNotEmpty() && AppLovinMediationManager.isInitialized()) {
                             Log.d(TAG, "Attempting to show AppLovin MAX MREC as fallback")
                             val bannerHelper = AppLovinBannerHelper(activity)
@@ -736,7 +767,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
                         Log.d(TAG, "Attempting to show AdMob MREC as fallback")
                         val mrecView = AdMobMRECView(activity)
                         mrecView.loadMREC(
-                            adUnitId = AdMobMediationManager.getConfig()?.mrecAdUnitId ?: "",
+                            adUnitId = AdMobManager.getConfig()?.mrecAdUnitId ?: "",
                             onAdLoaded = {
                                 Log.d(TAG, "AdMob MREC loaded successfully (fallback)")
                                 container.removeAllViews()
@@ -757,7 +788,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
         when (firstNetwork?.lowercase()) {
             APPLOVIN_MAX -> {
                 try {
-                    val adUnitId = AppLovinMediationManager.getConfig()?.getEffectiveMrecAdUnitId() ?: ""
+                    val adUnitId = AppLovinMediationManager.getConfig()?.mrecAdUnitId ?: ""
                     if (adUnitId.isNotEmpty() && AppLovinMediationManager.isInitialized()) {
                         Log.d(TAG, "Attempting to show AppLovin MAX MREC (primary)")
                         val bannerHelper = AppLovinBannerHelper(activity)
@@ -790,7 +821,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
                     Log.d(TAG, "Attempting to show AdMob MREC (primary)")
                     val mrecView = AdMobMRECView(activity)
                     mrecView.loadMREC(
-                        adUnitId = AdMobMediationManager.getConfig()?.mrecAdUnitId ?: "",
+                        adUnitId = AdMobManager.getConfig()?.mrecAdUnitId ?: "",
                         onAdLoaded = {
                             Log.d(TAG, "AdMob MREC loaded successfully (primary)")
                             container.removeAllViews()
@@ -878,7 +909,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
         // Activity is in foreground, definitely our current activity
         currentActivityRef = WeakReference(activity)
         Log.d(TAG, "Activity resumed, current activity auto-set to: ${activity.javaClass.simpleName}")
-        // Note: AdMobMediationManager now tracks its own activity automatically
+        // Note: AdMobManager now tracks its own activity automatically
     }
     
     override fun onActivityPaused(activity: Activity) {

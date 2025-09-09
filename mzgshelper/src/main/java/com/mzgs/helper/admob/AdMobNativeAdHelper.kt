@@ -39,7 +39,7 @@ class AdMobNativeAdHelper(private val context: Context) {
         shouldRequestMultipleAds: Boolean = false,
         numberOfAds: Int = 1
     ) {
-        val adManager = AdMobMediationManager.getInstance(context)
+        val adManager = AdMobManager.getInstance(context)
         val adUnitId = adManager.getConfig()?.nativeAdUnitId ?: ""
         if (adUnitId.isEmpty()) {
             Log.e(TAG, "No native ad unit ID configured")
@@ -62,7 +62,7 @@ class AdMobNativeAdHelper(private val context: Context) {
         shouldRequestMultipleAds: Boolean = false,
         numberOfAds: Int = 1
     ) {
-        val adManager = AdMobMediationManager.getInstance(context)
+        val adManager = AdMobManager.getInstance(context)
         
         // Check if we can show any type of ads (personalized or non-personalized)
         if (!adManager.canShowAds() && !adManager.canShowNonPersonalizedAds()) {

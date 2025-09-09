@@ -1,7 +1,7 @@
 plugins {
-    alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
+    id("com.android.library") version "8.11.1"
+    id("org.jetbrains.kotlin.android") version "2.2.10"
+    id("org.jetbrains.kotlin.plugin.compose") version "2.2.10"
     id("maven-publish")
 }
 
@@ -50,75 +50,60 @@ android {
     }
 }
 
-dependencies {
 
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.appcompat)
-    implementation(libs.material)
+dependencies {
+    // AndroidX Core
+    implementation("androidx.core:core-ktx:1.17.0")
+    implementation("androidx.appcompat:appcompat:1.7.1")
+    implementation("androidx.lifecycle:lifecycle-process:2.9.3")
     
-    // Compose dependencies
-    implementation(platform(libs.androidx.compose.bom))
+    // Material Design
+    implementation("com.google.android.material:material:1.13.0")
+    
+    // Compose
+    implementation(platform("androidx.compose:compose-bom:2025.08.01"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.runtime:runtime")
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
-    implementation(libs.okhttp)
-    implementation(libs.jsoup)
-    implementation(libs.gson)
+    
+    // Networking & Data
+    implementation("com.squareup.okhttp3:okhttp:5.1.0")
+    implementation("org.jsoup:jsoup:1.21.2")
+    implementation("com.google.code.gson:gson:2.13.1")
     
     // Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-
-    implementation(libs.androidx.lifecycle.process)
-
-    // Google Play In-App Review API
-    implementation(libs.review)
-    implementation(libs.review.ktx)
-    // AppLovin MAX SDK - Latest stable version
-    implementation(libs.applovin.sdk)
-
-    // Google AdMob Adapter for AppLovin MAX
-    implementation(libs.google.adapter)
-
-    // Google Mobile Ads SDK (required by the adapter)
-    // Using 'api' instead of 'implementation' to expose AdMob classes to consuming modules
-    api(libs.play.services.ads)
-
-
-    // AdMob Mediation Adapters
-    // Unity Ads adapter for AdMob mediation
-    implementation("com.google.ads.mediation:unity:4.16.1.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     
-    // AppLovin adapter for AdMob mediation  
-    implementation("com.google.ads.mediation:applovin:13.0.1.0")
+    // Google Play Services
+    implementation("com.google.android.play:review:2.0.2")
+    implementation("com.google.android.play:review-ktx:2.0.2")
+    implementation("com.google.android.ump:user-messaging-platform:3.2.0")
     
-    // Mintegral adapter for AdMob mediation
-    implementation("com.google.ads.mediation:mintegral:16.9.91.1")
+    // Firebase
+    implementation(platform("com.google.firebase:firebase-bom:34.2.0"))
+    implementation("com.google.firebase:firebase-analytics")
     
-    // Liftoff (Vungle) adapter for AdMob mediation
-    implementation("com.google.ads.mediation:vungle:7.4.2.0")
+    // AdMob (exposed to consuming modules)
+    api("com.google.android.gms:play-services-ads:24.6.0")
+    
+    // AppLovin MAX (downgraded to 13.3.1 for Google adapter compatibility)
+    implementation("com.applovin:applovin-sdk:13.4.0")
 
-    // Unity Ads Adapter for AppLovin MAX
+    
+    // AppLovin MAX Mediation Adapters
+    implementation("com.applovin.mediation:google-adapter:24.5.0.0")
     implementation("com.applovin.mediation:unityads-adapter:4.16.1.0")
-
-    // Facebook/Meta Audience Network Adapter for AppLovin MAX
     implementation("com.applovin.mediation:facebook-adapter:6.20.0.0")
-
-    implementation("com.applovin.mediation:fyber-adapter:+")
-    implementation("com.applovin.mediation:vungle-adapter:+")
-
-    // Google User Messaging Platform for consent management
-    implementation(libs.user.messaging.platform)
-
-    // Firebase Analytics
-    implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.analytics)
-
+    implementation("com.applovin.mediation:fyber-adapter:8.3.8.0")
+    implementation("com.applovin.mediation:vungle-adapter:7.5.1.0")
+    
+    // AdMob Standalone - No mediation adapters (using as fallback only)
+    
+    // Testing
+    testImplementation("junit:junit:4.13.2")
 }
 
 afterEvaluate {

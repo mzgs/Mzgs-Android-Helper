@@ -9,6 +9,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import com.google.android.gms.ads.*
+import com.mzgs.helper.MzgsHelper
 
 class AdMobBannerView @JvmOverloads constructor(
     context: Context,
@@ -47,7 +48,14 @@ class AdMobBannerView @JvmOverloads constructor(
         onAdClosed: () -> Unit = {},
         onAdClicked: () -> Unit = {}
     ) {
-        val adManager = AdMobMediationManager.getInstance(context)
+        // Check if ads are disabled in debug mode
+        if (MzgsHelper.debugNoAds) {
+            Log.d(TAG, "Banner load skipped (debugNoAds mode)")
+            visibility = View.GONE
+            return
+        }
+        
+        val adManager = AdMobManager.getInstance(context)
         
         // Check if we can show any type of ads (personalized or non-personalized)
         if (!adManager.canShowAds() && !adManager.canShowNonPersonalizedAds()) {
@@ -108,7 +116,7 @@ class AdMobBannerView @JvmOverloads constructor(
                     // Auto-retry loading the banner after a delay
                     Handler(Looper.getMainLooper()).postDelayed({
                         Log.d(TAG, "Auto-retrying banner ad load after failure")
-                        val retryRequest = AdMobMediationManager.getInstance(context).createAdRequest()
+                        val retryRequest = AdMobManager.getInstance(context).createAdRequest()
                         loadAd(retryRequest)
                     }, 5000) // Retry after 5 seconds
                 }
@@ -169,7 +177,7 @@ class AdMobBannerView @JvmOverloads constructor(
         stopAutoRefresh()
         
         // Get refresh interval from config or use default
-        val config = AdMobMediationManager.getInstance(context).getConfig()
+        val config = AdMobManager.getInstance(context).getConfig()
         val refreshInterval = config?.bannerAutoRefreshSeconds?.times(1000L) ?: AUTO_REFRESH_INTERVAL_MS
         
         if (refreshInterval <= 0) {

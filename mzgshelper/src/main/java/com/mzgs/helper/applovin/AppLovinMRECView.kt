@@ -24,8 +24,8 @@ fun AppLovinMRECView(
     onAdExpanded: () -> Unit = {},
     onAdCollapsed: () -> Unit = {}
 ) {
-    // Get the effective MREC ad unit ID from config
-    val adUnitId = AppLovinMediationManager.getConfig()?.getEffectiveMrecAdUnitId() ?: ""
+    // Get the MREC ad unit ID from config
+    val adUnitId = AppLovinMediationManager.getConfig()?.mrecAdUnitId ?: ""
     if (adUnitId.isEmpty()) {
         Log.e("AppLovinMRECView", "No MREC ad unit ID configured")
         return
@@ -102,7 +102,7 @@ fun AppLovinMRECWithConfig(
     onAdExpanded: () -> Unit = {},
     onAdCollapsed: () -> Unit = {}
 ) {
-    val adUnitId = config.getEffectiveMrecAdUnitId()
+    val adUnitId = config.mrecAdUnitId
     
     if (adUnitId.isEmpty() || adUnitId == "YOUR_TEST_MREC_ID") {
         Log.w("AppLovinMRECWithConfig", "Invalid MREC ad unit ID")

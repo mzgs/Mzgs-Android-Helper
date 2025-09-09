@@ -1,6 +1,7 @@
 package com.mzgs.helper
 
 import android.Manifest
+import android.R
 import android.app.Application
 import android.content.Context
 import android.content.pm.ApplicationInfo
@@ -16,7 +17,7 @@ import android.widget.Toast
 import androidx.annotation.RequiresPermission
 import com.google.android.ump.ConsentDebugSettings
 import com.mzgs.helper.admob.AdMobConfig
-import com.mzgs.helper.admob.AdMobMediationManager
+import com.mzgs.helper.admob.AdMobManager
 import com.mzgs.helper.analytics.FirebaseAnalyticsManager
 import com.mzgs.helper.applovin.AppLovinConfig
 import com.mzgs.helper.applovin.AppLovinMediationManager
@@ -47,11 +48,24 @@ object MzgsHelper {
 
     var isAllowedCountry = true
     var isDebug = false
+    var debugNoAds = false
     var IPCountry: String? = null
     
-    fun init(context: Context) {
+    fun init(context: Context, debugMode: Boolean, skipAdsInDebug: Boolean = false) {
         weakContext = java.lang.ref.WeakReference(context.applicationContext)
-        isDebug = isDebugMode()
+        isDebug = debugMode
+        
+        // Only set debugNoAds if we're in debug mode
+        debugNoAds = skipAdsInDebug && debugMode
+        
+        if (debugNoAds) {
+            Log.d(TAG, "")
+            Log.d(TAG, "|||------------------------------------------------------------|||")
+            Log.d(TAG, "|||              DEBUG NO ADS MODE ENABLED                     |||")
+            Log.d(TAG, "|||         All ads will be skipped in this session            |||")
+            Log.d(TAG, "|||------------------------------------------------------------|||")
+            Log.d(TAG, "")
+        }
     }
     
     private fun getContext(): Context? {
@@ -64,7 +78,59 @@ object MzgsHelper {
         }
     }
 
-    fun initSplashWithAdmobShow(
+    /**
+     * Try to show interstitial ad from multiple networks in order
+     * @param adOrder List of ad network names in priority order (e.g., ["admob", "applovin_max"])
+     * @param onAdDismissed Callback when ad is dismissed or no ad is available
+     * @return true if ad was shown, false otherwise
+     */
+    private fun tryShowInterstitialInOrder(
+        adOrder: List<String>,
+        onAdDismissed: (() -> Unit)? = null
+    ): Boolean {
+        Log.d(TAG, "Trying to show interstitial with order: $adOrder")
+        
+        for (network in adOrder) {
+            when (network.lowercase()) {
+                "admob" -> {
+                    if (AdMobManager.isInterstitialReady()) {
+                        Log.d(TAG, "Showing AdMob interstitial")
+                        FirebaseAnalyticsManager.logEvent("onstart_ad_shown_admob")
+                        AdMobManager.showInterstitialAd(onAdDismissed = onAdDismissed)
+                        return true
+                    } else {
+                        Log.d(TAG, "AdMob interstitial not ready")
+                    }
+                }
+                "applovin_max", "applovin" -> {
+                    if (AppLovinMediationManager.isInterstitialReady()) {
+                        Log.d(TAG, "Showing AppLovin MAX interstitial")
+                        FirebaseAnalyticsManager.logEvent("onstart_ad_shown_applovin")
+                        val activity = Ads.getCurrentActivity()
+                        return if (activity != null) {
+                            AppLovinMediationManager.showInterstitialAd(activity, onAdDismissed)
+                        } else {
+                            Log.e(TAG, "No current activity available from Ads helper")
+                            AppLovinMediationManager.showInterstitialAd(onAdDismissed = onAdDismissed)
+                        }
+                    } else {
+                        Log.d(TAG, "AppLovin MAX interstitial not ready")
+                    }
+                }
+                else -> {
+                    Log.w(TAG, "Unknown ad network: $network")
+                }
+            }
+        }
+        
+        // No ads available from any network
+        Log.d(TAG, "No interstitial ads available from any network")
+        FirebaseAnalyticsManager.logEvent("onstart_ad_not_ready_all_networks")
+        onAdDismissed?.invoke()
+        return false
+    }
+
+    fun initSplashWithInterstitialShow(
         activity: ComponentActivity, 
         admobConfig: AdMobConfig,
         appLovinConfig: AppLovinConfig,
@@ -72,6 +138,24 @@ object MzgsHelper {
         onFinish: (() -> Unit)? = null,
         onFinishAndApplovinReady: (() -> Unit)? = null
     ){
+        // Check if we should skip ads entirely
+        if (debugNoAds) {
+            Log.d(TAG, "Skipping ads initialization and display (debugNoAds mode)")
+            
+            // Just show splash and finish without any ad initialization
+            val splash = SimpleSplashHelper.Builder(activity)
+                .setDuration(Remote.getLong("splash_time", defaultSplashTime))
+                .setRotateLogo(true)
+                .showProgress(true)
+                .onComplete {
+                    Log.d(TAG, "Splash completed (no ads in debug mode)")
+                    onFinish?.invoke()
+                    onFinishAndApplovinReady?.invoke()
+                }
+                .build()
+            splash.show()
+            return
+        }
 
         // Track completion states for onFinishAndApplovinReady callback
         var isSplashFinished = false
@@ -98,27 +182,16 @@ object MzgsHelper {
                 isSplashFinished = true
                 checkAndCallFinishAndApplovinReady()
 
-                // Show interstitial ad if ready
-                if (AdMobMediationManager.isInterstitialReady()) {
-                    Log.d("MainActivity", "Showing interstitial ad after splash")
-                    AdMobMediationManager.showInterstitialAd(
-                        onAdDismissed = {
-                            Log.d("MainActivity", "Interstitial ad dismissed")
-                            onFinish?.invoke()
-                            // Mark onFinish as called
-                            isOnFinishCalled = true
-                            checkAndCallFinishAndApplovinReady()
-                        }
-                    )
-                } else {
-                    Log.d("MainActivity", "Interstitial ad not ready after splash")
-                    FirebaseAnalyticsManager.logEvent("onstart_ad_not_ready")
-                    // Call onFinish when ad is not loaded
-                    onFinish?.invoke()
-                    // Mark onFinish as called
-                    isOnFinishCalled = true
-                    checkAndCallFinishAndApplovinReady()
-                }
+                // Show interstitial ad
+                Ads.showInterstitial(
+                    onAdClosed = {
+                        Log.d("MainActivity", "Interstitial ad dismissed")
+                        onFinish?.invoke()
+                        // Mark onFinish as called
+                        isOnFinishCalled = true
+                        checkAndCallFinishAndApplovinReady()
+                    }
+                )
             }
             .build()
 
@@ -134,20 +207,19 @@ object MzgsHelper {
 
                 // Request consent info update
                 // Check if app is in debug mode for consent testing
-                val isDebugMode = MzgsHelper.isDebugMode()
-                AdMobMediationManager.requestConsentInfoUpdate(
+                AdMobManager.requestConsentInfoUpdate(
                     underAgeOfConsent = false,
-                    debugGeography = if (isDebugMode && admobConfig.debugRequireConsentAlways)
+                    debugGeography = if (isDebug && admobConfig.debugRequireConsentAlways)
                         ConsentDebugSettings.DebugGeography.DEBUG_GEOGRAPHY_EEA else null,
-                    testDeviceHashedId = if (isDebugMode && admobConfig.debugRequireConsentAlways)
+                    testDeviceHashedId = if (isDebug && admobConfig.debugRequireConsentAlways)
                         "TEST-DEVICE-HASHED-ID" else null,
                     onConsentInfoUpdateSuccess = {
                         Log.d("MainActivity", "Consent info updated")
 
                         // Check if we can show ads (either personalized or non-personalized)
-                        val canShowPersonalized = AdMobMediationManager.canShowAds()
+                        val canShowPersonalized = AdMobManager.canShowAds()
                         val canShowNonPersonalized =
-                            AdMobMediationManager.canShowNonPersonalizedAds()
+                            AdMobManager.canShowNonPersonalizedAds()
 
                         Log.d(
                             "MainActivity",
@@ -155,9 +227,9 @@ object MzgsHelper {
                         )
 
                         // Check if consent form needs to be shown
-                        if (AdMobMediationManager.isConsentFormAvailable()) {
+                        if (AdMobManager.isConsentFormAvailable()) {
                             Log.d("MainActivity", "Showing consent form")
-                            AdMobMediationManager.showConsentForm(
+                            AdMobManager.showConsentForm(
                                 activity = activity,
                                 onConsentFormDismissed = { formError ->
                                     if (formError != null) {
@@ -170,16 +242,18 @@ object MzgsHelper {
 
                                     // After consent form is dismissed, load interstitial ad
                                     // We can load ads even if only non-personalized ads are allowed
-                                    if (AdMobMediationManager.canShowAds() || AdMobMediationManager.canShowNonPersonalizedAds()) {
+                                    if (AdMobManager.canShowAds() || AdMobManager.canShowNonPersonalizedAds()) {
                                         Log.d(
                                             "MainActivity",
                                             "Loading interstitial ad after consent"
                                         )
-                                        AdMobMediationManager.loadInterstitialAd()
+                                        AdMobManager.loadInterstitialAd()
                                     }
 
                                     Ads.initAppLovinMax(appLovinConfig){
                                         p("ApplovinMax init completed.")
+                                        // Load AppLovin interstitial after initialization
+                                        AppLovinMediationManager.loadInterstitialAd()
                                         // Mark AppLovin as ready
                                         isApplovinReady = true
                                         checkAndCallFinishAndApplovinReady()
@@ -197,7 +271,7 @@ object MzgsHelper {
                                     "MainActivity",
                                     "No consent form needed, loading interstitial ad"
                                 )
-                                AdMobMediationManager.loadInterstitialAd()
+                                AdMobManager.loadInterstitialAd()
                             } else {
                                 Log.d("MainActivity", "Cannot show any ads yet")
                             }
@@ -205,6 +279,8 @@ object MzgsHelper {
                             // Initialize AppLovin when no consent form needed
                             Ads.initAppLovinMax(appLovinConfig){
                                 p("ApplovinMax init completed.")
+                                // Load AppLovin interstitial after initialization
+                                AppLovinMediationManager.loadInterstitialAd()
                                 // Mark AppLovin as ready
                                 isApplovinReady = true
                                 checkAndCallFinishAndApplovinReady()
@@ -218,17 +294,19 @@ object MzgsHelper {
                         Log.e("MainActivity", "Failed to update consent info: $error")
 
                         // Even if consent update fails, try to load ad if non-personalized ads are allowed
-                        if (AdMobMediationManager.canShowNonPersonalizedAds()) {
+                        if (AdMobManager.canShowNonPersonalizedAds()) {
                             Log.d(
                                 "MainActivity",
                                 "Loading non-personalized ad after consent failure"
                             )
-                            AdMobMediationManager.loadInterstitialAd()
+                            AdMobManager.loadInterstitialAd()
                         }
                         
                         // Initialize AppLovin even on consent failure
                         Ads.initAppLovinMax(appLovinConfig){
                             p("ApplovinMax init completed.")
+                            // Load AppLovin interstitial after initialization
+                            AppLovinMediationManager.loadInterstitialAd()
                             // Mark AppLovin as ready
                             isApplovinReady = true
                             checkAndCallFinishAndApplovinReady()
@@ -319,6 +397,23 @@ object MzgsHelper {
         if (debugAllow != null && isDebug) {
             isAllowedCountry = debugAllow
             Log.d("LibHelper", "Debug mode with debugAllow=$debugAllow, setting isAllowedCountry to $debugAllow")
+            return
+        }
+
+        // Check if only free music mode is enabled
+        if (Remote.getBool("only_free_music", false)) {
+            val allowedCountries = Remote.getStringArray("allowed_countries", emptyList())
+            
+            // Get all phone countries
+            val phoneCountries = getPhoneCountry()
+            
+            // Check if any phone country is in the allowed list
+            val isInAllowedCountry = phoneCountries.any { country ->
+                allowedCountries.contains(country)
+            } || (IPCountry?.let { allowedCountries.contains(it) } ?: false)
+            
+            MzgsHelper.isAllowedCountry = isInAllowedCountry
+            Log.d("LibHelper", "Only free music mode enabled, isAllowedCountry: $isInAllowedCountry")
             return
         }
         
@@ -419,32 +514,6 @@ object MzgsHelper {
     }
     
     /**
-     * Checks if the application is running in debug mode.
-     * 
-     * @param context The application context
-     * @return true if the app is debuggable (debug build), false otherwise (release build)
-     * 
-     * This is useful for:
-     * - Showing debug information only in development
-     * - Disabling ads during development
-     * - Enabling verbose logging in debug builds
-     * - Any debug-only functionality
-     * 
-     * Note: This checks the FLAG_DEBUGGABLE flag which is automatically set by Android
-     * based on the build type (debug vs release) in your build.gradle
-     */
-    fun isDebugMode(): Boolean {
-        val context = getContext() ?: return false
-        return try {
-            val applicationInfo = context.applicationInfo
-            (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
-        } catch (e: Exception) {
-            Log.e(TAG, "Error checking debug mode", e)
-            false
-        }
-    }
-    
-    /**
      * Shows the native in-app rating dialog using Google Play In-App Review API
      * 
      * @param activity The activity from which to show the review dialog
@@ -533,7 +602,7 @@ object Remote {
     private suspend fun fetchRemoteConfig(url: String) {
         try {
             val response = withContext(Dispatchers.IO) {
-                makeRequest(url, 10000)
+                makeRequest(url, 30000)
             }
 
             response?.let { data ->

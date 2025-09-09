@@ -51,7 +51,7 @@ class BannerAdHelper(private val context: Context) {
         onAdFailedToLoad: (LoadAdError) -> Unit = {},
         onAdClicked: () -> Unit = {}
     ): AdView? {
-        if (!AdMobMediationManager.getInstance(context).canShowAds()) {
+        if (!AdMobManager.getInstance(context).canShowAds()) {
             Log.w(TAG, "Cannot show ads - consent not obtained")
             return null
         }
@@ -159,7 +159,7 @@ class BannerAdHelper(private val context: Context) {
         stopAutoRefresh()
         
         // Get refresh interval from config or use default
-        val config = AdMobMediationManager.getInstance(context).getConfig()
+        val config = AdMobManager.getInstance(context).getConfig()
         val refreshInterval = config?.bannerAutoRefreshSeconds?.times(1000L) ?: AUTO_REFRESH_INTERVAL_MS
         
         if (refreshInterval <= 0) {

@@ -17,13 +17,14 @@ import com.applovin.sdk.AppLovinSdk
 import com.applovin.sdk.AppLovinSdkConfiguration
 import com.applovin.sdk.AppLovinSdkInitializationConfiguration
 import com.applovin.sdk.AppLovinSdkSettings
+import com.mzgs.helper.Ads
 import com.mzgs.helper.MzgsHelper
 import java.lang.ref.WeakReference
 import java.util.concurrent.TimeUnit
 import kotlin.math.min
 import kotlin.math.pow
 
-object AppLovinMediationManager : Application.ActivityLifecycleCallbacks {
+object AppLovinMediationManager {
     
     private const val TAG = "AppLovinMediation"
     private var isInitialized = false
@@ -36,20 +37,39 @@ object AppLovinMediationManager : Application.ActivityLifecycleCallbacks {
     private var interstitialAd: MaxInterstitialAd? = null
     private var rewardedAd: MaxRewardedAd? = null
     private var appOpenAd: MaxAppOpenAd? = null
+    private var interstitialAdDismissCallback: (() -> Unit)? = null
     
     @JvmStatic
     fun init(context: Context, config: AppLovinConfig, onInitComplete: () -> Unit = {}) {
         this.contextRef = WeakReference(context.applicationContext)
-        this.appLovinConfig = config
         
-        // If context is an activity, store it as current activity
+        // Check if ads are disabled in debug mode
+        if (MzgsHelper.debugNoAds) {
+            Log.d(TAG, "AppLovin MAX initialization skipped (debugNoAds mode)")
+            isInitialized = false
+            onInitComplete()
+            return
+        }
+        
+        // Override config with empty IDs if debugEmptyIds is true
+        this.appLovinConfig = if (MzgsHelper.isDebug && config.debugEmptyIds) {
+            config.copy(
+                bannerAdUnitId = "",
+                mrecAdUnitId = "",
+                interstitialAdUnitId = "",
+                rewardedAdUnitId = "",
+                appOpenAdUnitId = "",
+                nativeAdUnitId = ""
+            )
+        } else {
+            config
+        }
+        
+        // Don't register for lifecycle callbacks here - Ads already handles this
+        // We'll get the current activity from Ads.getCurrentActivity() when needed
         if (context is Activity) {
             this.currentActivityRef = WeakReference(context)
         }
-        
-        // Register activity lifecycle callbacks to track current activity
-        val application = context.applicationContext as? Application
-        application?.registerActivityLifecycleCallbacks(this)
         
         if (isInitialized) {
             Log.d(TAG, "AppLovin MAX already initialized")
@@ -58,17 +78,23 @@ object AppLovinMediationManager : Application.ActivityLifecycleCallbacks {
         }
         
         // SAFETY: Only set test device IDs in debug builds
-        val testDeviceIds = if (MzgsHelper.isDebugMode()) {
+        val testDeviceIds = if (MzgsHelper.isDebug) {
             config.testDeviceAdvertisingIds
         } else {
             emptyList() // Never use test device IDs in release
         }
         
         // Create initialization configuration using the builder pattern
-        val initConfig = AppLovinSdkInitializationConfiguration.builder(config.sdkKey, context)
+        val initConfigBuilder = AppLovinSdkInitializationConfiguration.builder(config.sdkKey, context)
             .setMediationProvider(AppLovinMediationProvider.MAX)
             .setTestDeviceAdvertisingIds(testDeviceIds)
-            .build()
+        
+        // Apply additional settings if needed
+        if (config.verboseLogging && MzgsHelper.isDebug) {
+            // Verbose logging configuration
+        }
+        
+        val initConfig = initConfigBuilder.build()
         
         // Initialize SDK with configuration
         AppLovinSdk.getInstance(context).initialize(initConfig) { sdkConfig ->
@@ -161,7 +187,7 @@ object AppLovinMediationManager : Application.ActivityLifecycleCallbacks {
             return
         }
         
-        val activity = currentActivityRef?.get()
+        val activity = currentActivityRef?.get() ?: Ads.getCurrentActivity()
         if (activity == null) {
             Log.e(TAG, "Unable to show mediation debugger: No current activity available")
             return
@@ -241,7 +267,7 @@ object AppLovinMediationManager : Application.ActivityLifecycleCallbacks {
         onAdLoaded: () -> Unit = {},
         onAdFailedToLoad: (MaxError) -> Unit = {}
     ) {
-        val effectiveAdUnitId = appLovinConfig?.getEffectiveInterstitialAdUnitId() ?: ""
+        val effectiveAdUnitId = appLovinConfig?.interstitialAdUnitId ?: ""
         if (effectiveAdUnitId.isEmpty()) {
             Log.e(TAG, "No interstitial ad unit ID configured")
             return
@@ -299,9 +325,12 @@ object AppLovinMediationManager : Application.ActivityLifecycleCallbacks {
                 
                 override fun onAdHidden(ad: MaxAd) {
                     Log.d(TAG, "Interstitial ad hidden")
+                    // Call the dismiss callback if set
+                    interstitialAdDismissCallback?.invoke()
+                    interstitialAdDismissCallback = null
                     // Auto-reload the interstitial ad
                     appLovinConfig?.let { config ->
-                        val effectiveAdUnitId = config.getEffectiveInterstitialAdUnitId()
+                        val effectiveAdUnitId = config.interstitialAdUnitId
                         if (effectiveAdUnitId.isNotEmpty()) {
                             Log.d(TAG, "Auto-reloading interstitial ad")
                             loadInterstitialAd(effectiveAdUnitId)
@@ -323,30 +352,36 @@ object AppLovinMediationManager : Application.ActivityLifecycleCallbacks {
     }
     
     @JvmStatic
-    fun showInterstitialAd(): Boolean {
-        val activity = currentActivityRef?.get()
+    fun showInterstitialAd(onAdDismissed: (() -> Unit)? = null): Boolean {
+        // First try to get activity from our reference, then from Ads helper
+        val activity = currentActivityRef?.get() ?: Ads.getCurrentActivity()
         if (activity == null) {
             Log.e(TAG, "No current activity available to show interstitial ad")
+            onAdDismissed?.invoke()
             return false
         }
-        return showInterstitialAd(activity)
+        return showInterstitialAd(activity, onAdDismissed)
     }
     
     @JvmStatic
-    fun showInterstitialAd(activity: Activity): Boolean {
+    fun showInterstitialAd(activity: Activity, onAdDismissed: (() -> Unit)? = null): Boolean {
         // Check debug flag
         appLovinConfig?.let { config ->
             if (!config.shouldShowInterstitials(activity)) {
                 Log.d(TAG, "Interstitial ads disabled in debug mode")
+                onAdDismissed?.invoke()
                 return false
             }
         }
         
         return if (interstitialAd?.isReady == true) {
+            // Store the callback temporarily
+            interstitialAdDismissCallback = onAdDismissed
             interstitialAd?.showAd(activity)
             true
         } else {
             Log.w(TAG, "Interstitial ad not ready")
+            onAdDismissed?.invoke()
             false
         }
     }
@@ -356,7 +391,7 @@ object AppLovinMediationManager : Application.ActivityLifecycleCallbacks {
         onAdLoaded: () -> Unit = {},
         onAdFailedToLoad: (MaxError) -> Unit = {}
     ) {
-        val effectiveAdUnitId = appLovinConfig?.getEffectiveRewardedAdUnitId() ?: ""
+        val effectiveAdUnitId = appLovinConfig?.rewardedAdUnitId ?: ""
         if (effectiveAdUnitId.isEmpty()) {
             Log.e(TAG, "No rewarded ad unit ID configured")
             return
@@ -416,7 +451,7 @@ object AppLovinMediationManager : Application.ActivityLifecycleCallbacks {
                     Log.d(TAG, "Rewarded ad hidden")
                     // Auto-reload the rewarded ad
                     appLovinConfig?.let { config ->
-                        val effectiveAdUnitId = config.getEffectiveRewardedAdUnitId()
+                        val effectiveAdUnitId = config.rewardedAdUnitId
                         if (effectiveAdUnitId.isNotEmpty()) {
                             Log.d(TAG, "Auto-reloading rewarded ad")
                             loadRewardedAd(effectiveAdUnitId)
@@ -447,7 +482,7 @@ object AppLovinMediationManager : Application.ActivityLifecycleCallbacks {
     fun showRewardedAd(
         onUserRewarded: (MaxReward) -> Unit = {}
     ): Boolean {
-        val activity = currentActivityRef?.get()
+        val activity = currentActivityRef?.get() ?: Ads.getCurrentActivity()
         if (activity == null) {
             Log.e(TAG, "No current activity available to show rewarded ad")
             return false
@@ -477,7 +512,7 @@ object AppLovinMediationManager : Application.ActivityLifecycleCallbacks {
                     
                     // Reload ad after reward
                     appLovinConfig?.let { config ->
-                        val effectiveAdUnitId = config.getEffectiveRewardedAdUnitId()
+                        val effectiveAdUnitId = config.rewardedAdUnitId
                         if (effectiveAdUnitId.isNotEmpty()) {
                             loadRewardedAd(effectiveAdUnitId)
                         }
@@ -489,7 +524,7 @@ object AppLovinMediationManager : Application.ActivityLifecycleCallbacks {
                 override fun onAdHidden(ad: MaxAd) {
                     // Reload ad after hidden
                     appLovinConfig?.let { config ->
-                        val effectiveAdUnitId = config.getEffectiveRewardedAdUnitId()
+                        val effectiveAdUnitId = config.rewardedAdUnitId
                         if (effectiveAdUnitId.isNotEmpty()) {
                             loadRewardedAd(effectiveAdUnitId)
                         }
@@ -553,7 +588,7 @@ object AppLovinMediationManager : Application.ActivityLifecycleCallbacks {
     
     @JvmStatic
     fun showAppOpenAd(): Boolean {
-        val activity = currentActivityRef?.get()
+        val activity = currentActivityRef?.get() ?: Ads.getCurrentActivity()
         if (activity == null) {
             Log.e(TAG, "No current activity available to show app open ad")
             return false
@@ -589,42 +624,41 @@ object AppLovinMediationManager : Application.ActivityLifecycleCallbacks {
     
     @JvmStatic
     fun updateConfig(config: AppLovinConfig) {
-        this.appLovinConfig = config
+        // Override config with empty IDs if debugEmptyIds is true
+        this.appLovinConfig = if (MzgsHelper.isDebug && config.debugEmptyIds) {
+            config.copy(
+                bannerAdUnitId = "",
+                mrecAdUnitId = "",
+                interstitialAdUnitId = "",
+                rewardedAdUnitId = "",
+                appOpenAdUnitId = "",
+                nativeAdUnitId = ""
+            )
+        } else {
+            config
+        }
         
         // Re-initialize App Open Ad if needed
-        if (config.enableAppOpenAd && config.appOpenAdUnitId.isNotEmpty()) {
-            initializeAppOpenAd(config.appOpenAdUnitId)
+        appLovinConfig?.let { updatedConfig ->
+            if (updatedConfig.enableAppOpenAd && updatedConfig.appOpenAdUnitId.isNotEmpty()) {
+                initializeAppOpenAd(updatedConfig.appOpenAdUnitId)
+            }
         }
     }
     
     // Calculate exponential backoff delay
     private fun getRetryDelayMillis(retryAttempt: Int): Long {
-        val exponent = min(6, retryAttempt)
-        return TimeUnit.SECONDS.toMillis(2.0.pow(exponent).toLong())
-    }
-    
-    // Activity Lifecycle Callbacks
-    override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
-    
-    override fun onActivityStarted(activity: Activity) {}
-    
-    override fun onActivityResumed(activity: Activity) {
-        currentActivityRef = WeakReference(activity)
-    }
-    
-    override fun onActivityPaused(activity: Activity) {
-        if (currentActivityRef?.get() == activity) {
-            currentActivityRef = null
+        // Start at 4 seconds for first retry, then exponential backoff
+        // Retry 1: 4s, Retry 2: 8s, Retry 3: 16s, Retry 4: 32s, Retry 5: 64s, Retry 6: 64s (capped)
+        val baseDelaySeconds = when (retryAttempt) {
+            1 -> 4L  // First retry: 4 seconds
+            2 -> 8L  // Second retry: 8 seconds
+            3 -> 16L // Third retry: 16 seconds
+            4 -> 32L // Fourth retry: 32 seconds
+            else -> 64L // Fifth and sixth retry: 64 seconds (capped)
         }
+        return TimeUnit.SECONDS.toMillis(baseDelaySeconds)
     }
     
-    override fun onActivityStopped(activity: Activity) {}
-    
-    override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
-    
-    override fun onActivityDestroyed(activity: Activity) {
-        if (currentActivityRef?.get() == activity) {
-            currentActivityRef = null
-        }
-    }
+    // Activity lifecycle callbacks removed - now handled by Ads helper
 }

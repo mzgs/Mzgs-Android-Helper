@@ -29,9 +29,9 @@ import com.mzgs.helper.p
 import com.mzgs.helper.Ads
 import java.lang.ref.WeakReference
 
-object AdMobMediationManager {
+object AdMobManager {
     
-    private const val TAG = "AdMobMediation"
+    private const val TAG = "AdMob"
     private var isInitialized = false
     private const val MAX_RETRY_ATTEMPTS = 6 // Allow up to 6 retries for exponential backoff
     
@@ -46,19 +46,41 @@ object AdMobMediationManager {
     fun init(context: Context, config: AdMobConfig, onInitComplete: () -> Unit = {}) {
         this.contextRef = WeakReference(context.applicationContext)
         
-        // Override config with test IDs if in debug mode and test mode enabled
-        this.adConfig = if (MzgsHelper.isDebugMode() && config.enableTestMode) {
-            config.copy(
-                bannerAdUnitId = AdMobConfig.TEST_BANNER_AD_UNIT_ID,
-                interstitialAdUnitId = AdMobConfig.TEST_INTERSTITIAL_AD_UNIT_ID,
-                rewardedAdUnitId = AdMobConfig.TEST_REWARDED_AD_UNIT_ID,
-                rewardedInterstitialAdUnitId = AdMobConfig.TEST_REWARDED_INTERSTITIAL_AD_UNIT_ID,
-                nativeAdUnitId = AdMobConfig.TEST_NATIVE_AD_UNIT_ID,
-                mrecAdUnitId = AdMobConfig.TEST_MREC_AD_UNIT_ID,
-                appOpenAdUnitId = AdMobConfig.TEST_APP_OPEN_AD_UNIT_ID
-            )
-        } else {
-            config
+        // Check if ads are disabled in debug mode
+        if (MzgsHelper.debugNoAds) {
+            Log.d(TAG, "AdMob initialization skipped (debugNoAds mode)")
+            isInitialized = false
+            onInitComplete()
+            return
+        }
+        
+        // Override config with test IDs or empty IDs based on debug flags
+        this.adConfig = when {
+            MzgsHelper.isDebug && config.debugEmptyIds -> {
+                // Use empty IDs when debugEmptyIds is true
+                config.copy(
+                    bannerAdUnitId = "",
+                    interstitialAdUnitId = "",
+                    rewardedAdUnitId = "",
+                    rewardedInterstitialAdUnitId = "",
+                    nativeAdUnitId = "",
+                    mrecAdUnitId = "",
+                    appOpenAdUnitId = ""
+                )
+            }
+            MzgsHelper.isDebug && config.enableTestMode -> {
+                // Use test IDs when test mode is enabled
+                config.copy(
+                    bannerAdUnitId = AdMobConfig.TEST_BANNER_AD_UNIT_ID,
+                    interstitialAdUnitId = AdMobConfig.TEST_INTERSTITIAL_AD_UNIT_ID,
+                    rewardedAdUnitId = AdMobConfig.TEST_REWARDED_AD_UNIT_ID,
+                    rewardedInterstitialAdUnitId = AdMobConfig.TEST_REWARDED_INTERSTITIAL_AD_UNIT_ID,
+                    nativeAdUnitId = AdMobConfig.TEST_NATIVE_AD_UNIT_ID,
+                    mrecAdUnitId = AdMobConfig.TEST_MREC_AD_UNIT_ID,
+                    appOpenAdUnitId = AdMobConfig.TEST_APP_OPEN_AD_UNIT_ID
+                )
+            }
+            else -> config
         }
         
         this.consentInformation = UserMessagingPlatform.getConsentInformation(context)
@@ -74,7 +96,7 @@ object AdMobMediationManager {
         }
         
         // SAFETY: Only set test device IDs in debug builds
-        val testDeviceIds = if (MzgsHelper.isDebugMode()) {
+        val testDeviceIds = if (MzgsHelper.isDebug) {
             config.testDeviceIds
         } else {
             emptyList() // Never use test device IDs in release
@@ -111,7 +133,7 @@ object AdMobMediationManager {
                 Log.d(TAG, "|||  'Use new ConsentDebugSettings.Builder().addTestDeviceHashedId(\"YOUR_ID\")'|||")
             }
             Log.d(TAG, "|||                                                            |||")
-            Log.d(TAG, "|||  Mediation Adapters:                                       |||")
+            Log.d(TAG, "|||  Initialized:                                              |||")
             initializationStatus.adapterStatusMap.forEach { (className, status) ->
                 val shortName = className.substringAfterLast(".")
                 Log.d(TAG, "|||  - $shortName: ${status.initializationState}")
@@ -137,7 +159,7 @@ object AdMobMediationManager {
     
     // Backward compatibility - getInstance returns this object
     @JvmStatic
-    fun getInstance(context: Context): AdMobMediationManager {
+    fun getInstance(context: Context): AdMobManager {
         if (this.contextRef?.get() == null) {
             this.contextRef = WeakReference(context.applicationContext)
         }
@@ -221,7 +243,7 @@ object AdMobMediationManager {
         val shouldForceShow = adConfig?.let { config ->
             contextRef?.get()?.let { context ->
                 // CRITICAL: Must be debug mode AND flag enabled
-                MzgsHelper.isDebugMode() && config.debugRequireConsentAlways
+                MzgsHelper.isDebug && config.debugRequireConsentAlways
             }
         } ?: false
         
@@ -292,7 +314,7 @@ object AdMobMediationManager {
         adConfig?.let { config ->
             contextRef?.get()?.let { context ->
                 // CRITICAL: Must be debug mode AND flag enabled - NEVER affects release
-                if (MzgsHelper.isDebugMode() && config.debugRequireConsentAlways) {
+                if (MzgsHelper.isDebug && config.debugRequireConsentAlways) {
                     Log.d(TAG, "DEBUG ONLY: Forcing consent form availability for testing")
                     return true
                 }
@@ -865,19 +887,33 @@ object AdMobMediationManager {
     @JvmStatic
     fun updateConfig(config: AdMobConfig) {
         contextRef?.get()?.let { context ->
-            // Override config with test IDs if in debug mode and test mode enabled
-            this.adConfig = if (MzgsHelper.isDebugMode() && config.enableTestMode) {
-                config.copy(
-                    bannerAdUnitId = AdMobConfig.TEST_BANNER_AD_UNIT_ID,
-                    interstitialAdUnitId = AdMobConfig.TEST_INTERSTITIAL_AD_UNIT_ID,
-                    rewardedAdUnitId = AdMobConfig.TEST_REWARDED_AD_UNIT_ID,
-                    rewardedInterstitialAdUnitId = AdMobConfig.TEST_REWARDED_INTERSTITIAL_AD_UNIT_ID,
-                    nativeAdUnitId = AdMobConfig.TEST_NATIVE_AD_UNIT_ID,
-                    mrecAdUnitId = AdMobConfig.TEST_MREC_AD_UNIT_ID,
-                    appOpenAdUnitId = AdMobConfig.TEST_APP_OPEN_AD_UNIT_ID
-                )
-            } else {
-                config
+            // Override config with test IDs or empty IDs based on debug flags
+            this.adConfig = when {
+                MzgsHelper.isDebug && config.debugEmptyIds -> {
+                    // Use empty IDs when debugEmptyIds is true
+                    config.copy(
+                        bannerAdUnitId = "",
+                        interstitialAdUnitId = "",
+                        rewardedAdUnitId = "",
+                        rewardedInterstitialAdUnitId = "",
+                        nativeAdUnitId = "",
+                        mrecAdUnitId = "",
+                        appOpenAdUnitId = ""
+                    )
+                }
+                MzgsHelper.isDebug && config.enableTestMode -> {
+                    // Use test IDs when test mode is enabled
+                    config.copy(
+                        bannerAdUnitId = AdMobConfig.TEST_BANNER_AD_UNIT_ID,
+                        interstitialAdUnitId = AdMobConfig.TEST_INTERSTITIAL_AD_UNIT_ID,
+                        rewardedAdUnitId = AdMobConfig.TEST_REWARDED_AD_UNIT_ID,
+                        rewardedInterstitialAdUnitId = AdMobConfig.TEST_REWARDED_INTERSTITIAL_AD_UNIT_ID,
+                        nativeAdUnitId = AdMobConfig.TEST_NATIVE_AD_UNIT_ID,
+                        mrecAdUnitId = AdMobConfig.TEST_MREC_AD_UNIT_ID,
+                        appOpenAdUnitId = AdMobConfig.TEST_APP_OPEN_AD_UNIT_ID
+                    )
+                }
+                else -> config
             }
             
             // Update App Open Ad Manager if needed
@@ -898,11 +934,18 @@ object AdMobMediationManager {
     
     // Calculate exponential backoff delay
     private fun getRetryDelayMillis(retryAttempt: Int): Long {
-        // Calculate delay: 2^retryAttempt seconds, capped at 2^6 (64 seconds)
-        val exponent = min(6, retryAttempt)
-        return TimeUnit.SECONDS.toMillis(2.0.pow(exponent).toLong())
+        // Start at 4 seconds for first retry, then exponential backoff
+        // Retry 1: 4s, Retry 2: 8s, Retry 3: 16s, Retry 4: 32s, Retry 5: 64s, Retry 6: 64s (capped)
+        val baseDelaySeconds = when (retryAttempt) {
+            1 -> 4L  // First retry: 4 seconds
+            2 -> 8L  // Second retry: 8 seconds
+            3 -> 16L // Third retry: 16 seconds
+            4 -> 32L // Fourth retry: 32 seconds
+            else -> 64L // Fifth and sixth retry: 64 seconds (capped)
+        }
+        return TimeUnit.SECONDS.toMillis(baseDelaySeconds)
     }
     
     // Note: Activity lifecycle tracking is handled by the Ads class
-    // AdMobMediationManager gets activity reference from Ads when needed
+    // AdMobManager gets activity reference from Ads when needed
 }

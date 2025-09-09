@@ -82,7 +82,7 @@ class AppOpenAdManager(
             return
         }
         
-        if (!AdMobMediationManager.getInstance(context).canShowAds()) {
+        if (!AdMobManager.getInstance(context).canShowAds()) {
             Log.w(TAG, "Cannot show ads - consent not obtained")
             return
         }
