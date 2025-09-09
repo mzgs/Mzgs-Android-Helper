@@ -113,13 +113,6 @@ dependencies {
 }
 ```
 
-## 📱 Class Name Changes
-
-The library has undergone some refactoring. Here are the important class name changes:
-
-- `AdMobMediationManager` → `AdMobManager` (for standalone AdMob operations)
-- `MzgsHelper.initSplashWithAdmobShow()` → `MzgsHelper.initSplashWithInterstitialShow()`
-
 ## 🎯 Quick Start
 
 ### 1. Initialize in Activity
