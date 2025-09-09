@@ -40,6 +40,7 @@ class AppLovinNativeAdHelper(private val context: Context) {
             return
         }
         
+        @Suppress("DEPRECATION") // Using the recommended approach for SDK 13.x
         nativeAdLoader = MaxNativeAdLoader(adUnitId, context)
         nativeAdLoader?.setNativeAdListener(object : MaxNativeAdListener() {
             override fun onNativeAdLoaded(nativeAdView: MaxNativeAdView?, ad: MaxAd) {
@@ -185,6 +186,7 @@ class AppLovinNativeAdHelper(private val context: Context) {
         var loadedCount = 0
         
         for (i in 0 until numberOfAds) {
+            @Suppress("DEPRECATION") // Using the recommended approach for SDK 13.x
             val loader = MaxNativeAdLoader(adUnitId, context)
             loader.setNativeAdListener(object : MaxNativeAdListener() {
                 override fun onNativeAdLoaded(nativeAdView: MaxNativeAdView?, ad: MaxAd) {

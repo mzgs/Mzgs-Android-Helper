@@ -55,13 +55,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.os.BuildCompat
 import com.example.mzgsandroidhelper.ui.theme.MzgsAndroidHelperTheme
 import com.mzgs.helper.Ads
 import com.mzgs.helper.MzgsHelper
 import com.mzgs.helper.Remote
 import com.mzgs.helper.SimpleSplashHelper
 import com.mzgs.helper.admob.AdMobConfig
-import com.mzgs.helper.admob.AdMobMediationManager
+import com.mzgs.helper.admob.AdMobManager
 import com.mzgs.helper.analytics.FirebaseAnalyticsManager
 import com.mzgs.helper.applovin.AppLovinConfig
 import com.mzgs.helper.applovin.AppLovinMediationManager
@@ -78,7 +79,7 @@ class MainActivity : ComponentActivity() {
         
 
 
-        MzgsHelper.init(this)
+        MzgsHelper.init(this, BuildConfig.DEBUG, skipAdsInDebug = false)
         FirebaseAnalyticsManager.initialize(this)
         Remote.init(this)
         Ads.init(this)
@@ -124,7 +125,7 @@ class MainActivity : ComponentActivity() {
             testDeviceAdvertisingIds = listOf("3d6496d1-4784-4b96-bf5e-2d61200765de") // e.g., listOf("38400000-8cf0-11bd-b23e-10b96e40000d")
         )
 
-        MzgsHelper.initSplashWithAdmobShow(
+        MzgsHelper.initSplashWithInterstitialShow(
             activity = this,
             admobConfig = admobConfig,
             appLovinConfig  ,
@@ -580,24 +581,24 @@ fun AdsHelperCard(isSplashComplete: Boolean = false, snackbarHostState: Snackbar
 
         
         // Load rewarded ad
-        AdMobMediationManager.loadRewardedAd(
+        AdMobManager.loadRewardedAd(
             onAdLoaded = {
                 rewardedLoaded = true
                 Log.d("AdsHelper", "Rewarded ad loaded")
             },
-            onAdFailedToLoad = { error ->
+            onAdFailedToLoad = { error: LoadAdError ->
                 rewardedLoaded = false
                 Log.e("AdsHelper", "Rewarded ad failed: ${error.message}")
             }
         )
         
         // Load rewarded interstitial ad
-        AdMobMediationManager.loadRewardedInterstitialAd(
+        AdMobManager.loadRewardedInterstitialAd(
             onAdLoaded = {
                 rewardedInterstitialLoaded = true
                 Log.d("AdsHelper", "Rewarded interstitial loaded")
             },
-            onAdFailedToLoad = { error ->
+            onAdFailedToLoad = { error: LoadAdError ->
                 rewardedInterstitialLoaded = false
                 Log.e("AdsHelper", "Rewarded interstitial failed: ${error.message}")
             }
@@ -654,7 +655,7 @@ fun AdsHelperCard(isSplashComplete: Boolean = false, snackbarHostState: Snackbar
                             if (Ads.showInterstitial()) {
                                 interstitialLoaded = false
                                 // Reload for next time
-                                AdMobMediationManager.loadInterstitialAd()
+                                AdMobManager.loadInterstitialAd()
                             } else {
                                 scope.launch {
                                     snackbarHostState.showSnackbar("Interstitial not ready")
@@ -739,9 +740,9 @@ fun AdsHelperCard(isSplashComplete: Boolean = false, snackbarHostState: Snackbar
                         onClick = {
                             activity?.let { act ->
                                 // Activity is auto-tracked via lifecycle callbacks
-                                if (AdMobMediationManager.showRewardedAd(
+                                if (AdMobManager.showRewardedAd(
                                     activity = act,
-                                    onUserEarnedReward = { reward ->
+                                    onUserEarnedReward = { reward: RewardItem ->
                                         userCoins += reward.amount
                                         scope.launch {
                                             snackbarHostState.showSnackbar(
@@ -752,7 +753,7 @@ fun AdsHelperCard(isSplashComplete: Boolean = false, snackbarHostState: Snackbar
                                 )) {
                                     rewardedLoaded = false
                                     // Reload for next time
-                                    AdMobMediationManager.loadRewardedAd()
+                                    AdMobManager.loadRewardedAd()
                                 }
                             }
                         }
@@ -792,9 +793,9 @@ fun AdsHelperCard(isSplashComplete: Boolean = false, snackbarHostState: Snackbar
                         onClick = {
                             activity?.let { act ->
                                 // Activity is auto-tracked via lifecycle callbacks
-                                if (AdMobMediationManager.showRewardedInterstitialAd(
+                                if (AdMobManager.showRewardedInterstitialAd(
                                     activity = act,
-                                    onUserEarnedReward = { reward ->
+                                    onUserEarnedReward = { reward: RewardItem ->
                                         userCoins += reward.amount
                                         scope.launch {
                                             snackbarHostState.showSnackbar(
@@ -805,7 +806,7 @@ fun AdsHelperCard(isSplashComplete: Boolean = false, snackbarHostState: Snackbar
                                 )) {
                                     rewardedInterstitialLoaded = false
                                     // Reload for next time
-                                    AdMobMediationManager.loadRewardedInterstitialAd()
+                                    AdMobManager.loadRewardedInterstitialAd()
                                 } else {
                                     scope.launch {
                                         snackbarHostState.showSnackbar("Rewarded interstitial not ready")

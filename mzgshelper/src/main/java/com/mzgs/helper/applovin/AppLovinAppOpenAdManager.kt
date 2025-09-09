@@ -56,6 +56,7 @@ class AppLovinAppOpenAdManager private constructor(
             return
         }
         
+        @Suppress("DEPRECATION") // Using the recommended approach for SDK 13.x
         appOpenAd = MaxAppOpenAd(adUnitId, application)
         appOpenAd?.setListener(object : MaxAdListener {
             override fun onAdLoaded(ad: MaxAd) {

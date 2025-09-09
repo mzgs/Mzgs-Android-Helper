@@ -8,10 +8,12 @@ import android.app.Dialog
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
 import android.view.ViewGroup
+import android.view.WindowInsets
 import android.view.WindowManager
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.ImageView
@@ -126,7 +128,13 @@ class SimpleSplashHelper(private val activity: ComponentActivity) {
                     )
                 )
                 setBackgroundDrawable(gradientDrawable)
-                addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
+                // FLAG_FULLSCREEN is deprecated, use WindowInsetsController instead
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    window?.insetsController?.hide(WindowInsets.Type.statusBars())
+                } else {
+                    @Suppress("DEPRECATION")
+                    addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
+                }
                 setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             }
             setCancelable(false)
@@ -229,10 +237,18 @@ class SimpleSplashHelper(private val activity: ComponentActivity) {
                     }
                     visibility = android.view.View.GONE
                     // Blue circular progress to match
-                    indeterminateDrawable?.setColorFilter(
-                        Color.parseColor("#2196F3"),
-                        android.graphics.PorterDuff.Mode.SRC_IN
-                    )
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        indeterminateDrawable?.colorFilter = android.graphics.BlendModeColorFilter(
+                            Color.parseColor("#2196F3"),
+                            android.graphics.BlendMode.SRC_IN
+                        )
+                    } else {
+                        @Suppress("DEPRECATION")
+                        indeterminateDrawable?.setColorFilter(
+                            Color.parseColor("#2196F3"),
+                            android.graphics.PorterDuff.Mode.SRC_IN
+                        )
+                    }
                 }
                 addView(circularProgressBar)
                 

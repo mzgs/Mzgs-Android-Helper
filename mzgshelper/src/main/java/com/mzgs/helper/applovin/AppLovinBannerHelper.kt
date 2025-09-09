@@ -45,6 +45,7 @@ class AppLovinBannerHelper(private val context: Context) {
         
         container.removeAllViews()
         
+        @Suppress("DEPRECATION") // Using the recommended approach for SDK 13.x
         val adView = when (bannerType) {
             BannerType.BANNER -> MaxAdView(adUnitId, MaxAdFormat.BANNER, context)
             BannerType.MREC -> MaxAdView(adUnitId, MaxAdFormat.MREC, context)
@@ -181,6 +182,7 @@ class AppLovinBannerHelper(private val context: Context) {
         
         container.removeAllViews()
         
+        @Suppress("DEPRECATION") // Using the recommended approach for SDK 13.x
         val adView = MaxAdView(adUnitId, MaxAdFormat.BANNER, context).apply {
             setListener(object : MaxAdViewAdListener {
                 override fun onAdLoaded(ad: MaxAd) {

@@ -85,6 +85,7 @@ object AppLovinMediationManager {
         }
         
         // Create initialization configuration using the builder pattern
+        @Suppress("DEPRECATION") // Suppressing as this is the recommended approach as of SDK 13.x
         val initConfigBuilder = AppLovinSdkInitializationConfiguration.builder(config.sdkKey, context)
             .setMediationProvider(AppLovinMediationProvider.MAX)
             .setTestDeviceAdvertisingIds(testDeviceIds)
@@ -128,6 +129,7 @@ object AppLovinMediationManager {
             }
             Log.d(TAG, "|||                                                            |||")
             Log.d(TAG, "|||  Country Code: ${sdkConfig.countryCode}")
+            @Suppress("DEPRECATION") // ConsentDialogState is deprecated but still needed for logging
             Log.d(TAG, "|||  Consent Dialog State: ${sdkConfig.consentDialogState}")
             Log.d(TAG, "|||                                                            |||")
             Log.d(TAG, "|||------------------------------------------------------------|||")
@@ -165,6 +167,7 @@ object AppLovinMediationManager {
         doNotSell: Boolean? = null
     ) {
         hasUserConsent?.let {
+            @Suppress("DEPRECATION") // Using the current privacy API
             AppLovinPrivacySettings.setHasUserConsent(it, contextRef?.get())
             Log.d(TAG, "Set user consent: $it")
         }
@@ -175,6 +178,7 @@ object AppLovinMediationManager {
         }
         
         doNotSell?.let {
+            @Suppress("DEPRECATION") // Using the current privacy API
             AppLovinPrivacySettings.setDoNotSell(it, contextRef?.get())
             Log.d(TAG, "Set do not sell: $it")
         }
@@ -235,6 +239,7 @@ object AppLovinMediationManager {
     }
     
     @JvmStatic
+    @Suppress("DEPRECATION") // ConsentDialogState is deprecated but still needed for compatibility
     fun getConsentDialogState(): AppLovinSdkConfiguration.ConsentDialogState? {
         return maxSdk?.configuration?.consentDialogState
     }
@@ -294,6 +299,7 @@ object AppLovinMediationManager {
             }
         }
         
+        @Suppress("DEPRECATION") // Using the recommended approach for SDK 13.x
         interstitialAd = MaxInterstitialAd(adUnitId, ctx)
         
         interstitialAd?.apply {
@@ -418,6 +424,7 @@ object AppLovinMediationManager {
             }
         }
         
+        @Suppress("DEPRECATION") // Using the recommended approach for SDK 13.x
         rewardedAd = MaxRewardedAd.getInstance(adUnitId, ctx)
         
         rewardedAd?.apply {
@@ -549,6 +556,7 @@ object AppLovinMediationManager {
         }
         
         contextRef?.get()?.let { ctx ->
+            @Suppress("DEPRECATION") // Using the recommended approach for SDK 13.x
             appOpenAd = MaxAppOpenAd(adUnitId, ctx)
             appOpenAd?.setListener(object : MaxAdListener {
                 override fun onAdLoaded(ad: MaxAd) {
