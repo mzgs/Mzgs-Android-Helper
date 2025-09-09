@@ -123,9 +123,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         
         // Initialize MzgsHelper
-        // Note: BuildConfig.DEBUG might need to be replaced with a boolean value
-        // if BuildConfig is not properly generated
-        MzgsHelper.init(this, true, skipAdsInDebug = false)
+        MzgsHelper.init(this, BuildConfig.DEBUG, skipAdsInDebug = false)
         
         // Initialize other components
         FirebaseAnalyticsManager.initialize(this)
