@@ -39,7 +39,7 @@ Then add the dependency to your app's `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("com.github.mzgs:Mzgs-Android-Helper:latest")
+    implementation("com.github.mzgs:Mzgs-Android-Helper:1.0.8")
 }
 ```
 
