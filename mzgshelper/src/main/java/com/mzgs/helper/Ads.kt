@@ -10,6 +10,7 @@ import android.util.Log
 import android.view.ViewGroup
 import com.mzgs.helper.admob.*
 import com.mzgs.helper.applovin.*
+import com.mzgs.helper.analytics.FirebaseAnalyticsManager
 import java.lang.ref.WeakReference
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
@@ -116,7 +117,10 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
             // Use a small delay to ensure activity is ready
             Handler(Looper.getMainLooper()).postDelayed({
                 Log.d(TAG, "Attempting to show app open ad after returning from background")
-                showAppOpenAd()
+                val shown = showAppOpenAd()
+                if (!shown) {
+                    FirebaseAnalyticsManager.logAdShown("app_open", "none", false)
+                }
             }, 100)
         } else if (isFirstLaunch) {
             isFirstLaunch = false
@@ -247,10 +251,6 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
         return AppLovinMediationManager.getInstance(context)
     }
     
-    private fun getAdsOrder(): List<String> {
-        // Try AppLovin first, fallback to AdMob if not available
-        return listOf(APPLOVIN_MAX, ADMOB)
-    }
     
     @JvmStatic
     fun showInterstitial(onAdClosed: (() -> Unit)? = null): Boolean {
@@ -261,43 +261,32 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
             return false
         }
 
-        val activity = currentActivityRef?.get()
-        val adsOrder = getAdsOrder()
+        Log.d(TAG, "Attempting to show interstitial - checking AppLovin MAX first")
         
-        Log.d(TAG, "Attempting to show interstitial with order: $adsOrder")
-        
-        for (network in adsOrder) {
-            when (network.lowercase()) {
-                APPLOVIN_MAX -> {
-                    if (AppLovinMediationManager.isInterstitialReady()) {
-                        Log.d(TAG, "Showing AppLovin MAX interstitial")
-                        return if (activity != null) {
-                            AppLovinMediationManager.showInterstitialAd(activity, onAdClosed)
-                        } else {
-                            AppLovinMediationManager.showInterstitialAd(onAdClosed)
-                        }
-                    }
-                    Log.d(TAG, "AppLovin MAX interstitial not ready, trying next")
-                }
-                ADMOB -> {
-                    if (AdMobManager.isInterstitialReady()) {
-                        if (activity != null) {
-                            // Activity is now tracked automatically via lifecycle callbacks
-                            Log.d(TAG, "Showing AdMob interstitial")
-                            return AdMobManager.showInterstitialAd(onAdClosed)
-                        } else {
-                            Log.e(TAG, "No current activity available for AdMob interstitial")
-                        }
-                    }
-                    Log.d(TAG, "AdMob interstitial not ready, trying next")
-                }
-                else -> {
-                    Log.w(TAG, "Unknown ad network: $network")
-                }
+        // First try AppLovin MAX
+        if (AppLovinMediationManager.isInterstitialReady()) {
+            Log.d(TAG, "Showing AppLovin MAX interstitial")
+            val shown = AppLovinMediationManager.showInterstitialAd(onAdClosed)
+            if (shown) {
+                FirebaseAnalyticsManager.logAdShown("interstitial", APPLOVIN_MAX, true)
             }
+            return shown
         }
+        Log.d(TAG, "AppLovin MAX interstitial not ready, trying AdMob")
+        
+        // Fallback to AdMob
+        if (AdMobManager.isInterstitialReady()) {
+            Log.d(TAG, "Showing AdMob interstitial")
+            val shown = AdMobManager.showInterstitialAd(onAdClosed)
+            if (shown) {
+                FirebaseAnalyticsManager.logAdShown("interstitial", ADMOB, true)
+            }
+            return shown
+        }
+        Log.d(TAG, "AdMob interstitial not ready")
         
         Log.d(TAG, "No interstitial ads ready from any network")
+        FirebaseAnalyticsManager.logAdShown("interstitial", "none", false)
         onAdClosed?.invoke()  // Call the callback if no ads were shown
         return false
     }
@@ -311,49 +300,32 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
             return AdShowResult(false, null)
         }
 
-        val activity = currentActivityRef?.get()
-        val adsOrder = getAdsOrder()
+        Log.d(TAG, "Attempting to show interstitial with result - checking AppLovin MAX first")
         
-        Log.d(TAG, "Attempting to show interstitial with order: $adsOrder")
-        
-        for (network in adsOrder) {
-            when (network.lowercase()) {
-                APPLOVIN_MAX -> {
-                    if (AppLovinMediationManager.isInterstitialReady()) {
-                        Log.d(TAG, "Showing AppLovin MAX interstitial")
-                        val shown = if (activity != null) {
-                            AppLovinMediationManager.showInterstitialAd(activity, onAdClosed)
-                        } else {
-                            AppLovinMediationManager.showInterstitialAd(onAdClosed)
-                        }
-                        if (shown) {
-                            return AdShowResult(true, APPLOVIN_MAX)
-                        }
-                    }
-                    Log.d(TAG, "AppLovin MAX interstitial not ready, trying next")
-                }
-                ADMOB -> {
-                    if (AdMobManager.isInterstitialReady()) {
-                        if (activity != null) {
-                            // Activity is now tracked automatically via lifecycle callbacks
-                            Log.d(TAG, "Showing AdMob interstitial")
-                            val shown = AdMobManager.showInterstitialAd(onAdClosed)
-                            if (shown) {
-                                return AdShowResult(true, ADMOB)
-                            }
-                        } else {
-                            Log.e(TAG, "No current activity available for AdMob interstitial")
-                        }
-                    }
-                    Log.d(TAG, "AdMob interstitial not ready, trying next")
-                }
-                else -> {
-                    Log.w(TAG, "Unknown ad network: $network")
-                }
+        // First try AppLovin MAX
+        if (AppLovinMediationManager.isInterstitialReady()) {
+            Log.d(TAG, "Showing AppLovin MAX interstitial")
+            val shown = AppLovinMediationManager.showInterstitialAd(onAdClosed)
+            if (shown) {
+                FirebaseAnalyticsManager.logAdShown("interstitial", APPLOVIN_MAX, true)
+                return AdShowResult(true, APPLOVIN_MAX)
             }
         }
+        Log.d(TAG, "AppLovin MAX interstitial not ready, trying AdMob")
+        
+        // Fallback to AdMob
+        if (AdMobManager.isInterstitialReady()) {
+            Log.d(TAG, "Showing AdMob interstitial")
+            val shown = AdMobManager.showInterstitialAd(onAdClosed)
+            if (shown) {
+                FirebaseAnalyticsManager.logAdShown("interstitial", ADMOB, true)
+                return AdShowResult(true, ADMOB)
+            }
+        }
+        Log.d(TAG, "AdMob interstitial not ready")
         
         Log.d(TAG, "No interstitial ads ready from any network")
+        FirebaseAnalyticsManager.logAdShown("interstitial", "none", false)
         onAdClosed?.invoke()  // Call the callback if no ads were shown
         return AdShowResult(false, null)
     }
@@ -400,209 +372,112 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
             return false
         }
         
-        val adsOrder = getAdsOrder()
+        Log.d(TAG, "Attempting to show banner - checking AppLovin MAX first")
         
-        Log.d(TAG, "Attempting to show banner with order: $adsOrder")
-        
-        if (adsOrder.isEmpty()) {
-            Log.e(TAG, "No ad networks configured")
-            return false
-        }
-        
-        // Get first and second networks
-        val firstNetwork = adsOrder.getOrNull(0)
-        val secondNetwork = adsOrder.getOrNull(1)
-        
-        // Helper function to try the second network
-        fun trySecondNetwork() {
-            if (secondNetwork == null) {
-                Log.d(TAG, "No second network to fallback to")
-                return
-            }
-            
-            when (secondNetwork.lowercase()) {
-                APPLOVIN_MAX -> {
-                    try {
-                        val adUnitId = AppLovinMediationManager.getConfig()?.bannerAdUnitId ?: ""
-                        if (adUnitId.isNotEmpty() && AppLovinMediationManager.isInitialized()) {
-                            Log.d(TAG, "Attempting to show AppLovin MAX banner as fallback")
-                            val bannerHelper = AppLovinBannerHelper(activity)
-                            val bannerType = when (adSize) {
-                                BannerSize.ADAPTIVE, BannerSize.BANNER -> AppLovinBannerHelper.BannerType.BANNER
-                                BannerSize.MEDIUM_RECTANGLE -> AppLovinBannerHelper.BannerType.MREC
-                                BannerSize.LEADERBOARD -> AppLovinBannerHelper.BannerType.LEADER
-                                else -> AppLovinBannerHelper.BannerType.BANNER
-                            }
-                            bannerHelper.createBannerView(
-                                adUnitId = adUnitId,
-                                bannerType = bannerType,
-                                container = container as android.widget.FrameLayout,
-                                onAdLoaded = {
-                                    Log.d(TAG, "AppLovin MAX banner loaded successfully (fallback)")
-                                },
-                                onAdFailedToLoad = { error ->
-                                    Log.e(TAG, "AppLovin MAX banner also failed: ${error.message}")
-                                }
-                            )
-                        } else {
-                            Log.d(TAG, "AppLovin MAX not initialized or no banner ad unit ID configured")
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error showing AppLovin MAX banner: ${e.message}")
-                    }
+        // Helper function to try AdMob as fallback
+        fun tryAdMobFallback() {
+            try {
+                Log.d(TAG, "Attempting to show AdMob banner as fallback")
+                val bannerHelper = BannerAdHelper(activity)
+                val bannerType = when (adSize) {
+                    BannerSize.ADAPTIVE -> BannerAdHelper.BannerType.ADAPTIVE_BANNER
+                    BannerSize.BANNER -> BannerAdHelper.BannerType.BANNER
+                    BannerSize.LARGE_BANNER -> BannerAdHelper.BannerType.LARGE_BANNER
+                    BannerSize.MEDIUM_RECTANGLE -> BannerAdHelper.BannerType.MEDIUM_RECTANGLE
+                    BannerSize.FULL_BANNER -> BannerAdHelper.BannerType.FULL_BANNER
+                    BannerSize.LEADERBOARD -> BannerAdHelper.BannerType.LEADERBOARD
                 }
-                ADMOB -> {
-                    try {
-                        Log.d(TAG, "Attempting to show AdMob banner as fallback")
-                        val bannerHelper = BannerAdHelper(activity)
-                        val bannerType = when (adSize) {
-                            BannerSize.ADAPTIVE -> BannerAdHelper.BannerType.ADAPTIVE_BANNER
-                            BannerSize.BANNER -> BannerAdHelper.BannerType.BANNER
-                            BannerSize.LARGE_BANNER -> BannerAdHelper.BannerType.LARGE_BANNER
-                            BannerSize.MEDIUM_RECTANGLE -> BannerAdHelper.BannerType.MEDIUM_RECTANGLE
-                            BannerSize.FULL_BANNER -> BannerAdHelper.BannerType.FULL_BANNER
-                            BannerSize.LEADERBOARD -> BannerAdHelper.BannerType.LEADERBOARD
-                        }
-                        bannerHelper.createBannerView(
-                            adUnitId = AdMobManager.getConfig()?.bannerAdUnitId ?: "",
-                            bannerType = bannerType,
-                            container = container as android.widget.FrameLayout,
-                            onAdLoaded = {
-                                Log.d(TAG, "AdMob banner loaded successfully (fallback)")
-                            },
-                            onAdFailedToLoad = { error ->
-                                Log.e(TAG, "AdMob banner also failed: ${error.message}")
-                            }
-                        )
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error showing AdMob banner: ${e.message}")
+                bannerHelper.createBannerView(
+                    adUnitId = AdMobManager.getConfig()?.bannerAdUnitId ?: "",
+                    bannerType = bannerType,
+                    container = container as android.widget.FrameLayout,
+                    onAdLoaded = {
+                        Log.d(TAG, "AdMob banner loaded successfully (fallback)")
+                        FirebaseAnalyticsManager.logAdShown("banner", ADMOB, true)
+                    },
+                    onAdFailedToLoad = { error ->
+                        Log.e(TAG, "AdMob banner also failed: ${error.message}")
                     }
-                }
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Error showing AdMob banner: ${e.message}")
             }
         }
         
-        // Try first network
-        when (firstNetwork?.lowercase()) {
-            APPLOVIN_MAX -> {
-                try {
-                    val adUnitId = AppLovinMediationManager.getConfig()?.bannerAdUnitId ?: ""
-                    if (adUnitId.isNotEmpty() && AppLovinMediationManager.isInitialized()) {
-                        Log.d(TAG, "Attempting to show AppLovin MAX banner (primary)")
-                        val bannerHelper = AppLovinBannerHelper(activity)
-                        val bannerType = when (adSize) {
-                            BannerSize.ADAPTIVE, BannerSize.BANNER -> AppLovinBannerHelper.BannerType.BANNER
-                            BannerSize.MEDIUM_RECTANGLE -> AppLovinBannerHelper.BannerType.MREC
-                            BannerSize.LEADERBOARD -> AppLovinBannerHelper.BannerType.LEADER
-                            else -> AppLovinBannerHelper.BannerType.BANNER
-                        }
-                        bannerHelper.createBannerView(
-                            adUnitId = adUnitId,
-                            bannerType = bannerType,
-                            container = container as android.widget.FrameLayout,
-                            onAdLoaded = {
-                                Log.d(TAG, "AppLovin MAX banner loaded successfully (primary)")
-                            },
-                            onAdFailedToLoad = { error ->
-                                Log.e(TAG, "AppLovin MAX banner failed: ${error.message}, trying fallback")
-                                trySecondNetwork()
-                            }
-                        )
-                        return true
-                    } else {
-                        Log.d(TAG, "AppLovin MAX not initialized or no banner ad unit ID configured, trying fallback")
-                        trySecondNetwork()
-                        return true
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error showing AppLovin MAX banner: ${e.message}, trying fallback")
-                    trySecondNetwork()
-                    return true
+        // First try AppLovin MAX
+        try {
+            val adUnitId = AppLovinMediationManager.getConfig()?.bannerAdUnitId ?: ""
+            if (adUnitId.isNotEmpty() && AppLovinMediationManager.isInitialized()) {
+                Log.d(TAG, "Attempting to show AppLovin MAX banner (primary)")
+                val bannerHelper = AppLovinBannerHelper(activity)
+                val bannerType = when (adSize) {
+                    BannerSize.ADAPTIVE, BannerSize.BANNER -> AppLovinBannerHelper.BannerType.BANNER
+                    BannerSize.MEDIUM_RECTANGLE -> AppLovinBannerHelper.BannerType.MREC
+                    BannerSize.LEADERBOARD -> AppLovinBannerHelper.BannerType.LEADER
+                    else -> AppLovinBannerHelper.BannerType.BANNER
                 }
-            }
-            ADMOB -> {
-                try {
-                    Log.d(TAG, "Attempting to show AdMob banner (primary)")
-                    val bannerHelper = BannerAdHelper(activity)
-                    val bannerType = when (adSize) {
-                        BannerSize.ADAPTIVE -> BannerAdHelper.BannerType.ADAPTIVE_BANNER
-                        BannerSize.BANNER -> BannerAdHelper.BannerType.BANNER
-                        BannerSize.LARGE_BANNER -> BannerAdHelper.BannerType.LARGE_BANNER
-                        BannerSize.MEDIUM_RECTANGLE -> BannerAdHelper.BannerType.MEDIUM_RECTANGLE
-                        BannerSize.FULL_BANNER -> BannerAdHelper.BannerType.FULL_BANNER
-                        BannerSize.LEADERBOARD -> BannerAdHelper.BannerType.LEADERBOARD
+                bannerHelper.createBannerView(
+                    adUnitId = adUnitId,
+                    bannerType = bannerType,
+                    container = container as android.widget.FrameLayout,
+                    onAdLoaded = {
+                        Log.d(TAG, "AppLovin MAX banner loaded successfully (primary)")
+                        FirebaseAnalyticsManager.logAdShown("banner", APPLOVIN_MAX, true)
+                    },
+                    onAdFailedToLoad = { error ->
+                        Log.e(TAG, "AppLovin MAX banner failed: ${error.message}, trying AdMob fallback")
+                        tryAdMobFallback()
                     }
-                    bannerHelper.createBannerView(
-                        adUnitId = AdMobManager.getConfig()?.bannerAdUnitId ?: "",
-                        bannerType = bannerType,
-                        container = container as android.widget.FrameLayout,
-                        onAdLoaded = {
-                            Log.d(TAG, "AdMob banner loaded successfully (primary)")
-                        },
-                        onAdFailedToLoad = { error ->
-                            Log.e(TAG, "AdMob banner failed: ${error.message}, trying fallback")
-                            trySecondNetwork()
-                        }
-                    )
-                    return true
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error showing AdMob banner: ${e.message}, trying fallback")
-                    trySecondNetwork()
-                    return true
-                }
+                )
+                return true
+            } else {
+                Log.d(TAG, "AppLovin MAX not initialized or no banner ad unit ID configured, trying AdMob fallback")
+                tryAdMobFallback()
+                return true
             }
-            else -> {
-                Log.e(TAG, "Unknown or no ad network configured")
-                return false
-            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error showing AppLovin MAX banner: ${e.message}, trying AdMob fallback")
+            tryAdMobFallback()
+            return true
         }
     }
     
-
-    
     @JvmStatic
     fun showRewardedAd(onUserEarnedReward: ((type: String, amount: Int) -> Unit)? = null): Boolean {
-        val context = applicationContext ?: return false
-        val activity = currentActivityRef?.get()
-        val adsOrder = getAdsOrder()
+        Log.d(TAG, "Attempting to show rewarded ad - checking AppLovin MAX first")
         
-        Log.d(TAG, "Attempting to show rewarded ad with order: $adsOrder")
-        
-        for (network in adsOrder) {
-            when (network.lowercase()) {
-                APPLOVIN_MAX -> {
-                    if (AppLovinMediationManager.isRewardedReady()) {
-                        Log.d(TAG, "Showing AppLovin MAX rewarded ad")
-                        return AppLovinMediationManager.showRewardedAd(
-                            onUserRewarded = { reward ->
-                                onUserEarnedReward?.invoke(reward.label, reward.amount)
-                            }
-                        )
-                    }
-                    Log.d(TAG, "AppLovin MAX rewarded ad not ready, trying next")
+        // First try AppLovin MAX
+        if (AppLovinMediationManager.isRewardedReady()) {
+            Log.d(TAG, "Showing AppLovin MAX rewarded ad")
+            val shown = AppLovinMediationManager.showRewardedAd(
+                onUserRewarded = { reward ->
+                    onUserEarnedReward?.invoke(reward.label, reward.amount)
                 }
-                ADMOB -> {
-                    if (AdMobManager.isRewardedReady()) {
-                        if (activity != null) {
-                            // Activity is now tracked automatically via lifecycle callbacks
-                            Log.d(TAG, "Showing AdMob rewarded ad")
-                            return AdMobManager.showRewardedAd(
-                                onUserEarnedReward = { reward ->
-                                    onUserEarnedReward?.invoke(reward.type, reward.amount)
-                                }
-                            )
-                        } else {
-                            Log.e(TAG, "No current activity available for AdMob rewarded ad")
-                        }
-                    }
-                    Log.d(TAG, "AdMob rewarded ad not ready, trying next")
-                }
-                else -> {
-                    Log.w(TAG, "Unknown ad network: $network")
-                }
+            )
+            if (shown) {
+                FirebaseAnalyticsManager.logAdShown("rewarded", APPLOVIN_MAX, true)
             }
+            return shown
         }
+        Log.d(TAG, "AppLovin MAX rewarded ad not ready, trying AdMob")
+        
+        // Fallback to AdMob
+        if (AdMobManager.isRewardedReady()) {
+            Log.d(TAG, "Showing AdMob rewarded ad")
+            val shown = AdMobManager.showRewardedAd(
+                onUserEarnedReward = { reward ->
+                    onUserEarnedReward?.invoke(reward.type, reward.amount)
+                }
+            )
+            if (shown) {
+                FirebaseAnalyticsManager.logAdShown("rewarded", ADMOB, true)
+            }
+            return shown
+        }
+        Log.d(TAG, "AdMob rewarded ad not ready")
         
         Log.d(TAG, "No rewarded ads ready from any network")
+        FirebaseAnalyticsManager.logAdShown("rewarded", "none", false)
         return false
     }
     
@@ -616,55 +491,80 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
             Log.e(TAG, "No current activity available for showing native ad")
             return false
         }
-        val adsOrder = getAdsOrder()
         
-        Log.d(TAG, "Attempting to show native ad with order: $adsOrder")
+        Log.d(TAG, "Attempting to show native ad - checking AppLovin MAX first")
         
-        for (network in adsOrder) {
-            when (network.lowercase()) {
-                APPLOVIN_MAX -> {
-                    try {
-                        val adUnitId = AppLovinMediationManager.getConfig()?.nativeAdUnitId ?: ""
-                        if (adUnitId.isNotEmpty() && AppLovinMediationManager.isInitialized()) {
-                            Log.d(TAG, "Attempting to show AppLovin MAX native ad")
-                            val nativeHelper = AppLovinNativeAdHelper(activity)
-                            nativeHelper.loadNativeAd(
-                                adUnitId = adUnitId,
-                                onAdLoaded = {
-                                    Log.d(TAG, "AppLovin MAX native ad loaded successfully")
+        // First try AppLovin MAX
+        try {
+            val adUnitId = AppLovinMediationManager.getConfig()?.nativeAdUnitId ?: ""
+            if (adUnitId.isNotEmpty() && AppLovinMediationManager.isInitialized()) {
+                Log.d(TAG, "Attempting to show AppLovin MAX native ad")
+                val nativeHelper = AppLovinNativeAdHelper(activity)
+                nativeHelper.loadNativeAd(
+                    adUnitId = adUnitId,
+                    onAdLoaded = {
+                        Log.d(TAG, "AppLovin MAX native ad loaded successfully")
+                        FirebaseAnalyticsManager.logAdShown("native", APPLOVIN_MAX, true)
+                    },
+                    onAdFailedToLoad = { error ->
+                        Log.e(TAG, "AppLovin MAX native ad failed: ${error.message}")
+                        // Try AdMob as fallback
+                        try {
+                            Log.d(TAG, "Attempting to show AdMob native ad as fallback")
+                            val admobHelper = AdMobNativeAdHelper(activity)
+                            admobHelper.loadNativeAd(
+                                onAdLoaded = { nativeAd ->
+                                    Log.d(TAG, "AdMob native ad loaded successfully (fallback)")
+                                    FirebaseAnalyticsManager.logAdShown("native", ADMOB, true)
                                 },
-                                onAdFailedToLoad = { error ->
-                                    Log.e(TAG, "AppLovin MAX native ad failed: ${error.message}")
+                                onAdFailedToLoad = { admobError ->
+                                    Log.e(TAG, "AdMob native ad also failed: ${admobError.message}")
                                 }
                             )
-                            return true
-                        } else {
-                            Log.d(TAG, "AppLovin MAX not initialized or no native ad unit ID configured, skipping")
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error showing AdMob native ad: ${e.message}")
                         }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error showing AppLovin MAX native ad: ${e.message}")
                     }
+                )
+                return true
+            } else {
+                Log.d(TAG, "AppLovin MAX not initialized or no native ad unit ID configured, trying AdMob")
+                // Try AdMob directly
+                try {
+                    Log.d(TAG, "Attempting to show AdMob native ad")
+                    val admobHelper = AdMobNativeAdHelper(activity)
+                    admobHelper.loadNativeAd(
+                        onAdLoaded = { nativeAd ->
+                            Log.d(TAG, "AdMob native ad loaded successfully")
+                            FirebaseAnalyticsManager.logAdShown("native", ADMOB, true)
+                        },
+                        onAdFailedToLoad = { error ->
+                            Log.e(TAG, "AdMob native ad failed: ${error.message}")
+                        }
+                    )
+                    return true
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error showing AdMob native ad: ${e.message}")
                 }
-                ADMOB -> {
-                    try {
-                        Log.d(TAG, "Attempting to show AdMob native ad")
-                        val nativeHelper = AdMobNativeAdHelper(activity)
-                        nativeHelper.loadNativeAd(
-                            onAdLoaded = { nativeAd ->
-                                Log.d(TAG, "AdMob native ad loaded successfully")
-                            },
-                            onAdFailedToLoad = { error ->
-                                Log.e(TAG, "AdMob native ad failed: ${error.message}")
-                            }
-                        )
-                        return true
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error showing AdMob native ad: ${e.message}")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error showing AppLovin MAX native ad: ${e.message}, trying AdMob")
+            // Try AdMob as fallback
+            try {
+                Log.d(TAG, "Attempting to show AdMob native ad as fallback")
+                val admobHelper = AdMobNativeAdHelper(activity)
+                admobHelper.loadNativeAd(
+                    onAdLoaded = { nativeAd ->
+                        Log.d(TAG, "AdMob native ad loaded successfully (fallback)")
+                        FirebaseAnalyticsManager.logAdShown("native", ADMOB, true)
+                    },
+                    onAdFailedToLoad = { error ->
+                        Log.e(TAG, "AdMob native ad also failed: ${error.message}")
                     }
-                }
-                else -> {
-                    Log.w(TAG, "Unknown ad network for native ad: $network")
-                }
+                )
+                return true
+            } catch (ex: Exception) {
+                Log.e(TAG, "Error showing AdMob native ad: ${ex.message}")
             }
         }
         
@@ -674,21 +574,14 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
     
     @JvmStatic
     fun isAnyInterstitialReady(): Boolean {
-        val adsOrder = getAdsOrder()
+        // Check AppLovin MAX first
+        if (AppLovinMediationManager.isInterstitialReady()) {
+            return true
+        }
         
-        for (network in adsOrder) {
-            when (network.lowercase()) {
-                APPLOVIN_MAX -> {
-                    if (AppLovinMediationManager.isInterstitialReady()) {
-                        return true
-                    }
-                }
-                ADMOB -> {
-                    if (AdMobManager.isInterstitialReady()) {
-                        return true
-                    }
-                }
-            }
+        // Then check AdMob
+        if (AdMobManager.isInterstitialReady()) {
+            return true
         }
         
         return false
@@ -696,21 +589,14 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
     
     @JvmStatic
     fun isAnyRewardedAdReady(): Boolean {
-        val adsOrder = getAdsOrder()
+        // Check AppLovin MAX first
+        if (AppLovinMediationManager.isRewardedReady()) {
+            return true
+        }
         
-        for (network in adsOrder) {
-            when (network.lowercase()) {
-                APPLOVIN_MAX -> {
-                    if (AppLovinMediationManager.isRewardedReady()) {
-                        return true
-                    }
-                }
-                ADMOB -> {
-                    if (AdMobManager.isRewardedReady()) {
-                        return true
-                    }
-                }
-            }
+        // Then check AdMob
+        if (AdMobManager.isRewardedReady()) {
+            return true
         }
         
         return false
@@ -732,170 +618,89 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
             return false
         }
         
-        val adsOrder = getAdsOrder()
+        Log.d(TAG, "Attempting to show MREC - checking AppLovin MAX first")
         
-        Log.d(TAG, "Attempting to show MREC with order: $adsOrder")
-        
-        if (adsOrder.isEmpty()) {
-            Log.e(TAG, "No ad networks configured")
-            return false
-        }
-        
-        // Get first and second networks
-        val firstNetwork = adsOrder.getOrNull(0)
-        val secondNetwork = adsOrder.getOrNull(1)
-        
-        // Helper function to try the second network
-        fun trySecondNetwork() {
-            if (secondNetwork == null) {
-                Log.d(TAG, "No second network to fallback to for MREC")
-                return
-            }
-            
-            when (secondNetwork.lowercase()) {
-                APPLOVIN_MAX -> {
-                    try {
-                        val adUnitId = AppLovinMediationManager.getConfig()?.mrecAdUnitId ?: ""
-                        if (adUnitId.isNotEmpty() && AppLovinMediationManager.isInitialized()) {
-                            Log.d(TAG, "Attempting to show AppLovin MAX MREC as fallback")
-                            val bannerHelper = AppLovinBannerHelper(activity)
-                            bannerHelper.createBannerView(
-                                adUnitId = adUnitId,
-                                bannerType = AppLovinBannerHelper.BannerType.MREC,
-                                container = container as android.widget.FrameLayout,
-                                onAdLoaded = {
-                                    Log.d(TAG, "AppLovin MAX MREC loaded successfully (fallback)")
-                                },
-                                onAdFailedToLoad = { error ->
-                                    Log.e(TAG, "AppLovin MAX MREC also failed: ${error.message}")
-                                }
-                            )
-                        } else {
-                            Log.d(TAG, "AppLovin MAX not initialized or no MREC ad unit ID configured")
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error showing AppLovin MAX MREC: ${e.message}")
+        // Helper function to try AdMob as fallback
+        fun tryAdMobFallback() {
+            try {
+                Log.d(TAG, "Attempting to show AdMob MREC as fallback")
+                val mrecView = AdMobMRECView(activity)
+                mrecView.loadMREC(
+                    adUnitId = AdMobManager.getConfig()?.mrecAdUnitId ?: "",
+                    onAdLoaded = {
+                        Log.d(TAG, "AdMob MREC loaded successfully (fallback)")
+                        container.removeAllViews()
+                        container.addView(mrecView)
+                        FirebaseAnalyticsManager.logAdShown("mrec", ADMOB, true)
+                    },
+                    onAdFailedToLoad = { error ->
+                        Log.e(TAG, "AdMob MREC also failed: ${error.message}")
                     }
-                }
-                ADMOB -> {
-                    try {
-                        Log.d(TAG, "Attempting to show AdMob MREC as fallback")
-                        val mrecView = AdMobMRECView(activity)
-                        mrecView.loadMREC(
-                            adUnitId = AdMobManager.getConfig()?.mrecAdUnitId ?: "",
-                            onAdLoaded = {
-                                Log.d(TAG, "AdMob MREC loaded successfully (fallback)")
-                                container.removeAllViews()
-                                container.addView(mrecView)
-                            },
-                            onAdFailedToLoad = { error ->
-                                Log.e(TAG, "AdMob MREC also failed: ${error.message}")
-                            }
-                        )
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error showing AdMob MREC: ${e.message}")
-                    }
-                }
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Error showing AdMob MREC: ${e.message}")
             }
         }
         
-        // Try first network
-        when (firstNetwork?.lowercase()) {
-            APPLOVIN_MAX -> {
-                try {
-                    val adUnitId = AppLovinMediationManager.getConfig()?.mrecAdUnitId ?: ""
-                    if (adUnitId.isNotEmpty() && AppLovinMediationManager.isInitialized()) {
-                        Log.d(TAG, "Attempting to show AppLovin MAX MREC (primary)")
-                        val bannerHelper = AppLovinBannerHelper(activity)
-                        bannerHelper.createBannerView(
-                            adUnitId = adUnitId,
-                            bannerType = AppLovinBannerHelper.BannerType.MREC,
-                            container = container as android.widget.FrameLayout,
-                            onAdLoaded = {
-                                Log.d(TAG, "AppLovin MAX MREC loaded successfully (primary)")
-                            },
-                            onAdFailedToLoad = { error ->
-                                Log.e(TAG, "AppLovin MAX MREC failed: ${error.message}, trying fallback")
-                                trySecondNetwork()
-                            }
-                        )
-                        return true
-                    } else {
-                        Log.d(TAG, "AppLovin MAX not initialized or no MREC ad unit ID configured, trying fallback")
-                        trySecondNetwork()
-                        return true
+        // First try AppLovin MAX
+        try {
+            val adUnitId = AppLovinMediationManager.getConfig()?.mrecAdUnitId ?: ""
+            if (adUnitId.isNotEmpty() && AppLovinMediationManager.isInitialized()) {
+                Log.d(TAG, "Attempting to show AppLovin MAX MREC (primary)")
+                val bannerHelper = AppLovinBannerHelper(activity)
+                bannerHelper.createBannerView(
+                    adUnitId = adUnitId,
+                    bannerType = AppLovinBannerHelper.BannerType.MREC,
+                    container = container as android.widget.FrameLayout,
+                    onAdLoaded = {
+                        Log.d(TAG, "AppLovin MAX MREC loaded successfully (primary)")
+                        FirebaseAnalyticsManager.logAdShown("mrec", APPLOVIN_MAX, true)
+                    },
+                    onAdFailedToLoad = { error ->
+                        Log.e(TAG, "AppLovin MAX MREC failed: ${error.message}, trying AdMob fallback")
+                        tryAdMobFallback()
                     }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error showing AppLovin MAX MREC: ${e.message}, trying fallback")
-                    trySecondNetwork()
-                    return true
-                }
+                )
+                return true
+            } else {
+                Log.d(TAG, "AppLovin MAX not initialized or no MREC ad unit ID configured, trying AdMob fallback")
+                tryAdMobFallback()
+                return true
             }
-            ADMOB -> {
-                try {
-                    Log.d(TAG, "Attempting to show AdMob MREC (primary)")
-                    val mrecView = AdMobMRECView(activity)
-                    mrecView.loadMREC(
-                        adUnitId = AdMobManager.getConfig()?.mrecAdUnitId ?: "",
-                        onAdLoaded = {
-                            Log.d(TAG, "AdMob MREC loaded successfully (primary)")
-                            container.removeAllViews()
-                            container.addView(mrecView)
-                        },
-                        onAdFailedToLoad = { error ->
-                            Log.e(TAG, "AdMob MREC failed: ${error.message}, trying fallback")
-                            trySecondNetwork()
-                        }
-                    )
-                    return true
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error showing AdMob MREC: ${e.message}, trying fallback")
-                    trySecondNetwork()
-                    return true
-                }
-            }
-            else -> {
-                Log.e(TAG, "Unknown or no ad network configured for MREC")
-                return false
-            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error showing AppLovin MAX MREC: ${e.message}, trying AdMob fallback")
+            tryAdMobFallback()
+            return true
         }
     }
     
     @JvmStatic
     fun showAppOpenAd(): Boolean {
-        val context = applicationContext ?: return false
-        val activity = currentActivityRef?.get()
-        val adsOrder = getAdsOrder()
+        Log.d(TAG, "Attempting to show app open ad - checking AppLovin MAX first")
         
-        Log.d(TAG, "Attempting to show app open ad with order: $adsOrder")
-        
-        for (network in adsOrder) {
-            when (network.lowercase()) {
-                APPLOVIN_MAX -> {
-                    val appOpenManager = AppLovinAppOpenAdManager.getInstance()
-                    if (appOpenManager != null) {
-                        Log.d(TAG, "Attempting to show AppLovin MAX app open ad")
-                        appOpenManager.showAdIfAvailable()
-                        return true
-                    }
-                    Log.d(TAG, "AppLovin MAX app open ad manager not initialized, trying next")
-                }
-                ADMOB -> {
-                    val appOpenManager = AppOpenAdManager.getInstance()
-                    if (appOpenManager != null && activity != null) {
-                        Log.d(TAG, "Attempting to show AdMob app open ad")
-                        appOpenManager.showAdIfAvailable(activity)
-                        return true
-                    }
-                    Log.d(TAG, "AdMob app open ad not ready or no activity available, trying next")
-                }
-                else -> {
-                    Log.w(TAG, "Unknown ad network: $network")
-                }
-            }
+        // First try AppLovin MAX
+        val appLovinAppOpenManager = AppLovinAppOpenAdManager.getInstance()
+        if (appLovinAppOpenManager != null) {
+            Log.d(TAG, "Attempting to show AppLovin MAX app open ad")
+            appLovinAppOpenManager.showAdIfAvailable()
+            FirebaseAnalyticsManager.logAdShown("app_open", APPLOVIN_MAX, true)
+            return true
         }
+        Log.d(TAG, "AppLovin MAX app open ad manager not initialized, trying AdMob")
+        
+        // Fallback to AdMob
+        val admobAppOpenManager = AppOpenAdManager.getInstance()
+        val activity = getCurrentActivity()
+        if (admobAppOpenManager != null && activity != null) {
+            Log.d(TAG, "Attempting to show AdMob app open ad")
+            admobAppOpenManager.showAdIfAvailable(activity)
+            FirebaseAnalyticsManager.logAdShown("app_open", ADMOB, true)
+            return true
+        }
+        Log.d(TAG, "AdMob app open ad not ready or no activity available")
         
         Log.d(TAG, "No app open ads ready from any network")
+        FirebaseAnalyticsManager.logAdShown("app_open", "none", false)
         return false
     }
     

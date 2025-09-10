@@ -62,21 +62,23 @@ class AppLovinAppOpenAdManager private constructor(
             override fun onAdLoaded(ad: MaxAd) {
                 Log.d(TAG, "App open ad loaded")
                 loadTime = Date().time
-                FirebaseAnalyticsManager.logAdLoadSuccess(
+                FirebaseAnalyticsManager.logAdLoad(
                     adType = "app_open",
                     adUnitId = adUnitId,
-                    adNetwork = "applovin"
+                    adNetwork = "applovin_max",
+                    success = true
                 )
             }
             
             override fun onAdLoadFailed(adUnitId: String, error: MaxError) {
                 Log.e(TAG, "Failed to load app open ad: ${error.message}")
-                FirebaseAnalyticsManager.logAdLoadFailed(
+                FirebaseAnalyticsManager.logAdLoad(
                     adType = "app_open",
                     adUnitId = adUnitId,
+                    adNetwork = "applovin_max",
+                    success = false,
                     errorMessage = error.message,
-                    errorCode = error.code,
-                    adNetwork = "applovin"
+                    errorCode = error.code
                 )
                 appOpenAd = null
             }
@@ -84,11 +86,6 @@ class AppLovinAppOpenAdManager private constructor(
             override fun onAdDisplayed(ad: MaxAd) {
                 Log.d(TAG, "App open ad displayed")
                 isShowingAd = true
-                FirebaseAnalyticsManager.logAdImpression(
-                    adType = "app_open",
-                    adUnitId = adUnitId,
-                    adNetwork = "applovin"
-                )
             }
             
             override fun onAdHidden(ad: MaxAd) {
@@ -100,11 +97,6 @@ class AppLovinAppOpenAdManager private constructor(
             
             override fun onAdClicked(ad: MaxAd) {
                 Log.d(TAG, "App open ad clicked")
-                FirebaseAnalyticsManager.logAdClicked(
-                    adType = "app_open",
-                    adUnitId = adUnitId,
-                    adNetwork = "applovin"
-                )
             }
             
             override fun onAdDisplayFailed(ad: MaxAd, error: MaxError) {

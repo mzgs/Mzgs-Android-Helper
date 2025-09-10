@@ -19,6 +19,7 @@ import com.applovin.sdk.AppLovinSdkInitializationConfiguration
 import com.applovin.sdk.AppLovinSdkSettings
 import com.mzgs.helper.Ads
 import com.mzgs.helper.MzgsHelper
+import com.mzgs.helper.analytics.FirebaseAnalyticsManager
 import java.lang.ref.WeakReference
 import java.util.concurrent.TimeUnit
 import kotlin.math.min
@@ -306,11 +307,31 @@ object AppLovinMediationManager {
             setListener(object : MaxAdListener {
                 override fun onAdLoaded(ad: MaxAd) {
                     Log.d(TAG, "Interstitial ad loaded ${if (retryAttempt > 0) "(retry $retryAttempt)" else ""}")
+                    FirebaseAnalyticsManager.logAdLoad(
+                        adType = "interstitial",
+                        adUnitId = adUnitId,
+                        adNetwork = "applovin_max",
+                        success = true,
+                        retryAttempt = retryAttempt
+                    )
                     onAdLoaded()
                 }
                 
                 override fun onAdLoadFailed(adUnitId: String, error: MaxError) {
                     Log.e(TAG, "Failed to load interstitial: ${error.message} ${if (retryAttempt > 0) "(retry $retryAttempt)" else ""}")
+                    
+                    // Log first failure immediately
+                    if (retryAttempt == 0) {
+                        FirebaseAnalyticsManager.logAdLoad(
+                            adType = "interstitial",
+                            adUnitId = adUnitId,
+                            adNetwork = "applovin_max",
+                            success = false,
+                            errorMessage = error.message,
+                            errorCode = error.code,
+                            retryAttempt = retryAttempt
+                        )
+                    }
                     
                     if (retryAttempt < MAX_RETRY_ATTEMPTS) {
                         val delayMillis = getRetryDelayMillis(retryAttempt + 1)
@@ -431,11 +452,31 @@ object AppLovinMediationManager {
             setListener(object : MaxRewardedAdListener {
                 override fun onAdLoaded(ad: MaxAd) {
                     Log.d(TAG, "Rewarded ad loaded ${if (retryAttempt > 0) "(retry $retryAttempt)" else ""}")
+                    FirebaseAnalyticsManager.logAdLoad(
+                        adType = "rewarded",
+                        adUnitId = adUnitId,
+                        adNetwork = "applovin_max",
+                        success = true,
+                        retryAttempt = retryAttempt
+                    )
                     onAdLoaded()
                 }
                 
                 override fun onAdLoadFailed(adUnitId: String, error: MaxError) {
                     Log.e(TAG, "Failed to load rewarded ad: ${error.message} ${if (retryAttempt > 0) "(retry $retryAttempt)" else ""}")
+                    
+                    // Log first failure immediately
+                    if (retryAttempt == 0) {
+                        FirebaseAnalyticsManager.logAdLoad(
+                            adType = "rewarded",
+                            adUnitId = adUnitId,
+                            adNetwork = "applovin_max",
+                            success = false,
+                            errorMessage = error.message,
+                            errorCode = error.code,
+                            retryAttempt = retryAttempt
+                        )
+                    }
                     
                     if (retryAttempt < MAX_RETRY_ATTEMPTS) {
                         val delayMillis = getRetryDelayMillis(retryAttempt + 1)

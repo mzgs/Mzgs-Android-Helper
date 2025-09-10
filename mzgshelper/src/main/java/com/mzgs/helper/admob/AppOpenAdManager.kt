@@ -97,10 +97,11 @@ class AppOpenAdManager(
                     isLoadingAd = false
                     loadTime = Date().time
                     Log.d(TAG, "App open ad loaded successfully at ${Date(loadTime)}")
-                    FirebaseAnalyticsManager.logAdLoadSuccess(
+                    FirebaseAnalyticsManager.logAdLoad(
                         adType = "app_open",
                         adUnitId = adUnitId,
-                        adNetwork = "admob"
+                        adNetwork = "admob",
+                        success = true
                     )
                     
                     // Set up callbacks immediately
@@ -111,12 +112,13 @@ class AppOpenAdManager(
                     isLoadingAd = false
                     appOpenAd = null
                     Log.e(TAG, "Failed to load app open ad: ${loadAdError.message} (Code: ${loadAdError.code})")
-                    FirebaseAnalyticsManager.logAdLoadFailed(
+                    FirebaseAnalyticsManager.logAdLoad(
                         adType = "app_open",
                         adUnitId = adUnitId,
+                        adNetwork = "admob",
+                        success = false,
                         errorMessage = loadAdError.message,
-                        errorCode = loadAdError.code,
-                        adNetwork = "admob"
+                        errorCode = loadAdError.code
                     )
                 }
             }

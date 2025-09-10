@@ -17,49 +17,29 @@ object FirebaseAnalyticsManager {
         firebaseAnalytics?.logEvent(eventName, params)
     }
     
-    fun logAdLoadSuccess(
+    fun logAdLoad(
         adType: String,
         adUnitId: String,
-        adNetwork: String = ""
+        adNetwork: String = "",
+        success: Boolean,
+        errorMessage: String? = null,
+        errorCode: Int? = null,
+        retryAttempt: Int = 0
     ) {
         val bundle = Bundle().apply {
             putString("ad_type", adType)
             putString("ad_unit_id", adUnitId)
             putString("ad_network", adNetwork)
-            putString("status", "success")
+            if (retryAttempt > 0) {
+                putInt("retry_attempt", retryAttempt)
+            }
+            if (!success) {
+                errorMessage?.let { putString("error_message", it) }
+                errorCode?.let { putInt("error_code", it) }
+            }
         }
-        logEvent("ad_load_event", bundle)
-    }
-    
-    fun logAdLoadFailed(
-        adType: String,
-        adUnitId: String,
-        errorMessage: String,
-        errorCode: Int,
-        adNetwork: String = ""
-    ) {
-        val bundle = Bundle().apply {
-            putString("ad_type", adType)
-            putString("ad_unit_id", adUnitId)
-            putString("error_message", errorMessage)
-            putInt("error_code", errorCode)
-            putString("ad_network", adNetwork)
-            putString("status", "failed")
-        }
-        logEvent("ad_load_event", bundle)
-    }
-    
-    fun logAdImpression(
-        adType: String,
-        adUnitId: String,
-        adNetwork: String = ""
-    ) {
-        val bundle = Bundle().apply {
-            putString("ad_type", adType)
-            putString("ad_unit_id", adUnitId)
-            putString("ad_network", adNetwork)
-        }
-        logEvent("ad_impression", bundle)
+        val eventName = if (success) "ad_load_success" else "ad_load_failed"
+        logEvent(eventName, bundle)
     }
     
     fun logAdClicked(
@@ -74,21 +54,18 @@ object FirebaseAnalyticsManager {
         }
         logEvent("ad_click", bundle)
     }
+
     
-    fun logAdRevenue(
+    fun logAdShown(
         adType: String,
-        adUnitId: String,
-        revenue: Double,
-        currency: String = "USD",
-        adNetwork: String = ""
+        adNetwork: String,
+        success: Boolean = true
     ) {
         val bundle = Bundle().apply {
             putString("ad_type", adType)
-            putString("ad_unit_id", adUnitId)
-            putDouble("revenue", revenue)
-            putString("currency", currency)
             putString("ad_network", adNetwork)
         }
-        logEvent("ad_revenue", bundle)
+        val eventName = if (success) "ad_show_success" else "ad_show_failed"
+        logEvent(eventName, bundle)
     }
 }

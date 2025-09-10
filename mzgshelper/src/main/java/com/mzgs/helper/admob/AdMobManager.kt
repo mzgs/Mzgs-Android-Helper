@@ -18,6 +18,7 @@ import com.google.android.gms.ads.rewarded.RewardedAd
 import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAd
 import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAdLoadCallback
+import com.mzgs.helper.analytics.FirebaseAnalyticsManager
 import com.google.android.ump.ConsentDebugSettings
 import com.google.android.ump.ConsentInformation
 import com.google.android.ump.ConsentRequestParameters
@@ -375,12 +376,32 @@ object AdMobManager {
                     interstitialAd = ad
                     Log.d(TAG, "Interstitial ad loaded ${if (retryAttempt > 0) "(retry $retryAttempt)" else ""}")
                     setupInterstitialCallbacks(ad)
+                    FirebaseAnalyticsManager.logAdLoad(
+                        adType = "interstitial",
+                        adUnitId = adUnitId,
+                        adNetwork = "admob",
+                        success = true,
+                        retryAttempt = retryAttempt
+                    )
                     onAdLoaded()
                 }
                 
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     interstitialAd = null
                     Log.e(TAG, "Failed to load interstitial: ${error.message} ${if (retryAttempt > 0) "(retry $retryAttempt)" else ""}")
+                    
+                    // Log first failure immediately
+                    if (retryAttempt == 0) {
+                        FirebaseAnalyticsManager.logAdLoad(
+                            adType = "interstitial",
+                            adUnitId = adUnitId,
+                            adNetwork = "admob",
+                            success = false,
+                            errorMessage = error.message,
+                            errorCode = error.code,
+                            retryAttempt = retryAttempt
+                        )
+                    }
                     
                     if (retryAttempt < MAX_RETRY_ATTEMPTS) {
                         val delayMillis = getRetryDelayMillis(retryAttempt + 1)
@@ -545,12 +566,32 @@ object AdMobManager {
                     rewardedAd = ad
                     Log.d(TAG, "Rewarded ad loaded ${if (retryAttempt > 0) "(retry $retryAttempt)" else ""}")
                     setupRewardedCallbacks(ad)
+                    FirebaseAnalyticsManager.logAdLoad(
+                        adType = "rewarded",
+                        adUnitId = adUnitId,
+                        adNetwork = "admob",
+                        success = true,
+                        retryAttempt = retryAttempt
+                    )
                     onAdLoaded()
                 }
                 
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     rewardedAd = null
                     Log.e(TAG, "Failed to load rewarded ad: ${error.message} ${if (retryAttempt > 0) "(retry $retryAttempt)" else ""}")
+                    
+                    // Log first failure immediately
+                    if (retryAttempt == 0) {
+                        FirebaseAnalyticsManager.logAdLoad(
+                            adType = "rewarded",
+                            adUnitId = adUnitId,
+                            adNetwork = "admob",
+                            success = false,
+                            errorMessage = error.message,
+                            errorCode = error.code,
+                            retryAttempt = retryAttempt
+                        )
+                    }
                     
                     if (retryAttempt < MAX_RETRY_ATTEMPTS) {
                         val delayMillis = getRetryDelayMillis(retryAttempt + 1)
