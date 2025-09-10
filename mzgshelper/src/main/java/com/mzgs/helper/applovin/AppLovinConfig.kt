@@ -10,7 +10,7 @@ data class AppLovinConfig(
     val rewardedAdUnitId: String = "",
     val appOpenAdUnitId: String = "",
     val nativeAdUnitId: String = "",
-    val enableAppOpenAd: Boolean = false,
+    val enableAppOpenAd: Boolean = true,
     val enableTestMode: Boolean = false,  // DEBUG ONLY: Protected by isDebugMode check
     val verboseLogging: Boolean = false,  // Note: Currently only logged, not applied to SDK
     val muteAudio: Boolean = false,
