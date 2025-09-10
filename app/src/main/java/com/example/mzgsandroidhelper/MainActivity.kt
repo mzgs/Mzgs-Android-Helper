@@ -129,6 +129,7 @@ class MainActivity : ComponentActivity() {
             activity = this,
             admobConfig = admobConfig,
             appLovinConfig  ,
+            defaultSplashTime = 9000,
             onFinish = {
                 Log.d("MainActivity", "Splash and ad sequence completed")
                 MzgsHelper.setRestrictedCountriesFromRemoteConfig()

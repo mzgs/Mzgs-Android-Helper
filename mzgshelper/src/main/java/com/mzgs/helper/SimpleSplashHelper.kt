@@ -20,9 +20,8 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
-import androidx.activity.ComponentActivity
 
-class SimpleSplashHelper(private val activity: ComponentActivity) {
+class SimpleSplashHelper(private val activity: Activity) {
     
     private var splashDuration: Long = 3000L
     private var onComplete: (() -> Unit)? = null
@@ -42,7 +41,7 @@ class SimpleSplashHelper(private val activity: ComponentActivity) {
     private var logoAnimatorSet: AnimatorSet? = null
     private var logoImageView: ImageView? = null
     
-    class Builder(private val activity: ComponentActivity) {
+    class Builder(private val activity: Activity) {
         private val helper = SimpleSplashHelper(activity)
         
         fun setDuration(millis: Long): Builder {

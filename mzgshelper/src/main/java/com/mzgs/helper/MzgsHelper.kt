@@ -11,7 +11,6 @@ import android.net.NetworkCapabilities
 import android.os.Build
 import android.telephony.TelephonyManager
 import android.util.Log
-import androidx.activity.ComponentActivity
 
 import android.widget.Toast
 import androidx.annotation.RequiresPermission
@@ -131,7 +130,7 @@ object MzgsHelper {
     }
 
     fun initSplashWithInterstitialShow(
-        activity: ComponentActivity, 
+        activity: android.app.Activity, 
         admobConfig: AdMobConfig,
         appLovinConfig: AppLovinConfig,
         defaultSplashTime: Long = 10000,
@@ -318,7 +317,6 @@ object MzgsHelper {
             })
 
     }
-
 
     fun getPhoneCountry(): List<String> {
         val countries = mutableListOf<String>()
@@ -520,7 +518,7 @@ object MzgsHelper {
      * @param rateName The name used for tracking rating events, defaults to "rate"
      * @param showAtCounts Optional array of counts at which to show the rating dialog
      */
-    fun showInappRate(activity: ComponentActivity, rateName: String = "rate", showAtCounts: List<Int> = emptyList()) {
+    fun showInappRate(activity: android.app.Activity, rateName: String = "rate", showAtCounts: List<Int> = emptyList()) {
         if (showAtCounts.isNotEmpty()) {
             val ac = ActionCounter.increaseGet(rateName)
             if (!showAtCounts.contains(ac)) {
