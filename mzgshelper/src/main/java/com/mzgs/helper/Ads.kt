@@ -366,9 +366,9 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
             return false
         }
         
-        val activity = getCurrentActivity()
-        if (activity == null) {
-            Log.e(TAG, "No current activity available for showing banner")
+        val context = applicationContext
+        if (context == null) {
+            Log.e(TAG, "No application context available for showing banner")
             return false
         }
         
@@ -378,7 +378,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
         fun tryAdMobFallback() {
             try {
                 Log.d(TAG, "Attempting to show AdMob banner as fallback")
-                val bannerHelper = BannerAdHelper(activity)
+                val bannerHelper = BannerAdHelper(context)
                 val bannerType = when (adSize) {
                     BannerSize.ADAPTIVE -> BannerAdHelper.BannerType.ADAPTIVE_BANNER
                     BannerSize.BANNER -> BannerAdHelper.BannerType.BANNER
@@ -409,7 +409,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
             val adUnitId = AppLovinMediationManager.getConfig()?.bannerAdUnitId ?: ""
             if (adUnitId.isNotEmpty() && AppLovinMediationManager.isInitialized()) {
                 Log.d(TAG, "Attempting to show AppLovin MAX banner (primary)")
-                val bannerHelper = AppLovinBannerHelper(activity)
+                val bannerHelper = AppLovinBannerHelper(context)
                 val bannerType = when (adSize) {
                     BannerSize.ADAPTIVE, BannerSize.BANNER -> AppLovinBannerHelper.BannerType.BANNER
                     BannerSize.MEDIUM_RECTANGLE -> AppLovinBannerHelper.BannerType.MREC
@@ -612,9 +612,9 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
             return false
         }
         
-        val activity = getCurrentActivity()
-        if (activity == null) {
-            Log.e(TAG, "No current activity available for showing MREC")
+        val context = applicationContext
+        if (context == null) {
+            Log.e(TAG, "No application context available for showing MREC")
             return false
         }
         
@@ -624,7 +624,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
         fun tryAdMobFallback() {
             try {
                 Log.d(TAG, "Attempting to show AdMob MREC as fallback")
-                val mrecView = AdMobMRECView(activity)
+                val mrecView = AdMobMRECView(context)
                 mrecView.loadMREC(
                     adUnitId = AdMobManager.getConfig()?.mrecAdUnitId ?: "",
                     onAdLoaded = {
@@ -647,7 +647,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
             val adUnitId = AppLovinMediationManager.getConfig()?.mrecAdUnitId ?: ""
             if (adUnitId.isNotEmpty() && AppLovinMediationManager.isInitialized()) {
                 Log.d(TAG, "Attempting to show AppLovin MAX MREC (primary)")
-                val bannerHelper = AppLovinBannerHelper(activity)
+                val bannerHelper = AppLovinBannerHelper(context)
                 bannerHelper.createBannerView(
                     adUnitId = adUnitId,
                     bannerType = AppLovinBannerHelper.BannerType.MREC,
