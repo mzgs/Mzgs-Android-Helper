@@ -65,11 +65,6 @@ class AdMobMRECView @JvmOverloads constructor(
             return
         }
         
-        if (!AdMobManager.getInstance(context).canShowAds()) {
-            Log.w(TAG, "Cannot show ads - consent not obtained")
-            return
-        }
-        
         this.adUnitId = adUnitId
         
         // Clear any existing ad

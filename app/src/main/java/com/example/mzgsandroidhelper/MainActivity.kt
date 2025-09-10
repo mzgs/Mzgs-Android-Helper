@@ -64,6 +64,7 @@ import com.mzgs.helper.SimpleSplashHelper
 import com.mzgs.helper.admob.AdMobConfig
 import com.mzgs.helper.admob.AdMobManager
 import com.mzgs.helper.analytics.FirebaseAnalyticsManager
+import com.mzgs.helper.applovin.AppLovinAppOpenAdManager
 import com.mzgs.helper.applovin.AppLovinConfig
 import com.mzgs.helper.applovin.AppLovinMediationManager
 import com.mzgs.helper.p
@@ -71,7 +72,7 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     
-    private var isSplashComplete = mutableStateOf(false)
+    private var isFullyInitialized = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -130,7 +131,7 @@ class MainActivity : ComponentActivity() {
             admobConfig = admobConfig,
             appLovinConfig  ,
             defaultSplashTime = 9000,
-            onFinish = {
+            onSplashCompleteAdClosed = {
                 Log.d("MainActivity", "Splash and ad sequence completed")
                 MzgsHelper.setRestrictedCountriesFromRemoteConfig()
                 MzgsHelper.setIsAllowedCountry()
@@ -138,19 +139,14 @@ class MainActivity : ComponentActivity() {
 
 
             },
-            onFinishAndApplovinReady = {
-
-
-                p(  "AppLovin SDK initialized successfully")
-                isSplashComplete.value = true
-                AppLovinMediationManager.loadInterstitialAd()
-
+            onCompleteWithAdsReady = {
+                isFullyInitialized.value = true
             }
         )
 
         setContent {
             MzgsAndroidHelperTheme {
-                AdMobTestScreen(isSplashComplete = isSplashComplete.value)
+                AdMobTestScreen(isFullyInitialized = isFullyInitialized.value)
             }
         }
 
@@ -192,7 +188,7 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AdMobTestScreen(isSplashComplete: Boolean = false) {
+fun AdMobTestScreen(isFullyInitialized: Boolean = false) {
     val context = LocalContext.current
     val activity = context as? Activity
     val appLovinManager = remember { AppLovinMediationManager.getInstance(context) }
@@ -298,7 +294,7 @@ fun AdMobTestScreen(isSplashComplete: Boolean = false) {
             
             // Ads Helper Section - Main showcase
             item {
-                AdsHelperCard(isSplashComplete = isSplashComplete, snackbarHostState = snackbarHostState)
+                AdsHelperCard(isFullyInitialized = isFullyInitialized, snackbarHostState = snackbarHostState)
             }
             
             // Splash Screen Test Section  
@@ -563,7 +559,7 @@ fun SplashScreenTestCard() {
 }
 
 @Composable
-fun AdsHelperCard(isSplashComplete: Boolean = false, snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }) {
+fun AdsHelperCard(isFullyInitialized: Boolean = false, snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }) {
     val context = LocalContext.current
     val activity = context as? Activity
     val scope = rememberCoroutineScope()
@@ -897,8 +893,8 @@ fun AdsHelperCard(isSplashComplete: Boolean = false, snackbarHostState: Snackbar
                             },
                             update = { frameLayout ->
                                 // Load banner only after splash is complete
-                                if (isSplashComplete) {
-                                    Log.d("AdsHelper", "Loading banner ad after splash complete")
+                                if (isFullyInitialized) {
+                                    Log.d("AdsHelper", "Loading banner ad after fully initialized")
                                     Ads.showBanner(frameLayout, Ads.BannerSize.ADAPTIVE)
                                 }
                             }

@@ -57,12 +57,6 @@ class AdMobBannerView @JvmOverloads constructor(
         
         val adManager = AdMobManager.getInstance(context)
         
-        // Check if we can show any type of ads (personalized or non-personalized)
-        if (!adManager.canShowAds() && !adManager.canShowNonPersonalizedAds()) {
-            Log.w(TAG, "Cannot show any type of ads")
-            return
-        }
-        
         // Check debug flag from config
         adManager.getConfig()?.let { config ->
             if (!config.shouldShowBanners(context)) {

@@ -8,7 +8,6 @@ import android.os.Handler
 import android.os.Looper
 import android.os.Bundle
 import com.google.android.gms.ads.*
-import com.google.ads.mediation.admob.AdMobAdapter
 import java.util.concurrent.TimeUnit
 import kotlin.math.min
 import kotlin.math.pow
@@ -279,29 +278,6 @@ object AdMobManager {
         }
     }
     
-    @JvmStatic
-    fun canRequestAds(): Boolean {
-        // Check if consent information is available
-        val canRequest = consentInformation?.canRequestAds()
-        
-        // The UMP SDK's canRequestAds() returns false until consent info is updated
-        // So if it's false and consent status is UNKNOWN, we should still allow non-personalized ads
-        val consentStatus = getConsentStatus()
-        val allowAds = when {
-            canRequest == true -> true
-            canRequest == false && consentStatus == ConsentInformation.ConsentStatus.UNKNOWN -> {
-                // Consent not yet determined, allow non-personalized ads
-                Log.d(TAG, "Consent unknown, allowing non-personalized ads")
-                true
-            }
-            canRequest == null -> true // No consent info available, allow non-personalized
-            else -> false
-        }
-        
-        Log.d(TAG, "canRequestAds check - consentInfo: ${consentInformation != null}, canRequest: $canRequest, status: $consentStatus, allowing: $allowAds")
-        
-        return allowAds
-    }
     
     @JvmStatic
     fun getConsentStatus(): Int {
@@ -343,41 +319,6 @@ object AdMobManager {
         }
     }
     
-    @JvmStatic
-    fun canShowAds(): Boolean {
-        val isEEA = isUserInEEA()
-        val consentStatus = getConsentStatus()
-        val consentObtained = consentStatus == ConsentInformation.ConsentStatus.OBTAINED
-        val canRequestAds = canRequestAds()
-        
-        Log.d(TAG, "canShowAds check - isEEA: $isEEA, consentStatus: $consentStatus, consentObtained: $consentObtained, canRequestAds: $canRequestAds")
-        
-        return if (isEEA) {
-            consentObtained && canRequestAds
-        } else {
-            canRequestAds
-        }
-    }
-    
-    @JvmStatic
-    fun canShowNonPersonalizedAds(): Boolean {
-        val isEEA = isUserInEEA()
-        val consentStatus = getConsentStatus()
-        
-        // For non-personalized ads, we can show them even without explicit consent
-        // We just need to pass the npa flag
-        val canShow = when (consentStatus) {
-            ConsentInformation.ConsentStatus.UNKNOWN -> true // Allow non-personalized when unknown
-            ConsentInformation.ConsentStatus.NOT_REQUIRED -> true
-            ConsentInformation.ConsentStatus.OBTAINED -> true
-            ConsentInformation.ConsentStatus.REQUIRED -> true // Allow non-personalized even when consent required
-            else -> true
-        }
-        
-        Log.d(TAG, "canShowNonPersonalizedAds check - isEEA: $isEEA, consentStatus: $consentStatus, canShow: $canShow")
-        
-        return canShow
-    }
     
     @JvmStatic
     fun isUserInEEA(): Boolean {
@@ -386,18 +327,8 @@ object AdMobManager {
     
     @JvmStatic
     fun createAdRequest(): AdRequest {
-        val builder = AdRequest.Builder()
-        
-        val isEEA = isUserInEEA()
-        val consentObtained = getConsentStatus() == ConsentInformation.ConsentStatus.OBTAINED
-        
-        if (isEEA && !consentObtained) {
-            val extras = Bundle()
-            extras.putString("npa", "1")
-            builder.addNetworkExtrasBundle(AdMobAdapter::class.java, extras)
-        }
-        
-        return builder.build()
+        // UMP SDK automatically handles personalized/non-personalized ads
+        return AdRequest.Builder().build()
     }
     
     @JvmStatic
@@ -405,12 +336,12 @@ object AdMobManager {
         onAdLoaded: () -> Unit = {},
         onAdFailedToLoad: (LoadAdError) -> Unit = {}
     ) {
-        val effectiveAdUnitId = adConfig?.interstitialAdUnitId ?: ""
-        if (effectiveAdUnitId.isEmpty()) {
+        val adUnitId = adConfig?.interstitialAdUnitId ?: ""
+        if (adUnitId.isEmpty()) {
             Log.e(TAG, "No interstitial ad unit ID configured")
             return
         }
-        loadInterstitialAd(effectiveAdUnitId, onAdLoaded, onAdFailedToLoad)
+        loadInterstitialAd(adUnitId, onAdLoaded, onAdFailedToLoad)
     }
     
     @JvmStatic
@@ -422,12 +353,6 @@ object AdMobManager {
     ) {
         val ctx = contextRef?.get() ?: run {
             Log.e(TAG, "Context not set. Call init() first")
-            return
-        }
-        
-        // Check if we can show any type of ads (personalized or non-personalized)
-        if (!canShowAds() && !canShowNonPersonalizedAds()) {
-            Log.w(TAG, "Cannot request any type of ads")
             return
         }
         
@@ -581,12 +506,12 @@ object AdMobManager {
         onAdLoaded: () -> Unit = {},
         onAdFailedToLoad: (LoadAdError) -> Unit = {}
     ) {
-        val effectiveAdUnitId = adConfig?.rewardedAdUnitId ?: ""
-        if (effectiveAdUnitId.isEmpty()) {
+        val adUnitId = adConfig?.rewardedAdUnitId ?: ""
+        if (adUnitId.isEmpty()) {
             Log.e(TAG, "No rewarded ad unit ID configured")
             return
         }
-        loadRewardedAd(effectiveAdUnitId, onAdLoaded, onAdFailedToLoad)
+        loadRewardedAd(adUnitId, onAdLoaded, onAdFailedToLoad)
     }
     
     @JvmStatic
@@ -598,12 +523,6 @@ object AdMobManager {
     ) {
         val ctx = contextRef?.get() ?: run {
             Log.e(TAG, "Context not set. Call init() first")
-            return
-        }
-        
-        // Check if we can show any type of ads (personalized or non-personalized)
-        if (!canShowAds() && !canShowNonPersonalizedAds()) {
-            Log.w(TAG, "Cannot request any type of ads")
             return
         }
         
@@ -726,12 +645,12 @@ object AdMobManager {
         onAdLoaded: () -> Unit = {},
         onAdFailedToLoad: (LoadAdError) -> Unit = {}
     ) {
-        val effectiveAdUnitId = adConfig?.rewardedInterstitialAdUnitId ?: ""
-        if (effectiveAdUnitId.isEmpty()) {
+        val adUnitId = adConfig?.rewardedInterstitialAdUnitId ?: ""
+        if (adUnitId.isEmpty()) {
             Log.e(TAG, "No rewarded interstitial ad unit ID configured")
             return
         }
-        loadRewardedInterstitialAd(effectiveAdUnitId, onAdLoaded, onAdFailedToLoad)
+        loadRewardedInterstitialAd(adUnitId, onAdLoaded, onAdFailedToLoad)
     }
     
     @JvmStatic
@@ -743,12 +662,6 @@ object AdMobManager {
     ) {
         val ctx = contextRef?.get() ?: run {
             Log.e(TAG, "Context not set. Call init() first")
-            return
-        }
-        
-        // Check if we can show any type of ads (personalized or non-personalized)
-        if (!canShowAds() && !canShowNonPersonalizedAds()) {
-            Log.w(TAG, "Cannot request any type of ads")
             return
         }
         

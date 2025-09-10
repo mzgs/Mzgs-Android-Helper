@@ -29,7 +29,6 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         maven { url = uri("https://jitpack.io") }
-        // Required: Mintegral repository for AppLovin mediation adapters
         maven { url = uri("https://dl-maven-android.mintegral.com/repository/mbridge_android_sdk_oversea") }
     }
 }
@@ -55,62 +54,49 @@ dependencies {
 
 ## 🔧 Build Configuration
 
-### Root Project `build.gradle.kts`
+### Required Additions
+
+Add these to your root project `build.gradle.kts` plugins block:
 
 ```kotlin
-plugins {
-    id("com.android.application") version "8.12.1" apply false
-    id("org.jetbrains.kotlin.android") version "2.2.10" apply false
-    id("org.jetbrains.kotlin.plugin.compose") version "2.2.10" apply false
-    id("com.android.library") version "8.12.1" apply false
-    id("com.google.gms.google-services") version "4.4.3" apply false
-    id("maven-publish")
-}
+id("com.google.gms.google-services") version "4.4.3" apply false
 ```
 
-### App Module `build.gradle.kts`
+Add this to your app module `build.gradle.kts`:
 
 ```kotlin
 plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
-    id("org.jetbrains.kotlin.plugin.compose")
+    // ... existing plugins
     id("com.google.gms.google-services")
 }
 
 android {
-    namespace = "com.example.yourapp"
-    compileSdk = 36
-
-    defaultConfig {
-        applicationId = "com.example.yourapp"
-        minSdk = 24
-        targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
-    }
-
     buildFeatures {
-        compose = true
-        buildConfig = true // Enable BuildConfig generation
+        buildConfig = true // Enable BuildConfig generation for debug mode detection
     }
 }
+```
 
-dependencies {
-    implementation(project(":mzgshelper"))
+### Android Manifest
+
+Add to your `AndroidManifest.xml`:
+
+```xml
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+<uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
+
+<application>
+    <!-- AdMob App ID (Required if using AdMob) -->
+    <meta-data
+        android:name="com.google.android.gms.ads.APPLICATION_ID"
+        android:value="ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY" />
     
-    // Compose dependencies
-    implementation(platform("androidx.compose:compose-bom:2025.08.00"))
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.ui:ui-graphics")
-    implementation("androidx.compose.ui:ui-tooling-preview")
-    implementation("androidx.compose.material3:material3")
-    
-    // Other AndroidX dependencies
-    implementation("androidx.core:core-ktx:1.17.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.2")
-    implementation("androidx.activity:activity-compose:1.10.1")
-}
+    <!-- AppLovin SDK Key (Required if using AppLovin) -->
+    <meta-data
+        android:name="applovin.sdk.key"
+        android:value="YOUR_SDK_KEY_HERE" />
+</application>
 ```
 
 ## 🎯 Quick Start
@@ -119,6 +105,8 @@ dependencies {
 
 ```kotlin
 class MainActivity : ComponentActivity() {
+    private var isFullyInitialized = mutableStateOf(false)
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -131,36 +119,54 @@ class MainActivity : ComponentActivity() {
         Ads.init(this)
         MzgsHelper.setIPCountry()
         
-        // Configure AdMob
+        // Configure AdMob - All available parameters
         val admobConfig = AdMobConfig(
-            appId = "ca-app-pub-XXXXX~XXXXX",
-            bannerAdUnitId = "", // Leave empty for test ads in debug
+            appId = "ca-app-pub-XXXXX~XXXXX",  // Optional: Can be null if set in AndroidManifest.xml
+            bannerAdUnitId = "",  // Leave empty for test ads
             interstitialAdUnitId = "",
             rewardedAdUnitId = "",
             rewardedInterstitialAdUnitId = "",
             nativeAdUnitId = "",
             mrecAdUnitId = "",
             appOpenAdUnitId = "",
-            enableAppOpenAd = true,
-            enableTestMode = true,
-            testDeviceIds = listOf("YOUR_DEVICE_ID"),
-            showAdsInDebug = true,
-            bannerAutoRefreshSeconds = 30
+            enableAppOpenAd = false,  // Default: false
+            bannerAutoRefreshSeconds = 60,  // Default: 60 (0 to disable auto-refresh)
+            // Debug-only flags (only work when BuildConfig.DEBUG is true)
+            testDeviceIds = emptyList(),  // Default: emptyList()
+            enableTestMode = false,  // Default: false - Uses test ad unit IDs when true
+            showAdsInDebug = true,  // Default: true - Master switch for all ads in debug
+            showInterstitialsInDebug = true,  // Default: true
+            showAppOpenAdInDebug = true,  // Default: true
+            showBannersInDebug = true,  // Default: true
+            showNativeAdsInDebug = true,  // Default: true
+            showRewardedAdsInDebug = true,  // Default: true
+            debugRequireConsentAlways = false,  // Default: false - Forces consent form in debug
+            debugEmptyIds = false  // Default: false - Use empty ad unit IDs in debug (prevents real ad loading)
         )
         
-        // Configure AppLovin
+        // Configure AppLovin - All available parameters
         val appLovinConfig = AppLovinConfig(
-            sdkKey = "YOUR_SDK_KEY",
-            bannerAdUnitId = "",
-            interstitialAdUnitId = "",
-            rewardedAdUnitId = "",
-            mrecAdUnitId = "",
-            nativeAdUnitId = "",
-            enableTestMode = true,
-            verboseLogging = true,
-            creativeDebuggerEnabled = true,
-            showAdsInDebug = true,
-            testDeviceAdvertisingIds = listOf("YOUR_DEVICE_ID")
+            sdkKey = "YOUR_SDK_KEY",  // Required
+            bannerAdUnitId = "",  // Default: ""
+            mrecAdUnitId = "",  // Default: ""
+            interstitialAdUnitId = "",  // Default: ""
+            rewardedAdUnitId = "",  // Default: ""
+            appOpenAdUnitId = "",  // Default: ""
+            nativeAdUnitId = "",  // Default: ""
+            enableAppOpenAd = false,  // Default: false
+            muteAudio = false,  // Default: false
+            // Debug-only flags (only work when BuildConfig.DEBUG is true)
+            enableTestMode = false,  // Default: false
+            verboseLogging = false,  // Default: false - Note: Currently only logged, not applied to SDK
+            creativeDebuggerEnabled = false,  // Default: false - Note: Currently only logged, not applied to SDK
+            testDeviceAdvertisingIds = emptyList(),  // Default: emptyList()
+            showAdsInDebug = true,  // Default: true - Master switch for all ads in debug
+            showInterstitialsInDebug = true,  // Default: true
+            showAppOpenAdInDebug = true,  // Default: true
+            showBannersInDebug = true,  // Default: true
+            showNativeAdsInDebug = true,  // Default: true
+            showRewardedAdsInDebug = true,  // Default: true
+            debugEmptyIds = false  // Default: false - Use empty ad unit IDs in debug (prevents real ad loading)
         )
         
         // Show splash with interstitial
@@ -169,12 +175,14 @@ class MainActivity : ComponentActivity() {
             admobConfig = admobConfig,
             appLovinConfig = appLovinConfig,
             defaultSplashTime = 10000,
-            onFinish = {
+            onSplashCompleteAdClosed = {
                 Log.d("MainActivity", "Splash and ad sequence completed")
+                
             },
-            onFinishAndApplovinReady = {
+            onCompleteWithAdsReady = {
                 Log.d("MainActivity", "AppLovin SDK initialized successfully")
                 // Preload ads
+                isFullyInitialized.value = true
                 AppLovinMediationManager.loadInterstitialAd()
             }
         )
@@ -299,28 +307,6 @@ The library includes these dependencies (exposed via `api` configuration):
 - Google UMP: 3.2.0
 - Play Review: 2.0.2
 - Various AppLovin mediation adapters
-
-## 🔧 Required Permissions
-
-Add to your `AndroidManifest.xml`:
-
-```xml
-<uses-permission android:name="android.permission.INTERNET" />
-<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-<uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
-
-<application>
-    <!-- AdMob App ID (Required if using AdMob) -->
-    <meta-data
-        android:name="com.google.android.gms.ads.APPLICATION_ID"
-        android:value="ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY" />
-    
-    <!-- AppLovin SDK Key (Required if using AppLovin) -->
-    <meta-data
-        android:name="applovin.sdk.key"
-        android:value="YOUR_SDK_KEY_HERE" />
-</application>
-```
 
 ## 🐛 Common Issues & Solutions
 

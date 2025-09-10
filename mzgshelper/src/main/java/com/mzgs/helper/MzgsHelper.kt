@@ -134,10 +134,10 @@ object MzgsHelper {
         admobConfig: AdMobConfig,
         appLovinConfig: AppLovinConfig,
         defaultSplashTime: Long = 10000,
-        onFinish: (() -> Unit)? = null,
-        onFinishAndApplovinReady: (() -> Unit)? = null
-    ){
-        // Check if we should skip ads entirely
+        onSplashCompleteAdClosed: (() -> Unit)? = null,
+        onCompleteWithAdsReady: (() -> Unit)? = null
+    ) {
+        // Early return if ads are disabled in debug mode
         if (debugNoAds) {
             Log.d(TAG, "Skipping ads initialization and display (debugNoAds mode)")
             
@@ -148,64 +148,75 @@ object MzgsHelper {
                 .showProgress(true)
                 .onComplete {
                     Log.d(TAG, "Splash completed (no ads in debug mode)")
-                    onFinish?.invoke()
-                    onFinishAndApplovinReady?.invoke()
+                    onSplashCompleteAdClosed?.invoke()
+                    onCompleteWithAdsReady?.invoke()
                 }
                 .build()
             splash.show()
             return
         }
 
-        // Track completion states for onFinishAndApplovinReady callback
+        // State tracking variables
         var isSplashFinished = false
         var isApplovinReady = false
-        var isOnFinishCalled = false
-        var hasCalledFinishAndApplovinReady = false
+        var isOnSplashCompleteAdClosedCalled = false
+        var hasCalledCompleteWithAdsReady = false
         
-        fun checkAndCallFinishAndApplovinReady() {
-            if (isSplashFinished && isApplovinReady && isOnFinishCalled && !hasCalledFinishAndApplovinReady) {
-                hasCalledFinishAndApplovinReady = true
-                onFinishAndApplovinReady?.invoke()
+        fun checkAndCallCompleteWithAdsReady() {
+            if (isSplashFinished && isApplovinReady && isOnSplashCompleteAdClosedCalled && !hasCalledCompleteWithAdsReady) {
+                hasCalledCompleteWithAdsReady = true
+                onCompleteWithAdsReady?.invoke()
+            }
+        }
+        
+        // Helper to initialize AppLovin (avoid duplication)
+        fun initializeAppLovin() {
+            Ads.initAppLovinMax(appLovinConfig) {
+                Log.d(TAG, "AppLovin MAX initialized")
+                // Load AppLovin interstitial after initialization
+                AppLovinMediationManager.loadInterstitialAd()
+                // Mark AppLovin as ready
+                isApplovinReady = true
+                checkAndCallCompleteWithAdsReady()
             }
         }
 
-// Initialize Simple Splash Screen with progress
+        // Initialize splash screen with progress
         val splash = SimpleSplashHelper.Builder(activity)
             .setDuration(Remote.getLong("splash_time", defaultSplashTime))
             .setRotateLogo(true)
             .showProgress(true)
             .onComplete {
-                Log.d("MainActivity", "Splash screen completed")
+                Log.d(TAG, "Splash screen completed")
                 
                 // Mark splash as finished
                 isSplashFinished = true
-                checkAndCallFinishAndApplovinReady()
+                checkAndCallCompleteWithAdsReady()
 
                 // Show interstitial ad
                 Ads.showInterstitial(
                     onAdClosed = {
-                        Log.d("MainActivity", "Interstitial ad dismissed")
-                        onFinish?.invoke()
-                        // Mark onFinish as called
-                        isOnFinishCalled = true
-                        checkAndCallFinishAndApplovinReady()
+                        Log.d(TAG, "Interstitial ad dismissed")
+                        onSplashCompleteAdClosed?.invoke()
+                        // Mark onSplashCompleteAdClosed as called
+                        isOnSplashCompleteAdClosedCalled = true
+                        checkAndCallCompleteWithAdsReady()
                     }
                 )
             }
             .build()
 
-        // Start splash screen normally
+        // Start splash screen paused (will resume after consent)
         splash.pause()
         splash.show()
 
-
+        // Initialize AdMob with consent handling
         Ads.initAdMob(
             config = admobConfig,
             onInitComplete = {
-                Log.d("MainActivity", "AdMob initialized")
+                Log.d(TAG, "AdMob initialized")
 
                 // Request consent info update
-                // Check if app is in debug mode for consent testing
                 AdMobManager.requestConsentInfoUpdate(
                     underAgeOfConsent = false,
                     debugGeography = if (isDebug && admobConfig.debugRequireConsentAlways)
@@ -213,103 +224,47 @@ object MzgsHelper {
                     testDeviceHashedId = if (isDebug && admobConfig.debugRequireConsentAlways)
                         "TEST-DEVICE-HASHED-ID" else null,
                     onConsentInfoUpdateSuccess = {
-                        Log.d("MainActivity", "Consent info updated")
-
-                        // Check if we can show ads (either personalized or non-personalized)
-                        val canShowPersonalized = AdMobManager.canShowAds()
-                        val canShowNonPersonalized =
-                            AdMobManager.canShowNonPersonalizedAds()
-
-                        Log.d(
-                            "MainActivity",
-                            "Can show personalized: $canShowPersonalized, non-personalized: $canShowNonPersonalized"
-                        )
-
+                        Log.d(TAG, "Consent info updated")
+                        
                         // Check if consent form needs to be shown
                         if (AdMobManager.isConsentFormAvailable()) {
-                            Log.d("MainActivity", "Showing consent form")
+                            Log.d(TAG, "Showing consent form")
                             AdMobManager.showConsentForm(
                                 activity = activity,
                                 onConsentFormDismissed = { formError ->
                                     if (formError != null) {
-                                        Log.e(
-                                            "MainActivity",
-                                            "Consent form error: ${formError.message}"
-                                        )
+                                        Log.e(TAG, "Consent form error: ${formError.message}")
                                     }
-                                    Log.d("MainActivity", "Consent form dismissed")
+                                    Log.d(TAG, "Consent form dismissed")
 
-                                    // After consent form is dismissed, load interstitial ad
-                                    // We can load ads even if only non-personalized ads are allowed
-                                    if (AdMobManager.canShowAds() || AdMobManager.canShowNonPersonalizedAds()) {
-                                        Log.d(
-                                            "MainActivity",
-                                            "Loading interstitial ad after consent"
-                                        )
-                                        AdMobManager.loadInterstitialAd()
-                                    }
+                                    // Load interstitial (method checks consent internally)
+                                    AdMobManager.loadInterstitialAd()
 
-                                    Ads.initAppLovinMax(appLovinConfig){
-                                        p("ApplovinMax init completed.")
-                                        // Load AppLovin interstitial after initialization
-                                        AppLovinMediationManager.loadInterstitialAd()
-                                        // Mark AppLovin as ready
-                                        isApplovinReady = true
-                                        checkAndCallFinishAndApplovinReady()
-                                    }
+                                    initializeAppLovin()
 
                                     // Resume splash screen
                                     splash.resume()
                                 }
                             )
                         } else {
-                            // No consent form needed
-                            // Load ads if we can show any type (personalized or non-personalized)
-                            if (canShowPersonalized || canShowNonPersonalized) {
-                                Log.d(
-                                    "MainActivity",
-                                    "No consent form needed, loading interstitial ad"
-                                )
-                                AdMobManager.loadInterstitialAd()
-                            } else {
-                                Log.d("MainActivity", "Cannot show any ads yet")
-                            }
+                            // No consent form needed - load ad (method checks consent internally)
+                            AdMobManager.loadInterstitialAd()
                             
                             // Initialize AppLovin when no consent form needed
-                            Ads.initAppLovinMax(appLovinConfig){
-                                p("ApplovinMax init completed.")
-                                // Load AppLovin interstitial after initialization
-                                AppLovinMediationManager.loadInterstitialAd()
-                                // Mark AppLovin as ready
-                                isApplovinReady = true
-                                checkAndCallFinishAndApplovinReady()
-                            }
+                            initializeAppLovin()
 
                             // Resume splash screen
                             splash.resume()
                         }
                     },
                     onConsentInfoUpdateFailure = { error ->
-                        Log.e("MainActivity", "Failed to update consent info: $error")
+                        Log.e(TAG, "Failed to update consent info: $error")
 
-                        // Even if consent update fails, try to load ad if non-personalized ads are allowed
-                        if (AdMobManager.canShowNonPersonalizedAds()) {
-                            Log.d(
-                                "MainActivity",
-                                "Loading non-personalized ad after consent failure"
-                            )
-                            AdMobManager.loadInterstitialAd()
-                        }
+                        // Try loading ad on consent failure (method checks consent internally)
+                        AdMobManager.loadInterstitialAd()
                         
                         // Initialize AppLovin even on consent failure
-                        Ads.initAppLovinMax(appLovinConfig){
-                            p("ApplovinMax init completed.")
-                            // Load AppLovin interstitial after initialization
-                            AppLovinMediationManager.loadInterstitialAd()
-                            // Mark AppLovin as ready
-                            isApplovinReady = true
-                            checkAndCallFinishAndApplovinReady()
-                        }
+                        initializeAppLovin()
                         
                         splash.resume()
                     }

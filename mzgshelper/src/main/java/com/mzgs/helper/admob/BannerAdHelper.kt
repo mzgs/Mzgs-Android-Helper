@@ -51,10 +51,6 @@ class BannerAdHelper(private val context: Context) {
         onAdFailedToLoad: (LoadAdError) -> Unit = {},
         onAdClicked: () -> Unit = {}
     ): AdView? {
-        if (!AdMobManager.getInstance(context).canShowAds()) {
-            Log.w(TAG, "Cannot show ads - consent not obtained")
-            return null
-        }
         
         // Clear any existing ads in container
         container.removeAllViews()
