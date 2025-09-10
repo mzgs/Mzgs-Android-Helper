@@ -66,10 +66,11 @@ class BannerAdHelper(private val context: Context) {
                 override fun onAdLoaded() {
                     Log.d(TAG, "$bannerType ad loaded")
                     lastAdLoadedTime = System.currentTimeMillis()
-                    FirebaseAnalyticsManager.logAdLoadSuccess(
+                    FirebaseAnalyticsManager.logAdLoad(
                         adType = "banner_$bannerType",
                         adUnitId = adUnitId,
-                        adNetwork = "admob"
+                        adNetwork = "admob",
+                        success = true
                     )
                     onAdLoaded()
                     
@@ -81,12 +82,13 @@ class BannerAdHelper(private val context: Context) {
                 
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     Log.e(TAG, "$bannerType failed to load: ${error.message}")
-                    FirebaseAnalyticsManager.logAdLoadFailed(
+                    FirebaseAnalyticsManager.logAdLoad(
                         adType = "banner_$bannerType",
                         adUnitId = adUnitId,
+                        adNetwork = "admob",
+                        success = false,
                         errorMessage = error.message,
-                        errorCode = error.code,
-                        adNetwork = "admob"
+                        errorCode = error.code
                     )
                     onAdFailedToLoad(error)
                     
@@ -118,11 +120,6 @@ class BannerAdHelper(private val context: Context) {
                 
                 override fun onAdImpression() {
                     Log.d(TAG, "$bannerType ad impression")
-                    FirebaseAnalyticsManager.logAdImpression(
-                        adType = "banner_$bannerType",
-                        adUnitId = adUnitId,
-                        adNetwork = "admob"
-                    )
                 }
             }
         }

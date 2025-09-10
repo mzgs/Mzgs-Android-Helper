@@ -52,22 +52,24 @@ class AppLovinNativeAdHelper(private val context: Context) {
                 this@AppLovinNativeAdHelper.nativeAdView = nativeAdView
                 
                 Log.d(TAG, "Native ad loaded")
-                FirebaseAnalyticsManager.logAdLoadSuccess(
+                FirebaseAnalyticsManager.logAdLoad(
                     adType = "native",
                     adUnitId = adUnitId,
-                    adNetwork = "applovin"
+                    adNetwork = "applovin_max",
+                    success = true
                 )
                 onAdLoaded()
             }
             
             override fun onNativeAdLoadFailed(adUnitId: String, error: MaxError) {
                 Log.e(TAG, "Failed to load native ad: ${error.message}")
-                FirebaseAnalyticsManager.logAdLoadFailed(
+                FirebaseAnalyticsManager.logAdLoad(
                     adType = "native",
                     adUnitId = adUnitId,
+                    adNetwork = "applovin_max",
+                    success = false,
                     errorMessage = error.message,
-                    errorCode = error.code,
-                    adNetwork = "applovin"
+                    errorCode = error.code
                 )
                 onAdFailedToLoad(error)
             }
@@ -158,11 +160,6 @@ class AppLovinNativeAdHelper(private val context: Context) {
             
             Log.d(TAG, "Native ad displayed")
             if (adUnitId.isNotEmpty()) {
-                FirebaseAnalyticsManager.logAdImpression(
-                    adType = "native",
-                    adUnitId = adUnitId,
-                    adNetwork = "applovin"
-                )
             }
             return true
         }

@@ -56,33 +56,30 @@ class AppLovinBannerHelper(private val context: Context) {
             setListener(object : MaxAdViewAdListener {
                 override fun onAdLoaded(ad: MaxAd) {
                     Log.d(TAG, "$bannerType ad loaded")
-                    FirebaseAnalyticsManager.logAdLoadSuccess(
+                    FirebaseAnalyticsManager.logAdLoad(
                         adType = "banner_$bannerType",
                         adUnitId = adUnitId,
-                        adNetwork = "applovin"
+                        adNetwork = "applovin_max",
+                        success = true
                     )
                     onAdLoaded()
                 }
                 
                 override fun onAdLoadFailed(adUnitId: String, error: MaxError) {
                     Log.e(TAG, "$bannerType failed to load: ${error.message}")
-                    FirebaseAnalyticsManager.logAdLoadFailed(
+                    FirebaseAnalyticsManager.logAdLoad(
                         adType = "banner_$bannerType",
                         adUnitId = adUnitId,
+                        adNetwork = "applovin_max",
+                        success = false,
                         errorMessage = error.message,
-                        errorCode = error.code,
-                        adNetwork = "applovin"
+                        errorCode = error.code
                     )
                     onAdFailedToLoad(error)
                 }
                 
                 override fun onAdDisplayed(ad: MaxAd) {
                     Log.d(TAG, "$bannerType ad displayed")
-                    FirebaseAnalyticsManager.logAdImpression(
-                        adType = "banner_$bannerType",
-                        adUnitId = adUnitId,
-                        adNetwork = "applovin"
-                    )
                 }
                 
                 override fun onAdHidden(ad: MaxAd) {

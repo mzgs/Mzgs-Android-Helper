@@ -78,10 +78,11 @@ class AdMobNativeAdHelper(private val context: Context) {
             nativeAd?.destroy()
             nativeAd = ad
             Log.d(TAG, "Native ad loaded")
-            FirebaseAnalyticsManager.logAdLoadSuccess(
+            FirebaseAnalyticsManager.logAdLoad(
                 adType = "native",
                 adUnitId = adUnitId,
-                adNetwork = "admob"
+                adNetwork = "admob",
+                success = true
             )
             onAdLoaded(ad)
         }
@@ -98,12 +99,13 @@ class AdMobNativeAdHelper(private val context: Context) {
         builder.withAdListener(object : AdListener() {
             override fun onAdFailedToLoad(error: LoadAdError) {
                 Log.e(TAG, "Failed to load native ad: ${error.message}")
-                FirebaseAnalyticsManager.logAdLoadFailed(
+                FirebaseAnalyticsManager.logAdLoad(
                     adType = "native",
                     adUnitId = adUnitId,
+                    adNetwork = "admob",
+                    success = false,
                     errorMessage = error.message,
-                    errorCode = error.code,
-                    adNetwork = "admob"
+                    errorCode = error.code
                 )
                 onAdFailedToLoad(error)
                 
@@ -130,11 +132,6 @@ class AdMobNativeAdHelper(private val context: Context) {
             
             override fun onAdImpression() {
                 Log.d(TAG, "Native ad impression")
-                FirebaseAnalyticsManager.logAdImpression(
-                    adType = "native",
-                    adUnitId = adUnitId,
-                    adNetwork = "admob"
-                )
             }
         })
         

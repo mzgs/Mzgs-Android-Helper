@@ -160,12 +160,6 @@ class AppOpenAdManager(
             
             override fun onAdImpression() {
                 Log.d(TAG, "App open ad impression recorded")
-                val adUnitId = config.appOpenAdUnitId
-                FirebaseAnalyticsManager.logAdImpression(
-                    adType = "app_open",
-                    adUnitId = adUnitId,
-                    adNetwork = "admob"
-                )
             }
         }
     }

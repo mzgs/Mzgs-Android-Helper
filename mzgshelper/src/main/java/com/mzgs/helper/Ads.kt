@@ -358,7 +358,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
     @JvmStatic
     fun showBanner(
         container: ViewGroup,
-        adSize: BannerSize = BannerSize.ADAPTIVE
+        adSize: BannerSize = BannerSize.BANNER
     ): Boolean {
         // Check if ads are disabled in debug mode
         if (MzgsHelper.debugNoAds) {
