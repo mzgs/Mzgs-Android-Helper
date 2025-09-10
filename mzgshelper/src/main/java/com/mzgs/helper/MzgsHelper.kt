@@ -77,57 +77,7 @@ object MzgsHelper {
         }
     }
 
-    /**
-     * Try to show interstitial ad from multiple networks in order
-     * @param adOrder List of ad network names in priority order (e.g., ["admob", "applovin_max"])
-     * @param onAdDismissed Callback when ad is dismissed or no ad is available
-     * @return true if ad was shown, false otherwise
-     */
-    private fun tryShowInterstitialInOrder(
-        adOrder: List<String>,
-        onAdDismissed: (() -> Unit)? = null
-    ): Boolean {
-        Log.d(TAG, "Trying to show interstitial with order: $adOrder")
-        
-        for (network in adOrder) {
-            when (network.lowercase()) {
-                "admob" -> {
-                    if (AdMobManager.isInterstitialReady()) {
-                        Log.d(TAG, "Showing AdMob interstitial")
-                        FirebaseAnalyticsManager.logEvent("onstart_ad_shown_admob")
-                        AdMobManager.showInterstitialAd(onAdDismissed = onAdDismissed)
-                        return true
-                    } else {
-                        Log.d(TAG, "AdMob interstitial not ready")
-                    }
-                }
-                "applovin_max", "applovin" -> {
-                    if (AppLovinMediationManager.isInterstitialReady()) {
-                        Log.d(TAG, "Showing AppLovin MAX interstitial")
-                        FirebaseAnalyticsManager.logEvent("onstart_ad_shown_applovin")
-                        val activity = Ads.getCurrentActivity()
-                        return if (activity != null) {
-                            AppLovinMediationManager.showInterstitialAd(activity, onAdDismissed)
-                        } else {
-                            Log.e(TAG, "No current activity available from Ads helper")
-                            AppLovinMediationManager.showInterstitialAd(onAdDismissed = onAdDismissed)
-                        }
-                    } else {
-                        Log.d(TAG, "AppLovin MAX interstitial not ready")
-                    }
-                }
-                else -> {
-                    Log.w(TAG, "Unknown ad network: $network")
-                }
-            }
-        }
-        
-        // No ads available from any network
-        Log.d(TAG, "No interstitial ads available from any network")
-        FirebaseAnalyticsManager.logEvent("onstart_ad_not_ready_all_networks")
-        onAdDismissed?.invoke()
-        return false
-    }
+
 
     fun initSplashWithInterstitialShow(
         activity: android.app.Activity, 
@@ -173,8 +123,8 @@ object MzgsHelper {
         fun initializeAppLovin() {
             Ads.initAppLovinMax(appLovinConfig) {
                 Log.d(TAG, "AppLovin MAX initialized")
-                // Load AppLovin interstitial after initialization
                 AppLovinMediationManager.loadInterstitialAd()
+
                 // Mark AppLovin as ready
                 isApplovinReady = true
                 checkAndCallCompleteWithAdsReady()

@@ -553,7 +553,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
     }
     
     @JvmStatic
-    fun showRewardedAd(): Boolean {
+    fun showRewardedAd(onUserEarnedReward: ((type: String, amount: Int) -> Unit)? = null): Boolean {
         val context = applicationContext ?: return false
         val activity = currentActivityRef?.get()
         val adsOrder = getAdsOrder()
@@ -565,7 +565,11 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
                 APPLOVIN_MAX -> {
                     if (AppLovinMediationManager.isRewardedReady()) {
                         Log.d(TAG, "Showing AppLovin MAX rewarded ad")
-                        return AppLovinMediationManager.showRewardedAd()
+                        return AppLovinMediationManager.showRewardedAd(
+                            onUserRewarded = { reward ->
+                                onUserEarnedReward?.invoke(reward.label, reward.amount)
+                            }
+                        )
                     }
                     Log.d(TAG, "AppLovin MAX rewarded ad not ready, trying next")
                 }
@@ -574,7 +578,11 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
                         if (activity != null) {
                             // Activity is now tracked automatically via lifecycle callbacks
                             Log.d(TAG, "Showing AdMob rewarded ad")
-                            return AdMobManager.showRewardedAd()
+                            return AdMobManager.showRewardedAd(
+                                onUserEarnedReward = { reward ->
+                                    onUserEarnedReward?.invoke(reward.type, reward.amount)
+                                }
+                            )
                         } else {
                             Log.e(TAG, "No current activity available for AdMob rewarded ad")
                         }

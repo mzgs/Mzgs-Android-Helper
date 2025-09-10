@@ -141,6 +141,8 @@ class MainActivity : ComponentActivity() {
             },
             onCompleteWithAdsReady = {
                 isFullyInitialized.value = true
+                AdMobManager.loadRewardedAd()
+                AppLovinMediationManager.loadRewardedAd()
             }
         )
 
@@ -576,19 +578,7 @@ fun AdsHelperCard(isFullyInitialized: Boolean = false, snackbarHostState: Snackb
         // Activity is now automatically tracked via lifecycle callbacks
         Log.d("AdsHelper", "Activity auto-tracked for AdMob")
 
-        
-        // Load rewarded ad
-        AdMobManager.loadRewardedAd(
-            onAdLoaded = {
-                rewardedLoaded = true
-                Log.d("AdsHelper", "Rewarded ad loaded")
-            },
-            onAdFailedToLoad = { error: LoadAdError ->
-                rewardedLoaded = false
-                Log.e("AdsHelper", "Rewarded ad failed: ${error.message}")
-            }
-        )
-        
+
         // Load rewarded interstitial ad
         AdMobManager.loadRewardedInterstitialAd(
             onAdLoaded = {
@@ -650,9 +640,8 @@ fun AdsHelperCard(isFullyInitialized: Boolean = false, snackbarHostState: Snackb
                     Button(
                         onClick = {
                             if (Ads.showInterstitial()) {
-                                interstitialLoaded = false
-                                // Reload for next time
-                                AdMobManager.loadInterstitialAd()
+
+
                             } else {
                                 scope.launch {
                                     snackbarHostState.showSnackbar("Interstitial not ready")
@@ -737,20 +726,17 @@ fun AdsHelperCard(isFullyInitialized: Boolean = false, snackbarHostState: Snackb
                         onClick = {
                             activity?.let { act ->
                                 // Activity is auto-tracked via lifecycle callbacks
-                                if (AdMobManager.showRewardedAd(
-                                    activity = act,
-                                    onUserEarnedReward = { reward: RewardItem ->
-                                        userCoins += reward.amount
+                                if (Ads.showRewardedAd(
+                                    onUserEarnedReward = { type, amount ->
+                                        userCoins += amount
                                         scope.launch {
                                             snackbarHostState.showSnackbar(
-                                                "Earned ${reward.amount} ${reward.type}!"
+                                                "Earned $amount $type!"
                                             )
                                         }
                                     }
                                 )) {
                                     rewardedLoaded = false
-                                    // Reload for next time
-                                    AdMobManager.loadRewardedAd()
                                 }
                             }
                         }
