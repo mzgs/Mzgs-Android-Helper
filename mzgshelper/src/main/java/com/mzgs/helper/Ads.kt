@@ -15,6 +15,11 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 
+data class AdShowResult(
+    val success: Boolean,
+    val network: String? = null
+)
+
 object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
     private const val TAG = "Ads"
     private const val ADMOB = "admob"
@@ -298,6 +303,62 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
     }
     
     @JvmStatic
+    fun showInterstitialWithResult(onAdClosed: (() -> Unit)? = null): AdShowResult {
+        // Check if ads are disabled in debug mode
+        if (MzgsHelper.debugNoAds) {
+            Log.d(TAG, "Interstitial ads skipped (debugNoAds mode)")
+            onAdClosed?.invoke()
+            return AdShowResult(false, null)
+        }
+
+        val activity = currentActivityRef?.get()
+        val adsOrder = getAdsOrder()
+        
+        Log.d(TAG, "Attempting to show interstitial with order: $adsOrder")
+        
+        for (network in adsOrder) {
+            when (network.lowercase()) {
+                APPLOVIN_MAX -> {
+                    if (AppLovinMediationManager.isInterstitialReady()) {
+                        Log.d(TAG, "Showing AppLovin MAX interstitial")
+                        val shown = if (activity != null) {
+                            AppLovinMediationManager.showInterstitialAd(activity, onAdClosed)
+                        } else {
+                            AppLovinMediationManager.showInterstitialAd(onAdClosed)
+                        }
+                        if (shown) {
+                            return AdShowResult(true, APPLOVIN_MAX)
+                        }
+                    }
+                    Log.d(TAG, "AppLovin MAX interstitial not ready, trying next")
+                }
+                ADMOB -> {
+                    if (AdMobManager.isInterstitialReady()) {
+                        if (activity != null) {
+                            // Activity is now tracked automatically via lifecycle callbacks
+                            Log.d(TAG, "Showing AdMob interstitial")
+                            val shown = AdMobManager.showInterstitialAd(onAdClosed)
+                            if (shown) {
+                                return AdShowResult(true, ADMOB)
+                            }
+                        } else {
+                            Log.e(TAG, "No current activity available for AdMob interstitial")
+                        }
+                    }
+                    Log.d(TAG, "AdMob interstitial not ready, trying next")
+                }
+                else -> {
+                    Log.w(TAG, "Unknown ad network: $network")
+                }
+            }
+        }
+        
+        Log.d(TAG, "No interstitial ads ready from any network")
+        onAdClosed?.invoke()  // Call the callback if no ads were shown
+        return AdShowResult(false, null)
+    }
+    
+    @JvmStatic
     fun showInterstitialWithCycle(name: String, defaultValue: Int = 3, onAdClosed: (() -> Unit)? = null) {
         // Get the cycle value from remote config
         val cycleValue = Remote.getInt(name, defaultValue)
@@ -496,61 +557,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
         }
     }
     
-    @JvmStatic
-    fun showLargeBanner(
-        container: ViewGroup
-    ): Boolean {
-        val activity = getCurrentActivity()
-        if (activity == null) {
-            Log.e(TAG, "No current activity available for showing adaptive banner")
-            return false
-        }
-        
-        Log.d(TAG, "Attempting to show AdMob adaptive banner")
-        
-        try {
-            val bannerHelper = BannerAdHelper(activity)
-            bannerHelper.createBannerView(
-                adUnitId = AdMobManager.getConfig()?.bannerAdUnitId ?: "",
-                bannerType = BannerAdHelper.BannerType.LARGE_BANNER,
-                container = container as android.widget.FrameLayout,
-                onAdLoaded = {
-                    Log.d(TAG, "AdMob adaptive banner loaded successfully")
-                },
-                onAdFailedToLoad = { error ->
-                    Log.e(TAG, "AdMob adaptive banner failed: ${error.message}, attempting AppLovin banner")
-                    
-                    // Try AppLovin banner as fallback
-                    try {
-                        val adUnitId = AppLovinMediationManager.getConfig()?.bannerAdUnitId ?: ""
-                        if (adUnitId.isNotEmpty() && AppLovinMediationManager.isInitialized()) {
-                            Log.d(TAG, "Attempting to show AppLovin MAX banner as fallback")
-                            val appLovinHelper = AppLovinBannerHelper(activity)
-                            appLovinHelper.createBannerView(
-                                adUnitId = adUnitId,
-                                bannerType = AppLovinBannerHelper.BannerType.BANNER,
-                                container = container,
-                                onAdLoaded = {
-                                    Log.d(TAG, "AppLovin MAX banner loaded successfully as fallback")
-                                },
-                                onAdFailedToLoad = { appLovinError ->
-                                    Log.e(TAG, "AppLovin MAX banner also failed: ${appLovinError.message}")
-                                }
-                            )
-                        } else {
-                            Log.d(TAG, "AppLovin MAX not initialized or no banner ad unit ID configured")
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error showing AppLovin MAX banner as fallback: ${e.message}")
-                    }
-                }
-            )
-            return true
-        } catch (e: Exception) {
-            Log.e(TAG, "Error showing AdMob adaptive banner: ${e.message}")
-            return false
-        }
-    }
+
     
     @JvmStatic
     fun showRewardedAd(onUserEarnedReward: ((type: String, amount: Int) -> Unit)? = null): Boolean {

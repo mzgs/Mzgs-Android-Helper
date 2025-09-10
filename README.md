@@ -329,6 +329,87 @@ if (MzgsHelper.isAllowedCountry) {
 MzgsHelper.setRestrictedCountriesFromRemoteConfig()
 ```
 
+#### Action Counter
+
+Track and count user actions throughout your app:
+
+```kotlin
+// Increment a counter
+ActionCounter.increase("button_clicks")
+
+// Increment and get the new value
+val clickCount = ActionCounter.increaseGet("button_clicks")
+Log.d("Counter", "Button clicked $clickCount times")
+
+// Get current count without incrementing
+val currentCount = ActionCounter.get("button_clicks")
+
+// Track with additional parameters (for analytics)
+ActionCounter.increase("level_completed", mapOf(
+    "level" to 5,
+    "score" to 1500
+))
+
+// Initialize all saved counters (call in Application.onCreate)
+ActionCounter.initAnalyticData()
+
+// Get all tracked counter keys
+val allKeys = ActionCounter.keys()
+```
+
+Common use cases:
+- Track feature usage frequency
+- Control show rates for ads/prompts
+- Implement achievements or milestones
+- Analytics and user behavior tracking
+
+#### Preferences Helper
+
+Simple key-value storage with type safety:
+
+```kotlin
+// Save values
+Pref.set("username", "John Doe")
+Pref.set("user_age", 25)
+Pref.set("is_premium", true)
+Pref.set("app_rating", 4.5f)
+Pref.set("last_login", System.currentTimeMillis())
+Pref.set("balance", 99.99)
+
+// Get values with defaults
+val username = Pref.get("username", "Guest")
+val age = Pref.get("user_age", 0)
+val isPremium = Pref.get("is_premium", false)
+val rating = Pref.get("app_rating", 0.0f)
+val lastLogin = Pref.get("last_login", 0L)
+val balance = Pref.get("balance", 0.0)
+
+// Type-specific getters
+val name = Pref.getString("username", "Guest")
+val premium = Pref.getBool("is_premium", false)
+val userRating = Pref.getFloat("app_rating", 0.0f)
+val userAge = Pref.getInt("user_age", 0)
+val userBalance = Pref.getDouble("balance", 0.0)
+
+// Check if key exists
+if (Pref.exists("username")) {
+    // User has set a username
+}
+
+// Remove a specific key
+Pref.remove("temp_data")
+
+// Clear all preferences
+Pref.clearAll()
+```
+
+Common use cases:
+- User settings and preferences
+- App configuration
+- Caching data
+- First-time user detection
+- Session management
+
 ## 🎨 Compose Integration
 
 ### Banner in Compose

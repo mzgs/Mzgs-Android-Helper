@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
+import android.os.Bundle
 import android.telephony.TelephonyManager
 import android.util.Log
 
@@ -144,7 +145,7 @@ object MzgsHelper {
                 checkAndCallCompleteWithAdsReady()
 
                 // Show interstitial ad
-                Ads.showInterstitial(
+                val adResult = Ads.showInterstitialWithResult(
                     onAdClosed = {
                         Log.d(TAG, "Interstitial ad dismissed")
                         onSplashCompleteAdClosed?.invoke()
@@ -153,6 +154,25 @@ object MzgsHelper {
                         checkAndCallCompleteWithAdsReady()
                     }
                 )
+                
+                // Log Firebase event for splash ad showing
+                if (adResult.success) {
+                    FirebaseAnalyticsManager.logEvent("splash_ad_shown", Bundle().apply {
+                        putString("ad_type", "interstitial")
+                        putString("placement", "splash_screen")
+                        putString("ad_network", adResult.network ?: "unknown")
+                        putBoolean("success", true)
+                    })
+                    Log.d(TAG, "Firebase event logged: splash_ad_shown with network: ${adResult.network}")
+                } else {
+                    FirebaseAnalyticsManager.logEvent("splash_ad_failed", Bundle().apply {
+                        putString("ad_type", "interstitial")
+                        putString("placement", "splash_screen")
+                        putString("reason", "no_ad_available")
+                        putBoolean("success", false)
+                    })
+                    Log.d(TAG, "Firebase event logged: splash_ad_failed")
+                }
             }
             .build()
 
