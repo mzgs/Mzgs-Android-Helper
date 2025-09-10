@@ -176,15 +176,14 @@ class MainActivity : ComponentActivity() {
             appLovinConfig = appLovinConfig,
             defaultSplashTime = 10000,
             onSplashCompleteAdClosed = {
-                Log.d("MainActivity", "Splash and ad sequence completed")
                 
             },
             onCompleteWithAdsReady = {
-                Log.d("MainActivity", "AppLovin SDK initialized successfully")
                 // Preload ads
                 isFullyInitialized.value = true
-                AppLovinMediationManager.loadInterstitialAd()
-            }
+                AdMobManager.loadRewardedAd()
+                AppLovinMediationManager.loadRewardedAd()
+             }
         )
     }
 }
