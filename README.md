@@ -244,6 +244,91 @@ val mrecContainer: FrameLayout = findViewById(R.id.mrec_container)
 Ads.showMREC(mrecContainer)
 ```
 
+### 4. Utility Features
+
+#### In-App Rating
+
+Show native Google Play in-app rating dialog with customizable triggers:
+
+```kotlin
+// Simple usage - show rating dialog immediately
+MzgsHelper.showInappRate(activity = this)
+
+// With custom rate name for tracking
+MzgsHelper.showInappRate(
+    activity = this,
+    rateName = "feature_rate"
+)
+
+// With specific show counts (shows at 1st, 9th, and 30th action)
+MzgsHelper.showInappRate(
+    activity = this,
+    rateName = "download_rate",
+    showAtCounts = listOf(1, 9, 30)
+)
+
+// Using remote config for dynamic control
+MzgsHelper.showInappRate(
+    activity = this@MainActivity,
+    rateName = "download_rate",
+    showAtCounts = Remote.getIntArray("download_rate_show_at_counts", listOf(1, 9, 30))
+)
+```
+
+The rating dialog automatically tracks:
+- When it was shown using `ActionCounter`
+- The count for the specified `rateName`
+- Shows only at specified counts if `showAtCounts` is provided
+
+#### Show Toast Messages
+
+```kotlin
+// Show a simple toast
+MzgsHelper.showToast("Hello World")
+
+// With custom duration
+MzgsHelper.showToast("Processing...", Toast.LENGTH_LONG)
+```
+
+#### Network Availability Check
+
+```kotlin
+if (MzgsHelper.isNetworkAvailable()) {
+    // Network is available
+} else {
+    // No network connection
+}
+```
+
+#### App Version Info
+
+```kotlin
+// Get app version name (e.g., "1.0.0")
+val versionName = MzgsHelper.getAppVersion()
+
+// Get app version code (e.g., 1)
+val versionCode = MzgsHelper.getAppVersionCode()
+```
+
+#### Country Detection & Restrictions
+
+```kotlin
+// Get phone country codes (SIM, Network, Locale)
+val countries = MzgsHelper.getPhoneCountry()
+
+// Set IP-based country (async)
+MzgsHelper.setIPCountry()
+
+// Check if current country is allowed
+MzgsHelper.setIsAllowedCountry()
+if (MzgsHelper.isAllowedCountry) {
+    // Country is allowed
+}
+
+// Set restricted countries from remote config
+MzgsHelper.setRestrictedCountriesFromRemoteConfig()
+```
+
 ## 🎨 Compose Integration
 
 ### Banner in Compose
@@ -284,6 +369,65 @@ fun MRECAdView() {
     }
 }
 ```
+
+## 📊 Firebase Analytics Integration
+
+The library includes built-in Firebase Analytics support for tracking ad events and custom events.
+
+### Initialize Firebase Analytics
+
+```kotlin
+// Initialize in your Application class or MainActivity
+FirebaseAnalyticsManager.initialize(context)
+```
+
+### Log Custom Events
+
+```kotlin
+// Simple event logging
+FirebaseAnalyticsManager.logEvent("button_clicked")
+
+// Event with parameters
+val params = Bundle().apply {
+    putString("button_name", "purchase")
+    putString("screen_name", "home")
+    putInt("user_level", 5)
+}
+FirebaseAnalyticsManager.logEvent("custom_interaction", params)
+
+// Log user actions
+val actionParams = Bundle().apply {
+    putString("action_type", "share")
+    putString("content_type", "image")
+    putString("content_id", "img_123")
+}
+FirebaseAnalyticsManager.logEvent("user_action", actionParams)
+```
+ 
+
+### Best Practices
+
+1. **Event Naming**: Use lowercase with underscores (e.g., `user_signup`, `level_complete`)
+2. **Parameter Limits**: Maximum 25 parameters per event, 40 characters for names, 100 for values
+3. **Reserved Names**: Avoid Firebase reserved event/parameter names unless using them correctly
+4. **User Properties**: Set user properties for segmentation:
+   ```kotlin
+   // Note: Access Firebase instance directly for user properties
+   val firebaseAnalytics = FirebaseAnalytics.getInstance(context)
+   firebaseAnalytics.setUserProperty("user_type", "premium")
+   ```
+
+### Automatic Ad Event Tracking
+
+When using the Ads API, many events are automatically tracked:
+
+- `onstart_ad_shown_admob` - When AdMob interstitial shows at app start
+- `onstart_ad_shown_applovin` - When AppLovin interstitial shows at app start
+- `onstart_ad_not_ready_all_networks` - When no ads are available at start
+- `ad_load_event` - Tracks all ad load attempts with success/failure status
+- `ad_impression` - Tracks when ads are displayed
+- `ad_click` - Tracks when ads are clicked
+- `ad_revenue` - Tracks estimated ad revenue
 
 ## ⚠️ Deprecated API Warnings
 
