@@ -758,6 +758,9 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
         if (currentActivityRef?.get() == activity) {
             currentActivityRef = null
             Log.d(TAG, "Activity destroyed and reference cleared: ${activity.javaClass.simpleName}")
+            
+            // Clean up ad resources to prevent memory leaks
+            AdMobManager.onActivityDestroyed(activity)
         }
     }
 }

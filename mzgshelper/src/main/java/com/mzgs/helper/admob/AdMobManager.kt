@@ -41,6 +41,7 @@ object AdMobManager {
     private var rewardedAd: RewardedAd? = null
     private var rewardedInterstitialAd: RewardedInterstitialAd? = null
     private var consentInformation: ConsentInformation? = null
+    private var handler: Handler? = null
     
     @JvmStatic
     fun init(context: Context, config: AdMobConfig, onInitComplete: () -> Unit = {}) {
@@ -406,7 +407,10 @@ object AdMobManager {
                     if (retryAttempt < MAX_RETRY_ATTEMPTS) {
                         val delayMillis = getRetryDelayMillis(retryAttempt + 1)
                         Log.d(TAG, "Retrying interstitial ad load (attempt ${retryAttempt + 1}/$MAX_RETRY_ATTEMPTS) after ${delayMillis/1000} seconds")
-                        Handler(Looper.getMainLooper()).postDelayed({
+                        if (handler == null) {
+                            handler = Handler(Looper.getMainLooper())
+                        }
+                        handler?.postDelayed({
                             loadInterstitialAd(adUnitId, onAdLoaded, onAdFailedToLoad, retryAttempt + 1)
                         }, delayMillis)
                     } else {
@@ -596,7 +600,10 @@ object AdMobManager {
                     if (retryAttempt < MAX_RETRY_ATTEMPTS) {
                         val delayMillis = getRetryDelayMillis(retryAttempt + 1)
                         Log.d(TAG, "Retrying rewarded ad load (attempt ${retryAttempt + 1}/$MAX_RETRY_ATTEMPTS) after ${delayMillis/1000} seconds")
-                        Handler(Looper.getMainLooper()).postDelayed({
+                        if (handler == null) {
+                            handler = Handler(Looper.getMainLooper())
+                        }
+                        handler?.postDelayed({
                             loadRewardedAd(adUnitId, onAdLoaded, onAdFailedToLoad, retryAttempt + 1)
                         }, delayMillis)
                     } else {
@@ -735,7 +742,10 @@ object AdMobManager {
                     if (retryAttempt < MAX_RETRY_ATTEMPTS) {
                         val delayMillis = getRetryDelayMillis(retryAttempt + 1)
                         Log.d(TAG, "Retrying rewarded interstitial ad load (attempt ${retryAttempt + 1}/$MAX_RETRY_ATTEMPTS) after ${delayMillis/1000} seconds")
-                        Handler(Looper.getMainLooper()).postDelayed({
+                        if (handler == null) {
+                            handler = Handler(Looper.getMainLooper())
+                        }
+                        handler?.postDelayed({
                             loadRewardedInterstitialAd(adUnitId, onAdLoaded, onAdFailedToLoad, retryAttempt + 1)
                         }, delayMillis)
                     } else {
@@ -902,4 +912,37 @@ object AdMobManager {
     
     // Note: Activity lifecycle tracking is handled by the Ads class
     // AdMobManager gets activity reference from Ads when needed
+    
+    @JvmStatic
+    fun cleanup() {
+        Log.d(TAG, "Cleaning up AdMob resources")
+        
+        // Cancel and null all ad references
+        interstitialAd?.fullScreenContentCallback = null
+        interstitialAd = null
+        
+        rewardedAd?.fullScreenContentCallback = null
+        rewardedAd = null
+        
+        rewardedInterstitialAd?.fullScreenContentCallback = null
+        rewardedInterstitialAd = null
+        
+        // Clear handler and runnable references
+        handler?.removeCallbacksAndMessages(null)
+        handler = null
+        
+        // Clear context reference
+        contextRef?.clear()
+        contextRef = null
+        
+        Log.d(TAG, "AdMob resources cleaned up")
+    }
+    
+    @JvmStatic
+    fun onActivityDestroyed(activity: Activity) {
+        // Clean up any ad-related resources when activity is destroyed
+        if (contextRef?.get() == activity) {
+            cleanup()
+        }
+    }
 }
