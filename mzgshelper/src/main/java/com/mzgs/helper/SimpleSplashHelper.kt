@@ -316,7 +316,13 @@ class SimpleSplashHelper(private val activity: Activity) {
     private fun dismiss() {
         progressAnimator?.cancel()
         logoAnimatorSet?.cancel()
-        splashDialog?.dismiss()
+        try {
+            if (splashDialog?.isShowing == true) {
+                splashDialog?.dismiss()
+            }
+        } catch (e: IllegalArgumentException) {
+            // Dialog was already dismissed or window was detached
+        }
         handler?.removeCallbacks(dismissRunnable ?: return)
         // onComplete is now called 1 second before dismissal in show()
     }
@@ -372,7 +378,13 @@ class SimpleSplashHelper(private val activity: Activity) {
             }
             if (dismissRunnable == null) {
                 dismissRunnable = Runnable {
-                    splashDialog?.dismiss()
+                    try {
+                        if (splashDialog?.isShowing == true) {
+                            splashDialog?.dismiss()
+                        }
+                    } catch (e: IllegalArgumentException) {
+                        // Dialog was already dismissed or window was detached
+                    }
                     progressAnimator?.cancel()
                     handler?.removeCallbacks(dismissRunnable ?: return@Runnable)
                 }
