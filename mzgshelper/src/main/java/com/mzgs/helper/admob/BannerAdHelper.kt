@@ -91,13 +91,6 @@ class BannerAdHelper(private val context: Context) {
                         errorCode = error.code
                     )
                     onAdFailedToLoad(error)
-                    
-                    // Auto-retry loading the banner after a delay
-                    Handler(Looper.getMainLooper()).postDelayed({
-                        Log.d(TAG, "Auto-retrying banner ad load after failure")
-                        val retryRequest = AdRequest.Builder().build()
-                        loadAd(retryRequest)
-                    }, 5000) // Retry after 5 seconds
                 }
                 
                 override fun onAdClicked() {
