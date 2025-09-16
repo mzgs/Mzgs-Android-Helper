@@ -85,6 +85,7 @@ object MzgsHelper {
         admobConfig: AdMobConfig,
         appLovinConfig: AppLovinConfig,
         defaultSplashTime: Long = 10000,
+        loadApplovinMaxInterstitial: Boolean = true,
         onSplashCompleteAdClosed: (() -> Unit)? = null,
         onCompleteWithAdsReady: (() -> Unit)? = null
     ) {
@@ -124,7 +125,9 @@ object MzgsHelper {
         fun initializeAppLovin() {
             Ads.initAppLovinMax(appLovinConfig) {
                 Log.d(TAG, "AppLovin MAX initialized")
-                AppLovinMediationManager.loadInterstitialAd()
+                if (loadApplovinMaxInterstitial) {
+                    AppLovinMediationManager.loadInterstitialAd()
+                }
 
                 // Mark AppLovin as ready
                 isApplovinReady = true
