@@ -704,6 +704,70 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
         return false
     }
     
+    @JvmStatic
+    fun loadAdmobInterstitial() {
+        if (MzgsHelper.debugNoAds) {
+            Log.d(TAG, "AdMob interstitial load skipped (debugNoAds mode)")
+            return
+        }
+        
+        val manager = getAdMobManager()
+        if (manager != null) {
+            Log.d(TAG, "Loading AdMob interstitial ad")
+            manager.loadInterstitialAd()
+        } else {
+            Log.e(TAG, "AdMobManager not initialized. Call initAdMob() first")
+        }
+    }
+    
+    @JvmStatic
+    fun loadAdmobRewarded() {
+        if (MzgsHelper.debugNoAds) {
+            Log.d(TAG, "AdMob rewarded load skipped (debugNoAds mode)")
+            return
+        }
+        
+        val manager = getAdMobManager()
+        if (manager != null) {
+            Log.d(TAG, "Loading AdMob rewarded ad")
+            manager.loadRewardedAd()
+        } else {
+            Log.e(TAG, "AdMobManager not initialized. Call initAdMob() first")
+        }
+    }
+    
+    @JvmStatic
+    fun loadApplovinMaxInterstitial() {
+        if (MzgsHelper.debugNoAds) {
+            Log.d(TAG, "AppLovin MAX interstitial load skipped (debugNoAds mode)")
+            return
+        }
+        
+        val manager = getAppLovinManager()
+        if (manager != null) {
+            Log.d(TAG, "Loading AppLovin MAX interstitial ad")
+            manager.loadInterstitialAd()
+        } else {
+            Log.e(TAG, "AppLovinMediationManager not initialized. Call initAppLovinMax() first")
+        }
+    }
+    
+    @JvmStatic
+    fun loadApplovinMaxRewarded() {
+        if (MzgsHelper.debugNoAds) {
+            Log.d(TAG, "AppLovin MAX rewarded load skipped (debugNoAds mode)")
+            return
+        }
+        
+        val manager = getAppLovinManager()
+        if (manager != null) {
+            Log.d(TAG, "Loading AppLovin MAX rewarded ad")
+            manager.loadRewardedAd()
+        } else {
+            Log.e(TAG, "AppLovinMediationManager not initialized. Call initAppLovinMax() first")
+        }
+    }
+    
     enum class BannerSize {
         ADAPTIVE,
         BANNER,
