@@ -706,68 +706,77 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
     
     @JvmStatic
     fun loadAdmobInterstitial() {
+        // Check if ads are disabled in debug mode
         if (MzgsHelper.debugNoAds) {
-            Log.d(TAG, "AdMob interstitial load skipped (debugNoAds mode)")
+            Log.d(TAG, "AdMob interstitial loading skipped (debugNoAds mode)")
             return
         }
         
-        val manager = getAdMobManager()
-        if (manager != null) {
-            Log.d(TAG, "Loading AdMob interstitial ad")
-            manager.loadInterstitialAd()
-        } else {
-            Log.e(TAG, "AdMobManager not initialized. Call initAdMob() first")
+        val adMobManager = getAdMobManager()
+        if (adMobManager == null) {
+            Log.e(TAG, "AdMob not initialized. Call initAdMob() first")
+            return
         }
+        
+        Log.d(TAG, "Loading AdMob interstitial ad")
+        adMobManager.loadInterstitialAd()
     }
     
     @JvmStatic
     fun loadAdmobRewarded() {
+        // Check if ads are disabled in debug mode
         if (MzgsHelper.debugNoAds) {
-            Log.d(TAG, "AdMob rewarded load skipped (debugNoAds mode)")
+            Log.d(TAG, "AdMob rewarded loading skipped (debugNoAds mode)")
             return
         }
         
-        val manager = getAdMobManager()
-        if (manager != null) {
-            Log.d(TAG, "Loading AdMob rewarded ad")
-            manager.loadRewardedAd()
-        } else {
-            Log.e(TAG, "AdMobManager not initialized. Call initAdMob() first")
+        val adMobManager = getAdMobManager()
+        if (adMobManager == null) {
+            Log.e(TAG, "AdMob not initialized. Call initAdMob() first")
+            return
         }
+        
+        Log.d(TAG, "Loading AdMob rewarded ad")
+        adMobManager.loadRewardedAd()
     }
     
     @JvmStatic
     fun loadApplovinMaxInterstitial() {
+        // Check if ads are disabled in debug mode
         if (MzgsHelper.debugNoAds) {
-            Log.d(TAG, "AppLovin MAX interstitial load skipped (debugNoAds mode)")
+            Log.d(TAG, "AppLovin MAX interstitial loading skipped (debugNoAds mode)")
             return
         }
         
-        val manager = getAppLovinManager()
-        if (manager != null) {
-            Log.d(TAG, "Loading AppLovin MAX interstitial ad")
-            manager.loadInterstitialAd()
-        } else {
-            Log.e(TAG, "AppLovinMediationManager not initialized. Call initAppLovinMax() first")
+        val appLovinManager = getAppLovinManager()
+        if (appLovinManager == null) {
+            Log.e(TAG, "AppLovin MAX not initialized. Call initAppLovinMax() first")
+            return
         }
+        
+        Log.d(TAG, "Loading AppLovin MAX interstitial ad")
+        appLovinManager.loadInterstitialAd()
     }
     
     @JvmStatic
     fun loadApplovinMaxRewarded() {
+        // Check if ads are disabled in debug mode
         if (MzgsHelper.debugNoAds) {
-            Log.d(TAG, "AppLovin MAX rewarded load skipped (debugNoAds mode)")
+            Log.d(TAG, "AppLovin MAX rewarded loading skipped (debugNoAds mode)")
             return
         }
         
-        val manager = getAppLovinManager()
-        if (manager != null) {
-            Log.d(TAG, "Loading AppLovin MAX rewarded ad")
-            manager.loadRewardedAd()
-        } else {
-            Log.e(TAG, "AppLovinMediationManager not initialized. Call initAppLovinMax() first")
+        val appLovinManager = getAppLovinManager()
+        if (appLovinManager == null) {
+            Log.e(TAG, "AppLovin MAX not initialized. Call initAppLovinMax() first")
+            return
         }
+        
+        Log.d(TAG, "Loading AppLovin MAX rewarded ad")
+        appLovinManager.loadRewardedAd()
     }
     
+
     enum class BannerSize {
         ADAPTIVE,
         BANNER,
