@@ -2,6 +2,8 @@ package com.mzgs.helper.applovin
 
 import android.content.Context
 import android.graphics.Color
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.Gravity
 import android.view.ViewGroup
@@ -19,7 +21,15 @@ class AppLovinBannerHelper(private val context: Context) {
     
     companion object {
         private const val TAG = "AppLovinBannerHelper"
+        private const val AUTO_REFRESH_INTERVAL_MS = 60000L // 60 seconds
     }
+    
+    private val autoRefreshHandlers = mutableMapOf<MaxAdView, Handler>()
+    private val autoRefreshRunnables = mutableMapOf<MaxAdView, Runnable>()
+    private val lastAdLoadedTimes = mutableMapOf<MaxAdView, Long>()
+    private val adUnitIds = mutableMapOf<MaxAdView, String>()
+    private val bannerTypes = mutableMapOf<MaxAdView, BannerType>()
+    private val isAutoRefreshEnabled = mutableMapOf<MaxAdView, Boolean>()
     
     enum class BannerType {
         BANNER,           // 320x50
@@ -35,7 +45,8 @@ class AppLovinBannerHelper(private val context: Context) {
         onAdFailedToLoad: (MaxError) -> Unit = {},
         onAdClicked: () -> Unit = {},
         onAdExpanded: () -> Unit = {},
-        onAdCollapsed: () -> Unit = {}
+        onAdCollapsed: () -> Unit = {},
+        enableAutoRefresh: Boolean = true
     ): MaxAdView? {
         val config = AppLovinMediationManager.getInstance(context).getConfig()
         if (config != null && !config.shouldShowBanners(context)) {
@@ -52,10 +63,16 @@ class AppLovinBannerHelper(private val context: Context) {
             BannerType.LEADER -> MaxAdView(adUnitId, MaxAdFormat.LEADER, context)
         }
         
+        // Store metadata for this ad view
+        adUnitIds[adView] = adUnitId
+        bannerTypes[adView] = bannerType
+        isAutoRefreshEnabled[adView] = enableAutoRefresh
+        
         adView.apply {
             setListener(object : MaxAdViewAdListener {
                 override fun onAdLoaded(ad: MaxAd) {
                     Log.d(TAG, "$bannerType ad loaded")
+                    lastAdLoadedTimes[adView] = System.currentTimeMillis()
                     FirebaseAnalyticsManager.logAdLoad(
                         adType = "banner_$bannerType",
                         adUnitId = adUnitId,
@@ -63,6 +80,11 @@ class AppLovinBannerHelper(private val context: Context) {
                         success = true
                     )
                     onAdLoaded()
+                    
+                    // Start manual auto-refresh timer if enabled
+                    if (isAutoRefreshEnabled[adView] == true) {
+                        startManualAutoRefresh(adView, container)
+                    }
                 }
                 
                 override fun onAdLoadFailed(adUnitId: String, error: MaxError) {
@@ -157,9 +179,12 @@ class AppLovinBannerHelper(private val context: Context) {
         
         container.addView(adView, params)
         
-        adView.loadAd()
+        // Disable AppLovin's built-in auto-refresh
+        // Set this extra parameter to work around SDK bug that ignores calls to stopAutoRefresh()
+        adView.setExtraParameter("allow_pause_auto_refresh_immediately", "true")
+        adView.stopAutoRefresh()
         
-        adView.startAutoRefresh()
+        adView.loadAd()
         
         return adView
     }
@@ -230,9 +255,12 @@ class AppLovinBannerHelper(private val context: Context) {
         
         container.addView(adView, params)
         
-        adView.loadAd()
+        // Disable AppLovin's built-in auto-refresh
+        // Set this extra parameter to work around SDK bug that ignores calls to stopAutoRefresh()
+        adView.setExtraParameter("allow_pause_auto_refresh_immediately", "true")
+        adView.stopAutoRefresh()
         
-        adView.startAutoRefresh()
+        adView.loadAd()
         
         return adView
     }
@@ -276,13 +304,98 @@ class AppLovinBannerHelper(private val context: Context) {
         )
     }
     
-    fun stopAutoRefresh(adView: MaxAdView) {
+    private fun startManualAutoRefresh(adView: MaxAdView, container: FrameLayout) {
+        // Cancel any existing refresh timer for this ad view
+        stopManualAutoRefresh(adView)
+        
+        // Get refresh interval from config or use default
+        val config = AppLovinMediationManager.getInstance(context).getConfig()
+        val refreshInterval = config?.bannerAutoRefreshSeconds?.times(1000L) ?: AUTO_REFRESH_INTERVAL_MS
+        
+        if (refreshInterval <= 0) {
+            Log.d(TAG, "Auto-refresh disabled (interval: $refreshInterval)")
+            return
+        }
+        
+        val handler = Handler(Looper.getMainLooper())
+        val runnable = Runnable {
+            if (isAutoRefreshEnabled[adView] == true) {
+                val timeSinceLastLoad = System.currentTimeMillis() - (lastAdLoadedTimes[adView] ?: 0)
+                if (timeSinceLastLoad >= refreshInterval) {
+                    Log.d(TAG, "Auto-refreshing ${bannerTypes[adView]} ad after ${refreshInterval/1000} seconds")
+                    refreshBannerAd(adView, container)
+                }
+            }
+        }
+        
+        autoRefreshHandlers[adView] = handler
+        autoRefreshRunnables[adView] = runnable
+        
+        handler.postDelayed(runnable, refreshInterval)
+        Log.d(TAG, "Manual auto-refresh scheduled for ${refreshInterval/1000} seconds")
+    }
+    
+    private fun stopManualAutoRefresh(adView: MaxAdView) {
+        autoRefreshRunnables[adView]?.let { runnable ->
+            autoRefreshHandlers[adView]?.removeCallbacks(runnable)
+        }
+        autoRefreshHandlers.remove(adView)
+        autoRefreshRunnables.remove(adView)
+        Log.d(TAG, "Manual auto-refresh stopped")
+    }
+    
+    fun refreshBannerAd(adView: MaxAdView, container: FrameLayout) {
+        val adUnitId = adUnitIds[adView] ?: return
+        val bannerType = bannerTypes[adView] ?: return
+        val enableRefresh = isAutoRefreshEnabled[adView] ?: true
+        
+        Log.d(TAG, "Refreshing $bannerType ad")
+        
+        // Stop current auto-refresh
+        stopManualAutoRefresh(adView)
+        
+        // Destroy old ad
+        adView.setExtraParameter("allow_pause_auto_refresh_immediately", "true")
         adView.stopAutoRefresh()
+        adView.destroy()
+        
+        // Clean up references
+        lastAdLoadedTimes.remove(adView)
+        adUnitIds.remove(adView)
+        bannerTypes.remove(adView)
+        isAutoRefreshEnabled.remove(adView)
+        
+        // Create new banner with same parameters
+        createBannerView(
+            adUnitId = adUnitId,
+            bannerType = bannerType,
+            container = container,
+            enableAutoRefresh = enableRefresh
+        )
+    }
+    
+    fun stopAutoRefresh(adView: MaxAdView) {
+        // Set extra parameter to work around SDK bug
+        adView.setExtraParameter("allow_pause_auto_refresh_immediately", "true")
+        adView.stopAutoRefresh()
+        
+        // Also stop our manual auto-refresh
+        stopManualAutoRefresh(adView)
+        isAutoRefreshEnabled[adView] = false
+        
         Log.d(TAG, "Auto-refresh stopped")
     }
     
     fun startAutoRefresh(adView: MaxAdView) {
-        adView.startAutoRefresh()
+        // We use manual refresh instead of AppLovin's built-in
+        isAutoRefreshEnabled[adView] = true
+        
+        // Get the container from the parent (assuming it's a FrameLayout)
+        val container = adView.parent as? FrameLayout
+        if (container != null && lastAdLoadedTimes[adView] != null) {
+            startManualAutoRefresh(adView, container)
+        }
+        
         Log.d(TAG, "Auto-refresh started")
     }
     
@@ -307,8 +420,20 @@ class AppLovinBannerHelper(private val context: Context) {
     
     fun destroyBanner(adView: MaxAdView?) {
         adView?.let {
+            // Stop manual refresh
+            stopManualAutoRefresh(it)
+            
+            // Clean up references
+            lastAdLoadedTimes.remove(it)
+            adUnitIds.remove(it)
+            bannerTypes.remove(it)
+            isAutoRefreshEnabled.remove(it)
+            
+            // Destroy the ad view
+            it.setExtraParameter("allow_pause_auto_refresh_immediately", "true")
             it.stopAutoRefresh()
             it.destroy()
+            
             Log.d(TAG, "Banner destroyed")
         }
     }

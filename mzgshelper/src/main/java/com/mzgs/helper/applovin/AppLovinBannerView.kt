@@ -57,8 +57,8 @@ fun AppLovinBannerView(
         onDispose {
             bannerAd?.let {
                 Log.d("AppLovinBannerView", "Disposing banner ad")
-                it.stopAutoRefresh()
-                it.destroy()
+                val helper = AppLovinBannerHelper(context)
+                helper.destroyBanner(it)
             }
         }
     }
@@ -104,8 +104,8 @@ fun AppLovinAdaptiveBannerView(
         onDispose {
             bannerAd?.let {
                 Log.d("AppLovinAdaptiveBanner", "Disposing adaptive banner ad")
-                it.stopAutoRefresh()
-                it.destroy()
+                val helper = AppLovinBannerHelper(context)
+                helper.destroyBanner(it)
             }
         }
     }
@@ -150,8 +150,8 @@ fun AppLovinLeaderBannerView(
         onDispose {
             bannerAd?.let {
                 Log.d("AppLovinLeaderBanner", "Disposing leader banner ad")
-                it.stopAutoRefresh()
-                it.destroy()
+                val helper = AppLovinBannerHelper(context)
+                helper.destroyBanner(it)
             }
         }
     }

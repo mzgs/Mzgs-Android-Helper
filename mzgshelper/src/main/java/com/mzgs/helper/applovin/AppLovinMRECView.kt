@@ -60,8 +60,8 @@ fun AppLovinMRECView(
         onDispose {
             mrecAd?.let {
                 Log.d("AppLovinMRECView", "Disposing MREC ad")
-                it.stopAutoRefresh()
-                it.destroy()
+                val helper = AppLovinBannerHelper(context)
+                helper.destroyBanner(it)
             }
         }
     }
@@ -139,8 +139,8 @@ fun AppLovinInlineMREC(
         onDispose {
             mrecAd?.let { ad ->
                 Log.d("AppLovinInlineMREC", "Disposing inline MREC ad")
-                ad.stopAutoRefresh()
-                ad.destroy()
+                val helper = AppLovinBannerHelper(context)
+                helper.destroyBanner(ad)
             }
         }
     }
