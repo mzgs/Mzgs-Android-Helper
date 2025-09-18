@@ -10,6 +10,7 @@ data class AppLovinConfig(
     val rewardedAdUnitId: String = "",
     val appOpenAdUnitId: String = "",
     val nativeAdUnitId: String = "",
+    val bannerAutoRefreshSeconds: Int = 60,  // Auto-refresh banner/MREC ads every X seconds (0 to disable)
     val enableAppOpenAd: Boolean = true,
     val enableTestMode: Boolean = false,  // DEBUG ONLY: Protected by isDebugMode check
     val verboseLogging: Boolean = false,  // Note: Currently only logged, not applied to SDK

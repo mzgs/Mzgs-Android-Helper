@@ -118,6 +118,7 @@ class MainActivity : ComponentActivity() {
             rewardedAdUnitId = "",
             mrecAdUnitId = "",
             nativeAdUnitId = "",
+            bannerAutoRefreshSeconds = 30,  // Refresh banner/MREC ads every 30 seconds (0 to disable)
             enableTestMode = true,
             verboseLogging = true,
             creativeDebuggerEnabled = true,
