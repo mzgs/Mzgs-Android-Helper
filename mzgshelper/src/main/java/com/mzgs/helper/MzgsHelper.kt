@@ -50,6 +50,7 @@ object MzgsHelper {
     var isDebug = false
     var debugNoAds = false
     var IPCountry: String? = null
+    private var debugCountryOverride: String? = null
     
     fun init(context: Context, debugMode: Boolean, skipAdsInDebug: Boolean = false) {
         weakContext = java.lang.ref.WeakReference(context.applicationContext)
@@ -246,7 +247,32 @@ object MzgsHelper {
 
     }
 
+    fun setDebugCountry(country: String = "TR") {
+        if (!isDebug) {
+            Log.d("LibHelper", "setDebugCountry ignored because app is not in debug mode")
+            return
+        }
+
+        val trimmedCountry = country.trim()
+        if (trimmedCountry.isEmpty()) {
+            Log.w("LibHelper", "setDebugCountry called with blank country, ignoring request")
+            return
+        }
+
+        val normalizedCountry = trimmedCountry.uppercase(Locale.ROOT)
+        debugCountryOverride = normalizedCountry
+        IPCountry = normalizedCountry
+        Log.d("LibHelper", "Debug country override set to $normalizedCountry")
+    }
+
     fun getPhoneCountry(): List<String> {
+        if (isDebug) {
+            debugCountryOverride?.let { override ->
+                Log.d("LibHelper", "Using debug country override for phone country: $override")
+                return listOf(override)
+            }
+        }
+
         val countries = mutableListOf<String>()
         val context = getContext()
         try {
@@ -812,4 +838,3 @@ object ActionCounter {
         return Pref.getInt(key, 0)
     }
 }
-
