@@ -37,6 +37,13 @@ fun p(obj: Any) {
     Log.d("mzgslog", "-------------------------------------------------------")
 }
 
+fun printLine(message: Any? = null) {
+    val line = "-------------------------------------------------------"
+    Log.d("mzgslog", line)
+    message?.toString()?.takeIf { it.isNotEmpty() }?.let { Log.d("mzgslog", it) }
+    Log.d("mzgslog", line)
+}
+
 object MzgsHelper {
     
     private const val TAG = "MzgsHelper"
@@ -407,13 +414,29 @@ object MzgsHelper {
     @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
     fun isNetworkAvailable(): Boolean {
         val context = getContext() ?: return false
-        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        return try {
+            val hasPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                context.checkSelfPermission(Manifest.permission.ACCESS_NETWORK_STATE) == PackageManager.PERMISSION_GRANTED
+            } else {
+                true
+            }
 
-        val network = connectivityManager.activeNetwork ?: return false
-        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+            if (!hasPermission) {
+                Log.w(TAG, "ACCESS_NETWORK_STATE not granted, skipping check and assuming network available")
+                return true
+            }
 
-        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+            val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+
+            val network = connectivityManager.activeNetwork ?: return false
+            val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        } catch (e: SecurityException) {
+            Log.w(TAG, "ACCESS_NETWORK_STATE not available, assuming network available: ${e.message}")
+            true
+        }
     }
 
     
@@ -544,6 +567,23 @@ object Remote {
         }
     }
 
+    /**
+     * Synchronous init that suspends until remote config is fetched (or fails).
+     * Use this when you need to await completion before proceeding.
+     */
+    suspend fun initSync(context: Context, url: String? = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/nest.json") {
+        applicationContext = context.applicationContext
+        app = JSONObject()
+
+        url?.takeIf { it.isNotEmpty() }?.let { configUrl ->
+            if (MzgsHelper.isNetworkAvailable()) {
+                fetchRemoteConfig(configUrl)
+            } else {
+                Log.w("Remote", "Network not available, using default values")
+            }
+        }
+    }
+
 
 
 
@@ -554,7 +594,7 @@ object Remote {
     private suspend fun fetchRemoteConfig(url: String) {
         try {
             val response = withContext(Dispatchers.IO) {
-                makeRequest(url, 30000)
+                makeRequest(url, 10000)
             }
 
             response?.let { data ->

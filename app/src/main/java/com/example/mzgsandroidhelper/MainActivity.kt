@@ -9,6 +9,7 @@ import com.google.android.gms.ads.rewarded.RewardItem
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.lifecycle.lifecycleScope
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -68,7 +69,11 @@ import com.mzgs.helper.applovin.AppLovinAppOpenAdManager
 import com.mzgs.helper.applovin.AppLovinConfig
 import com.mzgs.helper.applovin.AppLovinMediationManager
 import com.mzgs.helper.p
+import com.mzgs.helper.printLine
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
+import kotlin.system.measureTimeMillis
 
 class MainActivity : ComponentActivity() {
     
@@ -77,12 +82,23 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        
+
+     
+
 
 
         MzgsHelper.init(this, BuildConfig.DEBUG, skipAdsInDebug = false)
+
+        lifecycleScope.launch{
+
+          Remote.initSync(this@MainActivity)
+
+            printLine(Remote.getString("app_name","app"))
+
+        }
+
         FirebaseAnalyticsManager.initialize(this)
-        Remote.init(this)
+
         Ads.init(this)
         MzgsHelper.setIPCountry()
 
