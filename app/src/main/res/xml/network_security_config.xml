@@ -1,49 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- Allow cleartext traffic for development and ad testing -->
-    <base-config cleartextTrafficPermitted="true">
+    <!-- Default: disallow cleartext; trust only system CAs -->
+    <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <certificates src="system" />
-            <certificates src="user" />
         </trust-anchors>
     </base-config>
-    
-    <!-- Domain-specific configurations for ad networks if needed -->
+
+    <!-- AppLovin needs HTTP fallback on some endpoints; scope cleartext narrowly -->
     <domain-config cleartextTrafficPermitted="true">
-        <!-- Google AdMob domains -->
-        <domain includeSubdomains="true">googlesyndication.com</domain>
-        <domain includeSubdomains="true">googleadservices.com</domain>
-        <domain includeSubdomains="true">doubleclick.net</domain>
-        
-        <!-- Meta Audience Network domains -->
-        <domain includeSubdomains="true">facebook.com</domain>
-        <domain includeSubdomains="true">fbcdn.net</domain>
-        
-        <!-- Unity Ads domains -->
-        <domain includeSubdomains="true">unityads.unity3d.com</domain>
-        <domain includeSubdomains="true">unity3d.com</domain>
-        
-        <!-- AppLovin domains -->
         <domain includeSubdomains="true">applovin.com</domain>
         <domain includeSubdomains="true">applvn.com</domain>
-        
-        <!-- IronSource domains -->
-        <domain includeSubdomains="true">supersonicads.com</domain>
-        <domain includeSubdomains="true">supersonic.com</domain>
-        
-        <!-- AdColony domains -->
-        <domain includeSubdomains="true">adcolony.com</domain>
-        
-        <!-- Vungle domains -->
-        <domain includeSubdomains="true">vungle.com</domain>
-        
-        <!-- InMobi domains -->
-        <domain includeSubdomains="true">inmobi.com</domain>
-        
-        <!-- Chartboost domains -->
-        <domain includeSubdomains="true">chartboost.com</domain>
-        
-        <!-- Tapjoy domains -->
-        <domain includeSubdomains="true">tapjoy.com</domain>
     </domain-config>
 </network-security-config>

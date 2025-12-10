@@ -110,32 +110,35 @@ class AppLovinAppOpenAdManager private constructor(
         appOpenAd?.loadAd()
     }
     
-    fun showAdIfAvailable() {
+    fun showAdIfAvailable(): Boolean {
         if (!config.shouldShowAppOpenAd(application)) {
             Log.d(TAG, "App open ads disabled")
             loadAd()
-            return
+            return false
         }
         
         if (isShowingAd) {
             Log.d(TAG, "App open ad is already showing")
-            return
+            return false
         }
         
         if (!isAdAvailable()) {
             Log.d(TAG, "App open ad not available, loading new ad")
             loadAd()
-            return
+            return false
         }
         
         com.mzgs.helper.Ads.getCurrentActivity()?.let { activity ->
             if (shouldNotShowAppOpenAd(activity)) {
                 Log.d(TAG, "Skipping app open ad for excluded activity: ${activity.javaClass.simpleName}")
-                return
+                return false
             }
             
             appOpenAd?.showAd()
+            return true
         }
+        
+        return false
     }
     
     private fun isAdAvailable(): Boolean {

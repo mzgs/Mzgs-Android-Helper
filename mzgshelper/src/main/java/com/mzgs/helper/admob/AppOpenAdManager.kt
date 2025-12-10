@@ -182,32 +182,32 @@ class AppOpenAdManager(
         activity: Activity,
         onAdDismissed: () -> Unit = {},
         onAdFailedToShow: () -> Unit = {}
-    ) {
+    ): Boolean {
         Log.d(TAG, "showAdIfAvailable called")
         
         if (!config.shouldShowAppOpenAd(activity)) {
             Log.d(TAG, "App open ads are disabled")
             onAdFailedToShow()
-            return
+            return false
         }
         
         if (isShowingAd) {
             Log.d(TAG, "App open ad is already showing")
-            return
+            return false
         }
         
         if (!isAdAvailable()) {
             Log.d(TAG, "App open ad not available, fetching new ad")
             fetchAd(activity)
             onAdFailedToShow()
-            return
+            return false
         }
         
         val ad = appOpenAd
         if (ad == null) {
             Log.e(TAG, "App open ad is null despite being available")
             onAdFailedToShow()
-            return
+            return false
         }
         
         Log.d(TAG, "Showing app open ad now")
@@ -248,6 +248,7 @@ class AppOpenAdManager(
         isShowingAd = true
         ad.show(activity)
         Log.d(TAG, "show() method called on ad")
+        return true
     }
     
     // Activity lifecycle callbacks removed - using Ads.getCurrentActivity() instead

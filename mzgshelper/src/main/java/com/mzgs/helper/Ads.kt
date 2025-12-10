@@ -677,25 +677,30 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
     @JvmStatic
     fun showAppOpenAd(): Boolean {
         Log.d(TAG, "Attempting to show app open ad - checking AppLovin MAX first")
+        var shown = false
         
         // First try AppLovin MAX
         val appLovinAppOpenManager = AppLovinAppOpenAdManager.getInstance()
         if (appLovinAppOpenManager != null) {
             Log.d(TAG, "Attempting to show AppLovin MAX app open ad")
-            appLovinAppOpenManager.showAdIfAvailable()
-            FirebaseAnalyticsManager.logAdShown("app_open", APPLOVIN_MAX, true)
-            return true
+            shown = appLovinAppOpenManager.showAdIfAvailable()
+            if (shown) {
+                FirebaseAnalyticsManager.logAdShown("app_open", APPLOVIN_MAX, true)
+                return true
+            }
         }
         Log.d(TAG, "AppLovin MAX app open ad manager not initialized, trying AdMob")
         
         // Fallback to AdMob
         val admobAppOpenManager = AppOpenAdManager.getInstance()
         val activity = getCurrentActivity()
-        if (admobAppOpenManager != null && activity != null) {
+        if (!shown && admobAppOpenManager != null && activity != null) {
             Log.d(TAG, "Attempting to show AdMob app open ad")
-            admobAppOpenManager.showAdIfAvailable(activity)
-            FirebaseAnalyticsManager.logAdShown("app_open", ADMOB, true)
-            return true
+            shown = admobAppOpenManager.showAdIfAvailable(activity)
+            if (shown) {
+                FirebaseAnalyticsManager.logAdShown("app_open", ADMOB, true)
+                return true
+            }
         }
         Log.d(TAG, "AdMob app open ad not ready or no activity available")
         
