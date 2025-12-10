@@ -83,24 +83,20 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-     
 
 
 
-        MzgsHelper.init(this, BuildConfig.DEBUG, skipAdsInDebug = false)
+
+        MzgsHelper.init(this, this, BuildConfig.DEBUG, skipAdsInDebug = false)
 
         lifecycleScope.launch{
-
-          Remote.initSync(this@MainActivity)
-
-            printLine(Remote.getString("app_name","app"))
-
+            Remote.initSync()
+            MzgsHelper.setIPCountry()
+            FirebaseAnalyticsManager.initialize()
+            Ads.init()
         }
 
-        FirebaseAnalyticsManager.initialize(this)
 
-        Ads.init(this)
-        MzgsHelper.setIPCountry()
 
 
         val admobConfig = AdMobConfig(

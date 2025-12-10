@@ -111,12 +111,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         
         // Initialize MzgsHelper
-        MzgsHelper.init(this, BuildConfig.DEBUG, skipAdsInDebug = false)
+        MzgsHelper.init(this, this, BuildConfig.DEBUG, skipAdsInDebug = false)
         
         // Initialize other components
-        FirebaseAnalyticsManager.initialize(this)
-        Remote.init(this)
-        Ads.init(this)
+        FirebaseAnalyticsManager.initialize()
+        Remote.init()
+        Ads.init()
         MzgsHelper.setIPCountry()
         
         // Configure AdMob - All available parameters
@@ -459,7 +459,7 @@ The library includes built-in Firebase Analytics support for tracking ad events 
 
 ```kotlin
 // Initialize in your Application class or MainActivity
-FirebaseAnalyticsManager.initialize(context)
+FirebaseAnalyticsManager.initialize()
 ```
 
 ### Log Custom Events

@@ -2,18 +2,33 @@ package com.mzgs.helper.analytics
 
 import android.content.Context
 import android.os.Bundle
+import android.util.Log
 import com.google.firebase.analytics.FirebaseAnalytics
+import com.mzgs.helper.MzgsHelper
 
 object FirebaseAnalyticsManager {
     private var firebaseAnalytics: FirebaseAnalytics? = null
     
-    fun initialize(context: Context) {
-        if (firebaseAnalytics == null) {
-            firebaseAnalytics = FirebaseAnalytics.getInstance(context)
+    fun initialize(context: Context? = MzgsHelper.getContext()) {
+        val resolvedContext = context ?: MzgsHelper.getContext()
+        if (resolvedContext == null) {
+            Log.e("FirebaseAnalyticsManager", "MzgsHelper.init(...) must be called before FirebaseAnalyticsManager.initialize()")
+            return
         }
+        if (firebaseAnalytics == null) {
+            firebaseAnalytics = FirebaseAnalytics.getInstance(resolvedContext.applicationContext)
+        }
+    }
+
+    private fun ensureInitialized(): Boolean {
+        if (firebaseAnalytics == null) {
+            initialize()
+        }
+        return firebaseAnalytics != null
     }
     
     fun logEvent(eventName: String, params: Bundle? = null) {
+        if (!ensureInitialized()) return
         firebaseAnalytics?.logEvent(eventName, params)
     }
     
@@ -26,6 +41,7 @@ object FirebaseAnalyticsManager {
         errorCode: Int? = null,
         retryAttempt: Int = 0
     ) {
+        if (!ensureInitialized()) return
         val bundle = Bundle().apply {
             putString("ad_type", adType)
             putString("ad_unit_id", adUnitId)
@@ -47,6 +63,7 @@ object FirebaseAnalyticsManager {
         adUnitId: String,
         adNetwork: String = ""
     ) {
+        if (!ensureInitialized()) return
         val bundle = Bundle().apply {
             putString("ad_type", adType)
             putString("ad_unit_id", adUnitId)
@@ -61,6 +78,7 @@ object FirebaseAnalyticsManager {
         adNetwork: String,
         success: Boolean = true
     ) {
+        if (!ensureInitialized()) return
         val bundle = Bundle().apply {
             putString("ad_type", adType)
             putString("ad_network", adNetwork)

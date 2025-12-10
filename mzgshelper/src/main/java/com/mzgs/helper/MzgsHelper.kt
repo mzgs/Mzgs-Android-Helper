@@ -2,6 +2,7 @@ package com.mzgs.helper
 
 import android.Manifest
 import android.R
+import android.app.Activity
 import android.app.Application
 import android.content.Context
 import android.content.pm.ApplicationInfo
@@ -48,20 +49,58 @@ object MzgsHelper {
     
     private const val TAG = "MzgsHelper"
     private var weakContext: java.lang.ref.WeakReference<Context>? = null
+    private var weakActivity: java.lang.ref.WeakReference<Activity>? = null
+    private var lifecycleCallbacksRegistered = false
+    private val activityLifecycleCallbacks = object : Application.ActivityLifecycleCallbacks {
+        override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
+
+        override fun onActivityStarted(activity: Activity) {
+            updateActivity(activity)
+        }
+
+        override fun onActivityResumed(activity: Activity) {
+            updateActivity(activity)
+        }
+
+        override fun onActivityPaused(activity: Activity) {}
+
+        override fun onActivityStopped(activity: Activity) {
+            if (weakActivity?.get() == activity) {
+                updateActivity(null)
+            }
+        }
+
+        override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
+
+        override fun onActivityDestroyed(activity: Activity) {
+            if (weakActivity?.get() == activity) {
+                updateActivity(null)
+            }
+            AdMobManager.onActivityDestroyed(activity)
+        }
+    }
     var restrictedCountries: List<String> = listOf(
         "UK", "US", "GB", "CN", "MX", "JP", "KR", "AR", "HK", "IN",
         "PK", "TR", "VN", "RU", "SG", "MO", "TW", "PY"
     )
 
+    @Volatile
+    private var initialized = false
     var isAllowedCountry = true
     var isDebug = false
     var debugNoAds = false
     var IPCountry: String? = null
     private var debugCountryOverride: String? = null
     
-    fun init(context: Context, debugMode: Boolean, skipAdsInDebug: Boolean = false) {
+    fun init(context: Context, activity: Activity, debugMode: Boolean, skipAdsInDebug: Boolean = false) {
         weakContext = java.lang.ref.WeakReference(context.applicationContext)
+        weakActivity = java.lang.ref.WeakReference(activity)
+        if (!lifecycleCallbacksRegistered) {
+            activity.application.registerActivityLifecycleCallbacks(activityLifecycleCallbacks)
+            lifecycleCallbacksRegistered = true
+        }
         isDebug = debugMode
+        initialized = true
         
         // Only set debugNoAds if we're in debug mode
         debugNoAds = skipAdsInDebug && debugMode
@@ -76,8 +115,18 @@ object MzgsHelper {
         }
     }
     
-    private fun getContext(): Context? {
+    fun isInitialized(): Boolean = initialized
+    
+    fun getContext(): Context? {
         return weakContext?.get()
+    }
+
+    fun getActivity(): Activity? {
+        return weakActivity?.get()
+    }
+
+    fun updateActivity(activity: Activity?) {
+        weakActivity = activity?.let { java.lang.ref.WeakReference(it) }
     }
     
     fun showToast(message: String, duration: Int = Toast.LENGTH_SHORT) {
@@ -339,7 +388,7 @@ object MzgsHelper {
                 Log.d("LibHelper", "IP country set to: $IPCountry")
             } catch (e: Exception) {
                 Log.e("LibHelper", "Error getting country from IP, defaulting to US", e)
-                IPCountry = "US"
+                IPCountry = "X"
             }
         }
     }
@@ -545,11 +594,17 @@ object Remote {
      * Initialize with application context and optionally fetch remote config
      * Call this method in your Application class onCreate or Activity onCreate
      *
-     * @param context The application context
+     * @param context Optional context. If null, uses the one stored in MzgsHelper.
      * @param url Optional remote configuration URL (if provided, will fetch config asynchronously)
      */
-    fun init(context: Context, url: String? = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/nest.json") {
-        applicationContext = context.applicationContext
+    fun init(context: Context? = MzgsHelper.getContext(), url: String? = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/nest.json") {
+        val resolvedContext = context ?: MzgsHelper.getContext()
+        if (resolvedContext == null) {
+            Log.e("Remote", "MzgsHelper.init(context, activity, ...) must be called before Remote.init()")
+            return
+        }
+
+        applicationContext = resolvedContext.applicationContext
         
         // Initialize with empty config immediately (will use default values from getter functions)
         app = JSONObject()
@@ -571,8 +626,14 @@ object Remote {
      * Synchronous init that suspends until remote config is fetched (or fails).
      * Use this when you need to await completion before proceeding.
      */
-    suspend fun initSync(context: Context, url: String? = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/nest.json") {
-        applicationContext = context.applicationContext
+    suspend fun initSync(context: Context? = MzgsHelper.getContext(), url: String? = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/nest.json") {
+        val resolvedContext = context ?: MzgsHelper.getContext()
+        if (resolvedContext == null) {
+            Log.e("Remote", "MzgsHelper.init(context, activity, ...) must be called before Remote.initSync()")
+            return
+        }
+
+        applicationContext = resolvedContext.applicationContext
         app = JSONObject()
 
         url?.takeIf { it.isNotEmpty() }?.let { configUrl ->
@@ -739,7 +800,7 @@ object Remote {
      * @return The application context, or null if not initialized
      */
     fun getApplicationContext(): Context? {
-        return applicationContext
+        return applicationContext ?: MzgsHelper.getContext()
     }
 }
 

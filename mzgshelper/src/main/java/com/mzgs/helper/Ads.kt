@@ -1,9 +1,7 @@
 package com.mzgs.helper
 
 import android.app.Activity
-import android.app.Application
 import android.content.Context
-import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -21,35 +19,43 @@ data class AdShowResult(
     val network: String? = null
 )
 
-object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
+object Ads : DefaultLifecycleObserver {
     private const val TAG = "Ads"
     private const val ADMOB = "admob"
     private const val APPLOVIN_MAX = "applovin_max"
     
-    private var applicationContext: Context? = null
-    private var currentActivityRef: WeakReference<Activity>? = null
+    private var applicationContextRef: WeakReference<Context>? = null
     private var isFirstLaunch = true
     private var appOpenAdEnabled = false
     
-    fun init(context: Context) {
-        applicationContext = context.applicationContext
-        
+    private fun getAppContext(): Context? {
+        return applicationContextRef?.get() ?: MzgsHelper.getContext()
+    }
+
+    private fun setAppContext(context: Context) {
+        applicationContextRef = WeakReference(context.applicationContext)
+    }
+
+    fun init() {
+        val baseContext = MzgsHelper.getContext()
+        if (baseContext == null) {
+            Log.e(TAG, "MzgsHelper.init(context, activity, ...) must be called before Ads.init()")
+            return
+        }
+
+        if (!MzgsHelper.isInitialized()) {
+            Log.w(TAG, "MzgsHelper.init(...) should be called before Ads.init() to provide shared references")
+        }
+
+        setAppContext(baseContext)
+
         // Register for process lifecycle to detect app foreground/background
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
-        
-        // Register for activity lifecycle callbacks
-        if (context is Activity) {
-            currentActivityRef = WeakReference(context)
-            context.application.registerActivityLifecycleCallbacks(this)
-        } else if (context is Application) {
-            context.registerActivityLifecycleCallbacks(this)
-        } else if (context.applicationContext is Application) {
-            (context.applicationContext as Application).registerActivityLifecycleCallbacks(this)
-        }
-        
+
         // Get and log the advertising ID (skip if ads are disabled)
-        if (!MzgsHelper.debugNoAds) {
-            getAdvertisingId(context)
+        val advertisingContext = getAppContext()
+        if (!MzgsHelper.debugNoAds && advertisingContext != null) {
+            getAdvertisingId(advertisingContext)
         }
     }
     
@@ -104,7 +110,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
     
     @JvmStatic
     fun getCurrentActivity(): Activity? {
-        return currentActivityRef?.get()
+        return MzgsHelper.getActivity()
     }
     
     // Called when app comes to foreground
@@ -138,7 +144,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
             // Load AdMob app open ad if available
             val admobAppOpenManager = AppOpenAdManager.getInstance()
             if (admobAppOpenManager != null) {
-                val context = applicationContext
+                val context = getAppContext()
                 if (context != null) {
                     Log.d(TAG, "Fetching AdMob app open ad for next app resume")
                     admobAppOpenManager.fetchAd(context)
@@ -165,7 +171,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
         config: AdMobConfig,
         onInitComplete: () -> Unit = {}
     ) {
-        val context = applicationContext
+        val context = getAppContext()
         if (context == null) {
             Log.e(TAG, "Ads.init() must be called before initAdMob()")
             return
@@ -184,7 +190,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
         config: AppLovinConfig,
         onInitComplete: () -> Unit = {}
     ) {
-        val context = applicationContext
+        val context = getAppContext()
         if (context == null) {
             Log.e(TAG, "Ads.init() must be called before initAppLovinMax()")
             return
@@ -204,7 +210,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
         appLovinConfig: AppLovinConfig,
         onBothInitComplete: () -> Unit = {}
     ) {
-        val context = applicationContext
+        val context = getAppContext()
         if (context == null) {
             Log.e(TAG, "Ads.init() must be called before initBothNetworks()")
             return
@@ -233,7 +239,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
     
     @JvmStatic
     fun getAdMobManager(): AdMobManager? {
-        val context = applicationContext
+        val context = getAppContext()
         if (context == null) {
             Log.e(TAG, "Ads.init() must be called before getAdMobManager()")
             return null
@@ -243,7 +249,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
     
     @JvmStatic
     fun getAppLovinManager(): AppLovinMediationManager? {
-        val context = applicationContext
+        val context = getAppContext()
         if (context == null) {
             Log.e(TAG, "Ads.init() must be called before getAppLovinManager()")
             return null
@@ -366,7 +372,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
             return false
         }
         
-        val context = applicationContext
+        val context = getAppContext()
         if (context == null) {
             Log.e(TAG, "No application context available for showing banner")
             return false
@@ -612,7 +618,7 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
             return false
         }
         
-        val context = applicationContext
+        val context = getAppContext()
         if (context == null) {
             Log.e(TAG, "No application context available for showing MREC")
             return false
@@ -789,56 +795,5 @@ object Ads : Application.ActivityLifecycleCallbacks, DefaultLifecycleObserver {
         MEDIUM_RECTANGLE,
         FULL_BANNER,
         LEADERBOARD
-    }
-    
-    // Activity Lifecycle Callbacks
-    // Automatic Activity Lifecycle Tracking
-    override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
-        Log.d(TAG, "Activity created: ${activity.javaClass.simpleName}")
-    }
-    
-    override fun onActivityStarted(activity: Activity) {
-        // Update activity reference when activity becomes visible
-        currentActivityRef = WeakReference(activity)
-        Log.d(TAG, "Activity started, auto-tracking: ${activity.javaClass.simpleName}")
-    }
-    
-    override fun onActivityResumed(activity: Activity) {
-        // Activity is in foreground, definitely our current activity
-        currentActivityRef = WeakReference(activity)
-        Log.d(TAG, "Activity resumed, current activity auto-set to: ${activity.javaClass.simpleName}")
-        // Note: AdMobManager now tracks its own activity automatically
-    }
-    
-    override fun onActivityPaused(activity: Activity) {
-        // Activity going to background, but don't clear yet - another activity might be starting
-        Log.d(TAG, "Activity paused: ${activity.javaClass.simpleName}")
-    }
-    
-    override fun onActivityStopped(activity: Activity) {
-        // Clear reference only if this was the current activity and no new one has taken over
-        if (currentActivityRef?.get() == activity) {
-            // Small delay to check if another activity is taking over
-            Handler(Looper.getMainLooper()).postDelayed({
-                if (currentActivityRef?.get() == activity) {
-                    currentActivityRef = null
-                    Log.d(TAG, "Activity stopped and reference cleared: ${activity.javaClass.simpleName}")
-                }
-            }, 100)
-        }
-    }
-    
-    override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {
-        // Not needed
-    }
-    
-    override fun onActivityDestroyed(activity: Activity) {
-        if (currentActivityRef?.get() == activity) {
-            currentActivityRef = null
-            Log.d(TAG, "Activity destroyed and reference cleared: ${activity.javaClass.simpleName}")
-            
-            // Clean up ad resources to prevent memory leaks
-            AdMobManager.onActivityDestroyed(activity)
-        }
     }
 }
