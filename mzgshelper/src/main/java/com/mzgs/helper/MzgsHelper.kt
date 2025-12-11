@@ -88,7 +88,7 @@ object MzgsHelper {
     var IPCountry: String? = null
     private var debugCountryOverride: String? = null
     
-    fun init(context: Context, activity: Activity, skipAdsInDebug: Boolean = false, remoteConfigUrl: String = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/nest.json" ) {
+      fun init(context: Context, activity: Activity, skipAdsInDebug: Boolean = false, remoteConfigUrl: String = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/nest.json" ) {
         applicationContext = context.applicationContext
         weakActivity = java.lang.ref.WeakReference(activity)
         if (!lifecycleCallbacksRegistered) {
@@ -690,8 +690,8 @@ object Remote {
      * Synchronous init that suspends until remote config is fetched (or fails).
      * Use this when you need to await completion before proceeding.
      */
-    suspend fun initSync(context: Context = MzgsHelper.getContext(), url: String? = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/nest.json") {
-        applicationContext = context.applicationContext
+    suspend fun initSync(  url: String? = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/nest.json") {
+        applicationContext = MzgsHelper.getContext()
         app = JSONObject()
 
         url?.takeIf { it.isNotEmpty() }?.let { configUrl ->

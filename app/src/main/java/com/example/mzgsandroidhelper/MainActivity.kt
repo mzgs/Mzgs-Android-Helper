@@ -80,7 +80,7 @@ class MainActivity : ComponentActivity() {
 
 
 
-        MzgsHelper.init(this, this, skipAdsInDebug = false)
+
 
 
         val admobConfig = AdMobConfig(
@@ -144,10 +144,12 @@ class MainActivity : ComponentActivity() {
 //            }
 //        )
 
+        MzgsHelper.init(this, this, skipAdsInDebug = false)
+        FirebaseAnalyticsManager.initialize()
+
         lifecycleScope.launch {
             Remote.initSync()
             MzgsHelper.setIPCountry()
-            FirebaseAnalyticsManager.initialize()
             Ads.init()
 
         }

@@ -9,12 +9,9 @@ import com.mzgs.helper.MzgsHelper
 object FirebaseAnalyticsManager {
     private var firebaseAnalytics: FirebaseAnalytics? = null
     
-    fun initialize(context: Context? = MzgsHelper.getContext()) {
-        val resolvedContext = context ?: MzgsHelper.getContext()
-        if (resolvedContext == null) {
-            Log.e("FirebaseAnalyticsManager", "MzgsHelper.init(...) must be called before FirebaseAnalyticsManager.initialize()")
-            return
-        }
+    fun initialize( ) {
+        val resolvedContext =  MzgsHelper.getContext()
+
         if (firebaseAnalytics == null) {
             firebaseAnalytics = FirebaseAnalytics.getInstance(resolvedContext.applicationContext)
         }
