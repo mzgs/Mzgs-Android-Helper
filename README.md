@@ -1,4 +1,5 @@
 # Mzgs-Android-Helper
+[![JitPack](https://jitpack.io/v/mzgs/Mzgs-Android-Helper.svg)](https://jitpack.io/#mzgs/Mzgs-Android-Helper)
 Android helper library with utility tools and dual ad mediation (AdMob + AppLovin MAX)
 
 ## 🚀 Features
@@ -34,7 +35,7 @@ Then add the dependency to your app's `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    // Replace <version> with the latest tag (e.g. 1.0.9)
+    // Replace <version> with the latest tag shown in the badge above (current: 1.0.9)
     implementation("com.github.mzgs:Mzgs-Android-Helper:<version>")
 }
 ```
