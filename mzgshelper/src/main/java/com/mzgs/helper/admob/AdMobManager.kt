@@ -57,7 +57,7 @@ object AdMobManager {
         
         // Override config with test IDs or empty IDs based on debug flags
         this.adConfig = when {
-            MzgsHelper.isDebug && config.debugEmptyIds -> {
+            MzgsHelper.isDebug() && config.debugEmptyIds -> {
                 // Use empty IDs when debugEmptyIds is true
                 config.copy(
                     bannerAdUnitId = "",
@@ -69,7 +69,7 @@ object AdMobManager {
                     appOpenAdUnitId = ""
                 )
             }
-            MzgsHelper.isDebug && config.enableTestMode -> {
+            MzgsHelper.isDebug() && config.enableTestMode -> {
                 // Use test IDs when test mode is enabled
                 config.copy(
                     bannerAdUnitId = AdMobConfig.TEST_BANNER_AD_UNIT_ID,
@@ -97,7 +97,7 @@ object AdMobManager {
         }
         
         // SAFETY: Only set test device IDs in debug builds
-        val testDeviceIds = if (MzgsHelper.isDebug) {
+        val testDeviceIds = if (MzgsHelper.isDebug()) {
             config.testDeviceIds
         } else {
             emptyList() // Never use test device IDs in release
@@ -244,7 +244,7 @@ object AdMobManager {
         val shouldForceShow = adConfig?.let { config ->
             contextRef?.get()?.let { context ->
                 // CRITICAL: Must be debug mode AND flag enabled
-                MzgsHelper.isDebug && config.debugRequireConsentAlways
+                MzgsHelper.isDebug() && config.debugRequireConsentAlways
             }
         } ?: false
         
@@ -292,7 +292,7 @@ object AdMobManager {
         adConfig?.let { config ->
             contextRef?.get()?.let { context ->
                 // CRITICAL: Must be debug mode AND flag enabled - NEVER affects release
-                if (MzgsHelper.isDebug && config.debugRequireConsentAlways) {
+                if (MzgsHelper.isDebug() && config.debugRequireConsentAlways) {
                     Log.d(TAG, "DEBUG ONLY: Forcing consent form availability for testing")
                     return true
                 }
@@ -853,7 +853,7 @@ object AdMobManager {
         contextRef?.get()?.let { context ->
             // Override config with test IDs or empty IDs based on debug flags
             this.adConfig = when {
-                MzgsHelper.isDebug && config.debugEmptyIds -> {
+                MzgsHelper.isDebug() && config.debugEmptyIds -> {
                     // Use empty IDs when debugEmptyIds is true
                     config.copy(
                         bannerAdUnitId = "",
@@ -865,7 +865,7 @@ object AdMobManager {
                         appOpenAdUnitId = ""
                     )
                 }
-                MzgsHelper.isDebug && config.enableTestMode -> {
+                MzgsHelper.isDebug() && config.enableTestMode -> {
                     // Use test IDs when test mode is enabled
                     config.copy(
                         bannerAdUnitId = AdMobConfig.TEST_BANNER_AD_UNIT_ID,

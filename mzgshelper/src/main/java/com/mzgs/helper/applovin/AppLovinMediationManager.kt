@@ -53,7 +53,7 @@ object AppLovinMediationManager {
         }
         
         // Override config with empty IDs if debugEmptyIds is true
-        this.appLovinConfig = if (MzgsHelper.isDebug && config.debugEmptyIds) {
+        this.appLovinConfig = if (MzgsHelper.isDebug() && config.debugEmptyIds) {
             config.copy(
                 bannerAdUnitId = "",
                 mrecAdUnitId = "",
@@ -79,7 +79,7 @@ object AppLovinMediationManager {
         }
         
         // SAFETY: Only set test device IDs in debug builds
-        val testDeviceIds = if (MzgsHelper.isDebug) {
+        val testDeviceIds = if (MzgsHelper.isDebug()) {
             config.testDeviceAdvertisingIds
         } else {
             emptyList() // Never use test device IDs in release
@@ -92,14 +92,14 @@ object AppLovinMediationManager {
             .setTestDeviceAdvertisingIds(testDeviceIds)
         
         // Apply additional settings if needed
-        if (config.verboseLogging && MzgsHelper.isDebug) {
+        if (config.verboseLogging && MzgsHelper.isDebug()) {
             // Verbose logging configuration
         }
         
         val initConfig = initConfigBuilder.build()
         val settings = AppLovinSdk.getInstance(context).settings
         settings.termsAndPrivacyPolicyFlowSettings.setShowTermsAndPrivacyPolicyAlertInGdpr(true)
-        if (config.enableTestCMP && MzgsHelper.isDebug) {
+        if (config.enableTestCMP && MzgsHelper.isDebug()) {
             // Force GDPR geography for test CMP and wire URLs if provided
             settings.termsAndPrivacyPolicyFlowSettings.debugUserGeography = AppLovinSdkConfiguration.ConsentFlowUserGeography.GDPR
             settings.termsAndPrivacyPolicyFlowSettings.setEnabled(true)
@@ -695,7 +695,7 @@ object AppLovinMediationManager {
     @JvmStatic
     fun updateConfig(config: AppLovinConfig) {
         // Override config with empty IDs if debugEmptyIds is true
-        this.appLovinConfig = if (MzgsHelper.isDebug && config.debugEmptyIds) {
+        this.appLovinConfig = if (MzgsHelper.isDebug() && config.debugEmptyIds) {
             config.copy(
                 bannerAdUnitId = "",
                 mrecAdUnitId = "",

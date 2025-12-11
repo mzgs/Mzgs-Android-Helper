@@ -55,37 +55,37 @@ data class AppLovinConfig(
     }
     
     fun shouldShowAds(context: android.content.Context): Boolean {
-        if (!MzgsHelper.isDebug) return true
+        if (!MzgsHelper.isDebug()) return true
         return showAdsInDebug
     }
     
     fun shouldShowInterstitials(context: android.content.Context): Boolean {
         if (!shouldShowAds(context)) return false
-        if (!MzgsHelper.isDebug) return true
+        if (!MzgsHelper.isDebug()) return true
         return showInterstitialsInDebug
     }
     
     fun shouldShowAppOpenAd(context: android.content.Context): Boolean {
         if (!shouldShowAds(context)) return false
-        if (!MzgsHelper.isDebug) return enableAppOpenAd
+        if (!MzgsHelper.isDebug()) return enableAppOpenAd
         return enableAppOpenAd && showAppOpenAdInDebug
     }
     
     fun shouldShowBanners(context: android.content.Context): Boolean {
         if (!shouldShowAds(context)) return false
-        if (!MzgsHelper.isDebug) return true
+        if (!MzgsHelper.isDebug()) return true
         return showBannersInDebug
     }
     
     fun shouldShowNativeAds(context: android.content.Context): Boolean {
         if (!shouldShowAds(context)) return false
-        if (!MzgsHelper.isDebug) return true
+        if (!MzgsHelper.isDebug()) return true
         return showNativeAdsInDebug
     }
     
     fun shouldShowRewardedAds(context: android.content.Context): Boolean {
         if (!shouldShowAds(context)) return false
-        if (!MzgsHelper.isDebug) return true
+        if (!MzgsHelper.isDebug()) return true
         return showRewardedAdsInDebug
     }
 }

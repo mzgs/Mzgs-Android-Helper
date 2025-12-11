@@ -111,7 +111,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         
         // Initialize MzgsHelper
-        MzgsHelper.init(this, this, BuildConfig.DEBUG, skipAdsInDebug = false)
+        MzgsHelper.init(this, this, skipAdsInDebug = false)
         
         // Initialize other components
         FirebaseAnalyticsManager.initialize()

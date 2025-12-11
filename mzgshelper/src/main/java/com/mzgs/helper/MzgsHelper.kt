@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.app.Application
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -44,8 +45,8 @@ fun printLine(message: Any? = null) {
 object MzgsHelper {
     
     private const val TAG = "MzgsHelper"
-    private var weakContext: java.lang.ref.WeakReference<Context>? = null
-    private var weakActivity: java.lang.ref.WeakReference<Activity>? = null
+    private lateinit var applicationContext: Context
+    private lateinit var weakActivity: java.lang.ref.WeakReference<Activity>
     private var lifecycleCallbacksRegistered = false
     private val activityLifecycleCallbacks = object : Application.ActivityLifecycleCallbacks {
         override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
@@ -61,7 +62,7 @@ object MzgsHelper {
         override fun onActivityPaused(activity: Activity) {}
 
         override fun onActivityStopped(activity: Activity) {
-            if (weakActivity?.get() == activity) {
+            if (weakActivity.get() == activity) {
                 updateActivity(null)
             }
         }
@@ -69,7 +70,7 @@ object MzgsHelper {
         override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
 
         override fun onActivityDestroyed(activity: Activity) {
-            if (weakActivity?.get() == activity) {
+            if (weakActivity.get() == activity) {
                 updateActivity(null)
             }
             AdMobManager.onActivityDestroyed(activity)
@@ -83,23 +84,21 @@ object MzgsHelper {
     @Volatile
     private var initialized = false
     var isAllowedCountry = true
-    var isDebug = false
     var debugNoAds = false
     var IPCountry: String? = null
     private var debugCountryOverride: String? = null
     
-    fun init(context: Context, activity: Activity, debugMode: Boolean, skipAdsInDebug: Boolean = false) {
-        weakContext = java.lang.ref.WeakReference(context.applicationContext)
+    fun init(context: Context, activity: Activity, skipAdsInDebug: Boolean = false, remoteConfigUrl: String = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/nest.json" ) {
+        applicationContext = context.applicationContext
         weakActivity = java.lang.ref.WeakReference(activity)
         if (!lifecycleCallbacksRegistered) {
             activity.application.registerActivityLifecycleCallbacks(activityLifecycleCallbacks)
             lifecycleCallbacksRegistered = true
         }
-        isDebug = debugMode
         initialized = true
         
         // Only set debugNoAds if we're in debug mode
-        debugNoAds = skipAdsInDebug && debugMode
+        debugNoAds = skipAdsInDebug && isDebug()
         
         if (debugNoAds) {
             Log.d(TAG, "")
@@ -109,26 +108,50 @@ object MzgsHelper {
             Log.d(TAG, "|||------------------------------------------------------------|||")
             Log.d(TAG, "")
         }
+
+
+
+
+
     }
     
     fun isInitialized(): Boolean = initialized
     
-    fun getContext(): Context? {
-        return weakContext?.get()
+    fun getContext(): Context {
+        check(initialized) { "MzgsHelper.init(context, activity, ...) must be called before getContext()" }
+        return applicationContext
     }
 
-    fun getActivity(): Activity? {
-        return weakActivity?.get()
+    fun getActivity(): Activity {
+        return weakActivity.get()
+            ?: throw IllegalStateException("MzgsHelper.init(context, activity, ...) must be called with a live activity before accessing getActivity()")
     }
 
     fun updateActivity(activity: Activity?) {
-        weakActivity = activity?.let { java.lang.ref.WeakReference(it) }
+        if (!::weakActivity.isInitialized) {
+            if (activity != null) {
+                weakActivity = java.lang.ref.WeakReference(activity)
+            }
+            return
+        }
+
+        if (activity != null) {
+            weakActivity = java.lang.ref.WeakReference(activity)
+        } else {
+            weakActivity.clear()
+        }
+    }
+
+    fun isDebug(): Boolean {
+        val ctx = getContext()
+        val flags = ctx.applicationInfo.flags
+        val isDebuggable = (flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        val isTestOnly = (flags and ApplicationInfo.FLAG_TEST_ONLY) != 0
+        return isDebuggable || isTestOnly
     }
     
     fun showToast(message: String, duration: Int = Toast.LENGTH_SHORT) {
-        getContext()?.let {
-            Toast.makeText(it, message, duration).show()
-        }
+        Toast.makeText(getContext(), message, duration).show()
     }
 
 
@@ -245,9 +268,9 @@ object MzgsHelper {
                 // Request consent info update
                 AdMobManager.requestConsentInfoUpdate(
                     underAgeOfConsent = false,
-                    debugGeography = if (isDebug && admobConfig.debugRequireConsentAlways)
+                    debugGeography = if (isDebug() && admobConfig.debugRequireConsentAlways)
                         ConsentDebugSettings.DebugGeography.DEBUG_GEOGRAPHY_EEA else null,
-                    testDeviceHashedId = if (isDebug && admobConfig.debugRequireConsentAlways)
+                    testDeviceHashedId = if (isDebug() && admobConfig.debugRequireConsentAlways)
                         "TEST-DEVICE-HASHED-ID" else null,
                     onConsentInfoUpdateSuccess = {
                         Log.d(TAG, "Consent info updated")
@@ -305,7 +328,7 @@ object MzgsHelper {
 
 
 
-        val splash = SimpleSplashHelper.Builder(getActivity()!!)
+        val splash = SimpleSplashHelper.Builder(getActivity())
             .setDuration(Remote.getLong("splash_time", 10_000))
             .setRotateLogo(true)
             .showProgress(true)
@@ -351,7 +374,7 @@ object MzgsHelper {
     }
 
     fun setDebugCountry(country: String = "TR") {
-        if (!isDebug) {
+        if (!isDebug()) {
             Log.d("LibHelper", "setDebugCountry ignored because app is not in debug mode")
             return
         }
@@ -369,7 +392,7 @@ object MzgsHelper {
     }
 
     fun getPhoneCountry(): List<String> {
-        if (isDebug) {
+        if (isDebug()) {
             debugCountryOverride?.let { override ->
                 Log.d("LibHelper", "Using debug country override for phone country: $override")
                 return listOf(override)
@@ -449,7 +472,7 @@ object MzgsHelper {
      */
     fun setIsAllowedCountry(debugAllow: Boolean? = null) {
         // Handle debug override if provided and we're in debug mode
-        if (debugAllow != null && isDebug) {
+        if (debugAllow != null && isDebug()) {
             isAllowedCountry = debugAllow
             Log.d("LibHelper", "Debug mode with debugAllow=$debugAllow, setting isAllowedCountry to $debugAllow")
             return
@@ -509,7 +532,7 @@ object MzgsHelper {
     
     @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
     fun isNetworkAvailable(): Boolean {
-        val context = getContext() ?: return false
+        val context = getContext()
         return try {
             val hasPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 context.checkSelfPermission(Manifest.permission.ACCESS_NETWORK_STATE) == PackageManager.PERMISSION_GRANTED
@@ -537,7 +560,7 @@ object MzgsHelper {
 
     
     fun getAppVersion(): String {
-        val context = getContext() ?: return "Unknown"
+        val context = getContext()
         return try {
             val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 context.packageManager.getPackageInfo(context.packageName, PackageManager.PackageInfoFlags.of(0))
@@ -553,7 +576,7 @@ object MzgsHelper {
     }
     
     fun getAppVersionCode(): Long {
-        val context = getContext() ?: return -1L
+        val context = getContext()
         return try {
             val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 context.packageManager.getPackageInfo(context.packageName, PackageManager.PackageInfoFlags.of(0))
@@ -641,17 +664,11 @@ object Remote {
      * Initialize with application context and optionally fetch remote config
      * Call this method in your Application class onCreate or Activity onCreate
      *
-     * @param context Optional context. If null, uses the one stored in MzgsHelper.
+     * @param context Context to use. Defaults to the one stored in MzgsHelper.
      * @param url Optional remote configuration URL (if provided, will fetch config asynchronously)
      */
-    fun init(context: Context? = MzgsHelper.getContext(), url: String? = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/nest.json") {
-        val resolvedContext = context ?: MzgsHelper.getContext()
-        if (resolvedContext == null) {
-            Log.e("Remote", "MzgsHelper.init(context, activity, ...) must be called before Remote.init()")
-            return
-        }
-
-        applicationContext = resolvedContext.applicationContext
+    fun init(context: Context = MzgsHelper.getContext(), url: String? = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/nest.json") {
+        applicationContext = context.applicationContext
         
         // Initialize with empty config immediately (will use default values from getter functions)
         app = JSONObject()
@@ -673,14 +690,8 @@ object Remote {
      * Synchronous init that suspends until remote config is fetched (or fails).
      * Use this when you need to await completion before proceeding.
      */
-    suspend fun initSync(context: Context? = MzgsHelper.getContext(), url: String? = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/nest.json") {
-        val resolvedContext = context ?: MzgsHelper.getContext()
-        if (resolvedContext == null) {
-            Log.e("Remote", "MzgsHelper.init(context, activity, ...) must be called before Remote.initSync()")
-            return
-        }
-
-        applicationContext = resolvedContext.applicationContext
+    suspend fun initSync(context: Context = MzgsHelper.getContext(), url: String? = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/nest.json") {
+        applicationContext = context.applicationContext
         app = JSONObject()
 
         url?.takeIf { it.isNotEmpty() }?.let { configUrl ->

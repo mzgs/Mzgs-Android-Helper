@@ -69,7 +69,7 @@ import com.mzgs.helper.applovin.AppLovinMediationManager
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
-    
+
     private var isFullyInitialized = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -80,7 +80,7 @@ class MainActivity : ComponentActivity() {
 
 
 
-        MzgsHelper.init(this, this, BuildConfig.DEBUG, skipAdsInDebug = false)
+        MzgsHelper.init(this, this, skipAdsInDebug = false)
 
 
         val admobConfig = AdMobConfig(
@@ -144,7 +144,7 @@ class MainActivity : ComponentActivity() {
 //            }
 //        )
 
-        lifecycleScope.launch{
+        lifecycleScope.launch {
             Remote.initSync()
             MzgsHelper.setIPCountry()
             FirebaseAnalyticsManager.initialize()
@@ -152,7 +152,7 @@ class MainActivity : ComponentActivity() {
 
         }
 
-        MzgsHelper.showSplashInitAds(admobConfig,appLovinConfig)
+        MzgsHelper.showSplashInitAds(admobConfig, appLovinConfig)
 
 
         setContent {
@@ -162,38 +162,10 @@ class MainActivity : ComponentActivity() {
         }
 
     }
-
-
-    
-
-    // Method 3: Initialize AppLovin MAX directly
-    private fun initApplovinMax() {
-        val appLovinConfig = AppLovinConfig(
-            sdkKey = "sTOrf_0s7y7dzVqfTPRR0Ck_synT0Xrs0DgfChVKedyc7nGgAi6BwrAnnxEoT3dTHJ7T0dpfFmGNXX3hE9u9_2",
-            // Add your real AppLovin ad unit IDs here (from your AppLovin dashboard)
-            bannerAdUnitId = "", // e.g., "abcd1234"
-            interstitialAdUnitId = "", // e.g., "efgh5678"
-            rewardedAdUnitId = "", // e.g., "ijkl9012"
-            mrecAdUnitId = "", // e.g., "mnop3456"
-            nativeAdUnitId = "", // e.g., "qrst7890"
-            enableTestMode = true,
-            verboseLogging = true,
-            creativeDebuggerEnabled = true,
-            showAdsInDebug = true,
-            // Add your device's advertising ID here to see test ads
-            testDeviceAdvertisingIds = listOf() // e.g., listOf("38400000-8cf0-11bd-b23e-10b96e40000d")
-        )
-        
-        AppLovinMediationManager.init(
-            context = this,
-            config = appLovinConfig,
-            onInitComplete = {
-                Log.d("MainActivity", "AppLovin MAX initialized successfully")
-            }
-        )
-    }
 }
-    
+
+
+
 
 
 

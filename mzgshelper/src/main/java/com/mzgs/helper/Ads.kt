@@ -110,7 +110,7 @@ object Ads : DefaultLifecycleObserver {
     
     @JvmStatic
     fun getCurrentActivity(): Activity? {
-        return MzgsHelper.getActivity()
+        return runCatching { MzgsHelper.getActivity() }.getOrNull()
     }
     
     // Called when app comes to foreground
