@@ -1,0 +1,33 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "android",
+            "request": "launch",
+            "name": "App Build & Launch",
+            "preLaunchTask": "run gradle",
+            "appSrcRoot": "${workspaceFolder}/app/src/main",
+            "apkFile": "${workspaceFolder}/app/build/outputs/apk/debug/app-debug.apk",
+            "adbSocket": "localhost:5037",
+            "autoStartADB": true,
+            "staleBuild": "warn",
+            "targetDevice": "",
+            "manifestFile": "${workspaceFolder}/app/src/main/AndroidManifest.xml",
+            "pmInstallArgs": [
+                "-r"
+            ],
+            "amStartArgs": [
+                "-D",
+                "--activity-brought-to-front",
+                "-a",
+                "android.intent.action.MAIN",
+                "-c",
+                "android.intent.category.LAUNCHER",
+                "-n",
+                "com.example.mzgsandroidhelper/com.example.mzgsandroidhelper.MainActivity"
+            ],
+            "postLaunchPause": 1000,
+            "trace": false
+        }
+    ]
+}

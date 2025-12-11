@@ -95,9 +95,7 @@ class MainActivity : ComponentActivity() {
             FirebaseAnalyticsManager.initialize()
             Ads.init()
         }
-
-
-
+  
 
         val admobConfig = AdMobConfig(
             appId = "ca-app-pub-8689213949805403~6434330617",

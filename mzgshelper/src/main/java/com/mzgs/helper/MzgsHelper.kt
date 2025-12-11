@@ -303,6 +303,55 @@ object MzgsHelper {
 
     }
 
+
+    fun loadAdsShowSpash( admobConfig: AdMobConfig,
+            appLovinConfig: AppLovinConfig){
+
+
+        val splash = SimpleSplashHelper.Builder(getActivity()!!)
+            .setDuration(Remote.getLong("splash_time", 10))
+            .setRotateLogo(true)
+            .showProgress(true)
+            .onComplete {
+
+                // Show interstitial ad
+                val adResult = Ads.showInterstitialWithResult(
+                    onAdClosed = {
+                       
+                    }
+                )
+                
+                FirebaseAnalyticsManager.logEvent(
+                if (adResult.success) "splash_ad_shown" else "splash_ad_failed",
+                Bundle().apply {
+                    putString("ad_type", "interstitial")
+                    putString("placement", "splash_screen")
+                    putString("ad_network", adResult.network ?: "unknown")
+                    putBoolean("success", adResult.success)
+                    if (!adResult.success) putString("reason", "no_ad_available")
+                }
+            )
+
+            }
+            .build()
+
+        // Start splash screen paused 
+        splash.pause()
+        splash.show()
+
+         Ads.initAppLovinMax(appLovinConfig) {
+            splash.resume()
+
+             Ads.initAdMob(admobConfig){
+                 AdMobManager.loadInterstitialAd()
+             }
+
+                
+        }
+
+        
+    }
+
     fun setDebugCountry(country: String = "TR") {
         if (!isDebug) {
             Log.d("LibHelper", "setDebugCountry ignored because app is not in debug mode")

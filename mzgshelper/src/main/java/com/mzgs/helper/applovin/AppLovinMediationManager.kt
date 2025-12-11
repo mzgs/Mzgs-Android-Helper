@@ -97,7 +97,13 @@ object AppLovinMediationManager {
         }
         
         val initConfig = initConfigBuilder.build()
-        
+        val settings = AppLovinSdk.getInstance(context).settings
+        settings.termsAndPrivacyPolicyFlowSettings.setShowTermsAndPrivacyPolicyAlertInGdpr(true)
+
+        if (config.enableTestCMP){
+            settings.termsAndPrivacyPolicyFlowSettings.debugUserGeography = AppLovinSdkConfiguration.ConsentFlowUserGeography.GDPR
+        }
+
         // Initialize SDK with configuration
         AppLovinSdk.getInstance(context).initialize(initConfig) { sdkConfig ->
             maxSdk = AppLovinSdk.getInstance(context)

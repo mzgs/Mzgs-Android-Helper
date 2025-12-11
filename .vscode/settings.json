@@ -1,0 +1,10 @@
+{
+    "references.preferredLocation": {
+        "key": "references.preferredLocation",
+        "defaultValue": "peek",
+        "workspaceValue": {
+            "key": "references.preferredLocation",
+            "defaultValue": "peek"
+        }
+    }
+}
