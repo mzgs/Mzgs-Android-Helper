@@ -51,18 +51,6 @@ class AdMobIntegrationTest {
     }
 
     @Test
-    fun testConsentStatusDisplay() {
-        // Check if consent status card is displayed
-        composeTestRule.onNodeWithText("Consent Status")
-            .assertIsDisplayed()
-        
-        // Check if reset consent button exists
-        composeTestRule.onNodeWithText("Reset Consent")
-            .assertIsDisplayed()
-            .assertHasClickAction()
-    }
-
-    @Test
     fun testInterstitialAdSection() {
         // Check interstitial ad section
         composeTestRule.onNodeWithText("Interstitial Ad")

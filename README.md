@@ -1,22 +1,18 @@
 # Mzgs-Android-Helper
-Android helper library with utility tools and comprehensive ad mediation support (AdMob & AppLovin MAX)
+Android helper library with utility tools and dual ad mediation (AdMob + AppLovin MAX)
 
 ## 🚀 Features
 
-- 🛠️ **General utility functions** (Toast, Network status, App version, Remote Config)
-- 📱 **Complete AdMob integration** with all ad formats
-- 🎯 **AppLovin MAX integration** with mediation adapters
-- 🔐 **Built-in UMP consent management** for GDPR/CCPA compliance
-- 🎨 **Unified Ads API** - Single interface for both ad networks
-- ⚡ **Automatic test ad handling** in debug mode
-- 🖼️ **App Open Ads** with lifecycle management
-- 📊 **Firebase Analytics** integration for ad events
-- 🔄 **Dual mediation support** (AdMob + AppLovin MAX)
+- ✅ Unified Ads helper that falls back between AppLovin MAX and AdMob for interstitial, rewarded, banner, MREC, native, and app-open ads
+- 🌍 Remote JSON config helper with country gating, ad-cycle control, and safe-mode flags
+- 🧪 Debug/test controls: skip all ads in debug, test-mode IDs, empty debug IDs, AppLovin CMP test flow, GAID logger
+- 🚦 Simple splash helper for quick branded splashes and ad preloading
+- 📊 Firebase Analytics hooks for ad events plus Pref, ActionCounter, rating, toast, network/version helpers
+- 🧱 Compose-ready ad views (banner, MREC) and classic ViewGroup helpers
 
 ## 📦 Installation
 
-### Project Structure Changes
-This library no longer uses Gradle Version Catalogs (`libs.versions.toml`). All dependencies are defined directly in the build files with explicit versions.
+> No version catalogs are used; all dependency versions live in the Gradle files. The library targets `compileSdk 36` and `minSdk 24`.
 
 ### Using JitPack
 
@@ -38,7 +34,8 @@ Then add the dependency to your app's `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("com.github.mzgs:Mzgs-Android-Helper:1.0.8")
+    // Replace <version> with the latest tag (e.g. 1.0.8)
+    implementation("com.github.mzgs:Mzgs-Android-Helper:<version>")
 }
 ```
 
@@ -56,10 +53,10 @@ dependencies {
 
 ### Required Additions
 
-Add these to your root project `build.gradle.kts` plugins block:
+Add this to your root project `build.gradle.kts` plugins block:
 
 ```kotlin
-id("com.google.gms.google-services") version "4.4.3" apply false
+id("com.google.gms.google-services") version "4.4.4" apply false
 ```
 
 Add this to your app module `build.gradle.kts`:
@@ -77,7 +74,7 @@ android {
 }
 ```
 
-### Android Manifest
+### Android Manifest & Permissions
 
 Add to your `AndroidManifest.xml`:
 
@@ -99,152 +96,130 @@ Add to your `AndroidManifest.xml`:
 </application>
 ```
 
+If you need AppLovin CMP test flow, also provide your privacy/terms URLs in `AppLovinConfig`.
+
 ## 🎯 Quick Start
 
-### 1. Initialize in Activity
+### 1) Bootstrap the helper and fetch remote config
 
 ```kotlin
 class MainActivity : ComponentActivity() {
-    private var isFullyInitialized = mutableStateOf(false)
-    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        // Initialize MzgsHelper
-        MzgsHelper.init(this, this, skipAdsInDebug = false)
-        
-        // Initialize other components
+
+        MzgsHelper.init(this, this, skipAdsInDebug = BuildConfig.DEBUG)
         FirebaseAnalyticsManager.initialize()
-        Remote.init()
-        Ads.init()
-        MzgsHelper.setIPCountry()
-        
-        // Configure AdMob - All available parameters
-        val admobConfig = AdMobConfig(
-            appId = "ca-app-pub-XXXXX~XXXXX",  // Optional: Can be null if set in AndroidManifest.xml
-            bannerAdUnitId = "",  // Leave empty for test ads
-            interstitialAdUnitId = "",
-            rewardedAdUnitId = "",
-            rewardedInterstitialAdUnitId = "",
-            nativeAdUnitId = "",
-            mrecAdUnitId = "",
-            appOpenAdUnitId = "",
-            enableAppOpenAd = false,  // Default: false
-            bannerAutoRefreshSeconds = 60,  // Default: 60 (0 to disable auto-refresh)
-            // Debug-only flags (only work when BuildConfig.DEBUG is true)
-            testDeviceIds = emptyList(),  // Default: emptyList()
-            enableTestMode = false,  // Default: false - Uses test ad unit IDs when true
-            showAdsInDebug = true,  // Default: true - Master switch for all ads in debug
-            showInterstitialsInDebug = true,  // Default: true
-            showAppOpenAdInDebug = true,  // Default: true
-            showBannersInDebug = true,  // Default: true
-            showNativeAdsInDebug = true,  // Default: true
-            showRewardedAdsInDebug = true,  // Default: true
-            debugRequireConsentAlways = false,  // Default: false - Forces consent form in debug
-            debugEmptyIds = false  // Default: false - Use empty ad unit IDs in debug (prevents real ad loading)
-        )
-        
-        // Configure AppLovin - All available parameters
-        val appLovinConfig = AppLovinConfig(
-            sdkKey = "YOUR_SDK_KEY",  // Required
-            bannerAdUnitId = "",  // Default: ""
-            mrecAdUnitId = "",  // Default: ""
-            interstitialAdUnitId = "",  // Default: ""
-            rewardedAdUnitId = "",  // Default: ""
-            appOpenAdUnitId = "",  // Default: ""
-            nativeAdUnitId = "",  // Default: ""
-            enableAppOpenAd = false,  // Default: false
-            muteAudio = false,  // Default: false
-            // Debug-only flags (only work when BuildConfig.DEBUG is true)
-            enableTestMode = false,  // Default: false
-            verboseLogging = false,  // Default: false - Note: Currently only logged, not applied to SDK
-            creativeDebuggerEnabled = false,  // Default: false - Note: Currently only logged, not applied to SDK
-            testDeviceAdvertisingIds = emptyList(),  // Default: emptyList()
-            showAdsInDebug = true,  // Default: true - Master switch for all ads in debug
-            showInterstitialsInDebug = true,  // Default: true
-            showAppOpenAdInDebug = true,  // Default: true
-            showBannersInDebug = true,  // Default: true
-            showNativeAdsInDebug = true,  // Default: true
-            showRewardedAdsInDebug = true,  // Default: true
-            debugEmptyIds = false  // Default: false - Use empty ad unit IDs in debug (prevents real ad loading)
-        )
-        
-        // Show splash with interstitial
-        MzgsHelper.initSplashWithInterstitialShow(
-            activity = this,
-            admobConfig = admobConfig,
-            appLovinConfig = appLovinConfig,
-            defaultSplashTime = 10000,
-            onSplashCompleteAdClosed = {
-                
-            },
-            onCompleteWithAdsReady = {
-                // Preload ads
-                isFullyInitialized.value = true
-                AdMobManager.loadRewardedAd()
-                AppLovinMediationManager.loadRewardedAd()
-             }
-        )
+
+        lifecycleScope.launch {
+            // Optional splash while you prep config/ads
+            SimpleSplashHelper.showSplash(this@MainActivity)
+
+            // Load remote JSON config, country, and register lifecycle observers
+            Remote.initSync()
+            MzgsHelper.setIPCountry()
+            Ads.init()
+
+            val admobConfig = AdMobConfig(
+                appId = "ca-app-pub-XXXX~YYYY",
+                bannerAdUnitId = "",
+                interstitialAdUnitId = "",
+                rewardedAdUnitId = "",
+                rewardedInterstitialAdUnitId = "",
+                nativeAdUnitId = "",
+                mrecAdUnitId = "",
+                appOpenAdUnitId = "",
+                enableAppOpenAd = true,
+                enableTestMode = BuildConfig.DEBUG,
+                testDeviceIds = listOf("HASHED_TEST_DEVICE_ID"), // AdMob requires hashed IDs
+                debugEmptyIds = false
+            )
+
+            val appLovinConfig = AppLovinConfig(
+                sdkKey = "YOUR_SDK_KEY",
+                bannerAdUnitId = "",
+                interstitialAdUnitId = "",
+                rewardedAdUnitId = "",
+                mrecAdUnitId = "",
+                nativeAdUnitId = "",
+                appOpenAdUnitId = "",
+                enableAppOpenAd = true,
+                enableTestCMP = BuildConfig.DEBUG,
+                consentFlowPrivacyPolicyUrl = "https://yourdomain.com/privacy",
+                consentFlowTermsOfServiceUrl = "https://yourdomain.com/terms",
+                testDeviceAdvertisingIds = listOf("YOUR_GAID_FOR_TESTS"), // MAX uses GAID
+                enableTestMode = BuildConfig.DEBUG,
+                debugEmptyIds = false
+            )
+
+            Ads.initAppLovinMax(appLovinConfig) {
+                Ads.initAdMob(admobConfig) {
+                    Ads.loadAdmobInterstitial()
+                }
+            }
+
+            // Finish splash and optionally show an interstitial before UI
+            SimpleSplashHelper
+                .setDuration(Remote.getLong("splash_time", 8_000))
+                .setOnComplete {
+                    val result = Ads.showInterstitialWithResult {
+                        // Called when closed; preload next round here
+                        Ads.loadApplovinMaxInterstitial()
+                        MzgsHelper.setRestrictedCountriesFromRemoteConfig()
+                        MzgsHelper.setIsAllowedCountry()
+                    }
+                    Log.d("Splash", "Ad result: ${result.network ?: "none"} success=${result.success}")
+                }
+            SimpleSplashHelper.startProgress()
+        }
     }
 }
 ```
 
-### 2. Using AdMob Directly
+### 2) Showing ads with unified API
 
 ```kotlin
-// Load and show rewarded ad
-AdMobManager.loadRewardedAd(
-    onAdLoaded = {
-        Log.d("Ads", "Rewarded ad loaded")
-    },
-    onAdFailedToLoad = { error: LoadAdError ->
-        Log.e("Ads", "Failed to load: ${error.message}")
-    }
-)
+// Interstitial with fallback (AppLovin -> AdMob) + optional callback
+Ads.showInterstitial(onAdClosed = { /* resume flow */ })
 
-// Show rewarded ad
-if (AdMobManager.showRewardedAd(
-    activity = this,
-    onUserEarnedReward = { reward: RewardItem ->
-        Log.d("Ads", "Earned ${reward.amount} ${reward.type}")
-    }
-)) {
-    // Ad was shown
+// Cycle-based interstitials from remote config (Remote.getInt("button_click", 3))
+Ads.showInterstitialWithCycle("button_click", 3)
+
+// Rewarded ad
+Ads.showRewardedAd { type, amount ->
+    Log.d("Ads", "User earned $amount $type")
 }
 
-// Load and show interstitial
-AdMobManager.loadInterstitialAd()
-if (AdMobManager.isInterstitialReady()) {
-    AdMobManager.showInterstitialAd()
-}
-```
-
-### 3. Using Unified Ads API
-
-```kotlin
-// Show interstitial (automatically selects best available network)
-if (Ads.showInterstitial()) {
-    Log.d("Ads", "Interstitial shown")
-}
-
-// Show interstitial with cycle control
-Ads.showInterstitialWithCycle("button_click", 3) // Shows ad every 3rd click
-
-// Show rewarded ad
-if (Ads.showRewardedAd()) {
-    Log.d("Ads", "Rewarded ad shown")
-}
-
-// Show banner
+// Banner / adaptive banner
 val bannerContainer: FrameLayout = findViewById(R.id.banner_container)
 Ads.showBanner(bannerContainer, Ads.BannerSize.ADAPTIVE)
 
-// Show MREC (300x250)
+// MREC
 val mrecContainer: FrameLayout = findViewById(R.id.mrec_container)
 Ads.showMREC(mrecContainer)
+
+// Native ad (supports AppLovin -> AdMob fallback)
+val nativeContainer: FrameLayout = findViewById(R.id.native_container)
+Ads.showNativeAd(nativeContainer)
 ```
 
-### 4. Utility Features
+App-open ads are automatically handled when `enableAppOpenAd = true` in either config and `Ads.init()` has been called.
+
+### 3) Remote config and country gating
+
+```kotlin
+Remote.init()                // Async; or Remote.initSync() to block until loaded
+Remote.getBool("only_free_music", false)
+Remote.getIntArray("download_rate_show_at_counts", listOf(1, 9, 30))
+
+MzgsHelper.setRestrictedCountriesFromRemoteConfig()
+MzgsHelper.setIPCountry()
+MzgsHelper.setIsAllowedCountry() // Uses phone + IP country against restricted list
+
+// Debug helper to fake country (debug builds only)
+MzgsHelper.setDebugCountry("DE")
+```
+
+### 4) Utility Features
 
 #### In-App Rating
 
@@ -363,7 +338,7 @@ Common use cases:
 - Implement achievements or milestones
 - Analytics and user behavior tracking
 
-#### Preferences Helper
+#### Preferences Helper & Counters
 
 Simple key-value storage with type safety:
 
@@ -408,7 +383,16 @@ Common use cases:
 - App configuration
 - Caching data
 - First-time user detection
-- Session management
+- Session management / analytics
+
+#### Quick helpers
+
+```kotlin
+MzgsHelper.showToast("Hello World")
+val online = MzgsHelper.isNetworkAvailable()
+val versionName = MzgsHelper.getAppVersion()
+val versionCode = MzgsHelper.getAppVersionCode()
+```
 
 ## 🎨 Compose Integration
 
@@ -510,6 +494,14 @@ When using the Ads API, many events are automatically tracked:
 - `ad_click` - Tracks when ads are clicked
 - `ad_revenue` - Tracks estimated ad revenue
 
+## 🔬 Debug & Test Controls
+
+- `skipAdsInDebug` on `MzgsHelper.init(...)` turns off all ads for debug sessions
+- `enableTestMode` swaps in Google test IDs for AdMob; `debugEmptyIds` zeros IDs to prevent loading anything in debug
+- `testDeviceIds` (hashed) for AdMob and `testDeviceAdvertisingIds` (GAID) for AppLovin MAX enable device-scoped test traffic
+- `enableTestCMP` plus `consentFlowPrivacyPolicyUrl`/`consentFlowTermsOfServiceUrl` forces AppLovin CMP test flow in debug
+- Advertising ID helper logs your GAID when `Ads.init()` runs (copy into test device lists)
+
 ## ⚠️ Deprecated API Warnings
 
 The library suppresses certain deprecated API warnings that are still the recommended approach for the current SDK versions:
@@ -524,11 +516,12 @@ These are handled internally with proper version checks and @Suppress annotation
 
 The library includes these dependencies (exposed via `api` configuration):
 
-- Google Mobile Ads SDK: 24.6.0
-- AppLovin SDK: 13.4.0
-- Firebase BOM: 34.2.0
+- Google Mobile Ads SDK: 24.8.0
+- AppLovin SDK: 13.5.1
+- AppLovin Mediation adapters: Google 24.8.0.0, Unity 4.16.5.0, Facebook 6.21.0.0, Fyber 8.4.1.0, Vungle 7.6.1.0
+- Firebase BOM: 34.6.0
 - Firebase Analytics
-- Google UMP: 3.2.0
+- Google UMP: 4.0.0
 - Play Review: 2.0.2
 - Various AppLovin mediation adapters
 
@@ -541,10 +534,10 @@ The library includes these dependencies (exposed via `api` configuration):
 - **Solution**: Add explicit type annotations: `{ error: LoadAdError ->` and `{ reward: RewardItem ->`
 
 ### Plugin version conflicts
-- **Solution**: Ensure consistent Android Gradle Plugin version (8.12.1) across all modules
+- **Solution**: Ensure consistent Android Gradle Plugin version (8.12.3) across all modules and `com.google.gms.google-services` 4.4.4 at the root
 
 ### Google Services plugin not found
-- **Solution**: Add `id("com.google.gms.google-services") version "4.4.3" apply false` to root build.gradle.kts
+- **Solution**: Add `id("com.google.gms.google-services") version "4.4.4" apply false` to root build.gradle.kts
 
 ## 🧪 Testing
 

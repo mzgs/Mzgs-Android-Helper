@@ -23,7 +23,6 @@ data class AdMobConfig(
     val showBannersInDebug: Boolean = true,  // Control banner ads in debug
     val showNativeAdsInDebug: Boolean = true,  // Control native ads in debug
     val showRewardedAdsInDebug: Boolean = true,  // Control rewarded ads in debug
-    val debugRequireConsentAlways: Boolean = false,  // DEBUG ONLY: Forces consent form in debug builds ONLY - NEVER affects release
     val debugEmptyIds: Boolean = false  // DEBUG ONLY: Use empty ad unit IDs in debug mode (prevents real ad loading)
 ) {
     companion object {

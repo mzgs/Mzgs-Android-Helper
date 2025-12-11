@@ -6,7 +6,6 @@ import android.content.Context
 import android.util.Log
 import android.os.Handler
 import android.os.Looper
-import android.os.Bundle
 import com.google.android.gms.ads.*
 import java.util.concurrent.TimeUnit
 import kotlin.math.min
@@ -19,11 +18,6 @@ import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAd
 import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAdLoadCallback
 import com.mzgs.helper.analytics.FirebaseAnalyticsManager
-import com.google.android.ump.ConsentDebugSettings
-import com.google.android.ump.ConsentInformation
-import com.google.android.ump.ConsentRequestParameters
-import com.google.android.ump.FormError
-import com.google.android.ump.UserMessagingPlatform
 import com.mzgs.helper.MzgsHelper
 import com.mzgs.helper.p
 import com.mzgs.helper.Ads
@@ -40,7 +34,6 @@ object AdMobManager {
     private var interstitialAd: InterstitialAd? = null
     private var rewardedAd: RewardedAd? = null
     private var rewardedInterstitialAd: RewardedInterstitialAd? = null
-    private var consentInformation: ConsentInformation? = null
     private var handler: Handler? = null
     
     @JvmStatic
@@ -84,10 +77,6 @@ object AdMobManager {
             else -> config
         }
         
-        this.consentInformation = UserMessagingPlatform.getConsentInformation(context)
-        
-        // Activity tracking is handled by Ads class
-        
         // Activity tracking is handled by Ads class
         
         if (isInitialized) {
@@ -130,8 +119,8 @@ object AdMobManager {
             } else {
                 Log.d(TAG, "|||  TEST MODE: DISABLED (No test device IDs)                 |||")
                 Log.d(TAG, "|||                                                            |||")
-                Log.d(TAG, "|||  Look for this in logcat to get your test device ID:      |||")
-                Log.d(TAG, "|||  'Use new ConsentDebugSettings.Builder().addTestDeviceHashedId(\"YOUR_ID\")'|||")
+                Log.d(TAG, "|||  Add hashed test device IDs to AdMobConfig.testDeviceIds  |||")
+                Log.d(TAG, "|||  to avoid serving real ads while testing.                 |||")
             }
             Log.d(TAG, "|||                                                            |||")
             Log.d(TAG, "|||  Initialized:                                              |||")
@@ -183,153 +172,8 @@ object AdMobManager {
     }
     
     @JvmStatic
-    fun requestConsentInfoUpdate(
-        underAgeOfConsent: Boolean = false,
-        debugGeography: Int? = null,  // Use Int for DebugGeography constants
-        testDeviceHashedId: String? = null,
-        onConsentInfoUpdateSuccess: () -> Unit = {},
-        onConsentInfoUpdateFailure: (String) -> Unit = {}
-    ) {
-        val ctx = contextRef?.get() ?: run {
-            Log.e(TAG, "Context not set. Call init() first")
-            return
-        }
-        
-        val params = ConsentRequestParameters.Builder()
-            .setTagForUnderAgeOfConsent(underAgeOfConsent)
-        
-        if (debugGeography != null && testDeviceHashedId != null) {
-            val debugSettings = ConsentDebugSettings.Builder(ctx)
-                .setDebugGeography(debugGeography)
-                .addTestDeviceHashedId(testDeviceHashedId)
-                .build()
-            params.setConsentDebugSettings(debugSettings)
-        }
-        
-        val activity = Ads.getCurrentActivity() ?: (ctx as? Activity)
-        if (activity == null) {
-            Log.e(TAG, "No activity available for consent info update")
-            onConsentInfoUpdateFailure("No activity available")
-            return
-        }
-        
-        consentInformation?.requestConsentInfoUpdate(
-            activity,
-            params.build(),
-            {
-                Log.d(TAG, "Consent info updated successfully")
-                onConsentInfoUpdateSuccess()
-            },
-            { error ->
-                Log.e(TAG, "Failed to update consent info: ${error.message}")
-                // Check if it's a network error and provide better messaging
-                val errorMessage = when {
-                    error.message.contains("Error making request", ignoreCase = true) ->
-                        "Network error. Please check internet connection."
-                    error.message.contains("timeout", ignoreCase = true) ->
-                        "Request timed out. Please try again."
-                    else -> error.message
-                }
-                onConsentInfoUpdateFailure(errorMessage)
-            }
-        )
-    }
-    
-    @JvmStatic
-    fun showConsentForm(
-        activity: Activity,
-        onConsentFormDismissed: (FormError?) -> Unit = {}
-    ) {
-        // SAFETY CHECK: Only allow debug flags in debug builds
-        val shouldForceShow = adConfig?.let { config ->
-            contextRef?.get()?.let { context ->
-                // CRITICAL: Must be debug mode AND flag enabled
-                MzgsHelper.isDebug() && config.debugRequireConsentAlways
-            }
-        } ?: false
-        
-        if (shouldForceShow) {
-            // Force load and show consent form regardless of requirements
-            UserMessagingPlatform.loadConsentForm(
-                activity,
-                { consentForm ->
-                    consentForm.show(activity) { formError ->
-                        if (formError != null) {
-                            Log.e(TAG, "Error showing forced consent form: ${formError.message}")
-                        } else {
-                            Log.d(TAG, "Forced consent form shown and handled")
-                        }
-                        onConsentFormDismissed(formError)
-                    }
-                },
-                { formError ->
-                    Log.e(TAG, "Error loading consent form: ${formError.message}")
-                    onConsentFormDismissed(formError)
-                }
-            )
-        } else {
-            // Normal flow - only show if required
-            UserMessagingPlatform.loadAndShowConsentFormIfRequired(activity) { formError ->
-                if (formError != null) {
-                    Log.e(TAG, "Error showing consent form: ${formError.message}")
-                } else {
-                    Log.d(TAG, "Consent form shown and handled")
-                }
-                onConsentFormDismissed(formError)
-            }
-        }
-    }
-    
-    
-    @JvmStatic
-    fun getConsentStatus(): Int {
-        return consentInformation?.consentStatus ?: ConsentInformation.ConsentStatus.UNKNOWN
-    }
-    
-    @JvmStatic
-    fun isConsentFormAvailable(): Boolean {
-        // SAFETY CHECK: Only allow debug override in debug builds
-        adConfig?.let { config ->
-            contextRef?.get()?.let { context ->
-                // CRITICAL: Must be debug mode AND flag enabled - NEVER affects release
-                if (MzgsHelper.isDebug() && config.debugRequireConsentAlways) {
-                    Log.d(TAG, "DEBUG ONLY: Forcing consent form availability for testing")
-                    return true
-                }
-            }
-        }
-        // Normal production flow
-        return consentInformation?.isConsentFormAvailable ?: false
-    }
-    
-    @JvmStatic
-    fun getPrivacyOptionsRequirementStatus(): ConsentInformation.PrivacyOptionsRequirementStatus {
-        return consentInformation?.privacyOptionsRequirementStatus 
-            ?: ConsentInformation.PrivacyOptionsRequirementStatus.UNKNOWN
-    }
-    
-    @JvmStatic
-    fun showPrivacyOptionsForm(
-        activity: Activity,
-        onConsentFormDismissed: (FormError?) -> Unit = {}
-    ) {
-        UserMessagingPlatform.showPrivacyOptionsForm(activity) { formError ->
-            if (formError != null) {
-                Log.e(TAG, "Error showing privacy options form: ${formError.message}")
-            }
-            onConsentFormDismissed(formError)
-        }
-    }
-    
-    
-    @JvmStatic
-    fun isUserInEEA(): Boolean {
-        return false // You can implement actual EEA detection logic here
-    }
-    
-    @JvmStatic
     fun createAdRequest(): AdRequest {
-        // UMP SDK automatically handles personalized/non-personalized ads
+        // Standard ad request; personalization is handled by your CMP if configured
         return AdRequest.Builder().build()
     }
     
@@ -838,12 +682,6 @@ object AdMobManager {
     
     @JvmStatic
     fun isRewardedInterstitialReady(): Boolean = rewardedInterstitialAd != null
-    
-    @JvmStatic
-    fun resetConsent() {
-        consentInformation?.reset()
-        Log.d(TAG, "Consent information reset")
-    }
     
     @JvmStatic
     fun getConfig(): AdMobConfig? = adConfig

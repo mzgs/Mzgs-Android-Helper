@@ -97,8 +97,7 @@ class MainActivity : ComponentActivity() {
             showAppOpenAdInDebug = true,
             showBannersInDebug = true,
             showNativeAdsInDebug = true,
-            showRewardedAdsInDebug = true,
-            debugRequireConsentAlways = false
+            showRewardedAdsInDebug = true
         )
 
 
