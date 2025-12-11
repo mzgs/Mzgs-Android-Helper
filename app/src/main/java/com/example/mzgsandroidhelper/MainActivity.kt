@@ -66,21 +66,17 @@ import com.mzgs.helper.admob.AdMobManager
 import com.mzgs.helper.analytics.FirebaseAnalyticsManager
 import com.mzgs.helper.applovin.AppLovinConfig
 import com.mzgs.helper.applovin.AppLovinMediationManager
+import com.mzgs.helper.printLine
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
-    private var isFullyInitialized = mutableStateOf(false)
+    private var isSplashComplete = mutableStateOf(false)
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-
-
-
-
-
-
 
 
         val admobConfig = AdMobConfig(
@@ -102,13 +98,12 @@ class MainActivity : ComponentActivity() {
             showBannersInDebug = true,
             showNativeAdsInDebug = true,
             showRewardedAdsInDebug = true,
-            debugRequireConsentAlways = false  // Set to true to always show consent form for testing
+            debugRequireConsentAlways = false
         )
 
 
         val appLovinConfig = AppLovinConfig(
             sdkKey = "sTOrf_0s7y7dzVqfTPRR0Ck_synT0Xrs0DgfChVKedyc7nGgAi6BwrAnnxEoT3dTHJ7T0dpfFmGNXX3hE9u9_2",
-            // Add your real AppLovin ad unit IDs here (from your AppLovin dashboard)
             bannerAdUnitId = "",
             interstitialAdUnitId = "",
             rewardedAdUnitId = "",
@@ -120,46 +115,64 @@ class MainActivity : ComponentActivity() {
             verboseLogging = true,
             creativeDebuggerEnabled = true,
             showAdsInDebug = true,
-            // Add your device's advertising ID here to see test ads
-            testDeviceAdvertisingIds = listOf("3d6496d1-4784-4b96-bf5e-2d61200765de") // e.g., listOf("38400000-8cf0-11bd-b23e-10b96e40000d")
+            testDeviceAdvertisingIds = listOf("3d6496d1-4784-4b96-bf5e-2d61200765de")
         )
 
-//        MzgsHelper.initSplashWithInterstitialShow(
-//            activity = this,
-//            admobConfig = admobConfig,
-//            appLovinConfig  ,
-//            defaultSplashTime = 9000,
-//            onSplashCompleteAdClosed = {
-//                Log.d("MainActivity", "Splash and ad sequence completed")
-//                MzgsHelper.setRestrictedCountriesFromRemoteConfig()
-//                MzgsHelper.setIsAllowedCountry()
-//
-//
-//
-//            },
-//            onCompleteWithAdsReady = {
-//                isFullyInitialized.value = true
-//                AdMobManager.loadRewardedAd()
-//                AppLovinMediationManager.loadRewardedAd()
-//            }
-//        )
 
         MzgsHelper.init(this, this, skipAdsInDebug = false)
         FirebaseAnalyticsManager.initialize()
 
         lifecycleScope.launch {
+            SimpleSplashHelper.showSplash(MzgsHelper.getActivity())
             Remote.initSync()
             MzgsHelper.setIPCountry()
             Ads.init()
 
+            // Splash duration and OnComplete
+            SimpleSplashHelper
+                .setDuration(Remote.getLong("splash_time", 10_000))
+                .setOnComplete {
+
+                    // Show interstitial ad
+                    val adResult = Ads.showInterstitialWithResult(
+                        onAdClosed = {
+                            MzgsHelper.restrictedCountries = listOf("UK", "US", "GB", "CN", "MX", "JP", "KR", "AR", "HK", "IN", "PK", "TR", "VN", "RU", "SG", "MO", "TW", "PY","BR")
+                            MzgsHelper.setRestrictedCountriesFromRemoteConfig()
+                            MzgsHelper.setIsAllowedCountry()
+                            Ads.loadApplovinMaxInterstitial()
+                            isSplashComplete.value = true
+                        }
+                    )
+                    FirebaseAnalyticsManager.logEvent(
+                        if (adResult.success) "splash_ad_shown" else "splash_ad_failed",
+                        Bundle().apply {
+                            putString("ad_network", adResult.network ?: "unknown")
+                        }
+                    )
+                }
+
+
+            // Init applovin and admob
+            Ads.initAppLovinMax(appLovinConfig) {
+                printLine("applovin init success")
+                SimpleSplashHelper.startProgress()
+
+                Ads.initAdMob(admobConfig) {
+                    Ads.loadAdmobInterstitial()
+                }
+
+
+            }
+
+
         }
 
-        MzgsHelper.showSplashInitAds(admobConfig, appLovinConfig)
+
 
 
         setContent {
             MzgsAndroidHelperTheme {
-                AdMobTestScreen(isFullyInitialized = isFullyInitialized.value)
+                AdMobTestScreen(isSplashComplete = isSplashComplete.value)
             }
         }
 
@@ -167,20 +180,16 @@ class MainActivity : ComponentActivity() {
 }
 
 
-
-
-
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AdMobTestScreen(isFullyInitialized: Boolean = false) {
+fun AdMobTestScreen(isSplashComplete: Boolean = false) {
     val context = LocalContext.current
     val activity = context as? Activity
     val appLovinManager = remember { AppLovinMediationManager.getInstance(context) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    
-    
+
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -238,7 +247,7 @@ fun AdMobTestScreen(isFullyInitialized: Boolean = false) {
                             ) {
                                 Text("Open MAX Debugger")
                             }
-                            
+
                             Button(
                                 onClick = {
                                     // Ensure we have the latest activity reference before showing debugger
@@ -262,7 +271,7 @@ fun AdMobTestScreen(isFullyInitialized: Boolean = false) {
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onTertiary
                         )
-                        
+
                         // Show AppLovin initialization status
                         if (appLovinManager.isInitialized()) {
                             Spacer(modifier = Modifier.height(4.dp))
@@ -276,17 +285,20 @@ fun AdMobTestScreen(isFullyInitialized: Boolean = false) {
                     }
                 }
             }
-            
+
             // Ads Helper Section - Main showcase
             item {
-                AdsHelperCard(isFullyInitialized = isFullyInitialized, snackbarHostState = snackbarHostState)
+                AdsHelperCard(
+                    isFullyInitialized = isSplashComplete,
+                    snackbarHostState = snackbarHostState
+                )
             }
-            
+
             // Splash Screen Test Section  
             item {
                 SplashScreenTestCard()
             }
-            
+
             // Search Section with Ads
             item {
                 SearchWithAdsCard()
@@ -301,7 +313,7 @@ fun AdMobTestScreen(isFullyInitialized: Boolean = false) {
 fun SearchWithAdsCard() {
     var searchQuery by remember { mutableStateOf("") }
     var showResults by remember { mutableStateOf(false) }
-    
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -315,13 +327,13 @@ fun SearchWithAdsCard() {
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onTertiaryContainer
             )
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             // Search Input Field
             TextField(
                 value = searchQuery,
-                onValueChange = { 
+                onValueChange = {
                     searchQuery = it
                     showResults = it.isNotEmpty()
                 },
@@ -340,7 +352,7 @@ fun SearchWithAdsCard() {
                 ),
                 singleLine = true
             )
-            
+
             // Search Results
             if (showResults) {
                 Spacer(modifier = Modifier.height(16.dp))
@@ -351,7 +363,7 @@ fun SearchWithAdsCard() {
                     color = MaterialTheme.colorScheme.onTertiaryContainer
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                
+
                 // Display 5 dummy results with ad as 2nd item
                 for (index in 0..4) {
                     when (index) {
@@ -368,30 +380,31 @@ fun SearchWithAdsCard() {
                             ) {
                                 // Adaptive Banner Container
                                 Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 50.dp)
+                                        .wrapContentHeight(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    AndroidView(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .heightIn(min = 50.dp)
                                             .wrapContentHeight(),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        AndroidView(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .wrapContentHeight(),
-                                            factory = { ctx ->
-                                                FrameLayout(ctx).apply {
-                                                    layoutParams = FrameLayout.LayoutParams(
-                                                        FrameLayout.LayoutParams.MATCH_PARENT,
-                                                        FrameLayout.LayoutParams.WRAP_CONTENT
-                                                    )
-                                                    // Load adaptive banner ad
-                                                    Ads.showBanner(this, Ads.BannerSize.LARGE_BANNER)
-                                                }
+                                        factory = { ctx ->
+                                            FrameLayout(ctx).apply {
+                                                layoutParams = FrameLayout.LayoutParams(
+                                                    FrameLayout.LayoutParams.MATCH_PARENT,
+                                                    FrameLayout.LayoutParams.WRAP_CONTENT
+                                                )
+                                                // Load adaptive banner ad
+                                                Ads.showBanner(this, Ads.BannerSize.LARGE_BANNER)
                                             }
-                                        )
-                                    }
+                                        }
+                                    )
+                                }
                             }
                         }
+
                         else -> {
                             // Regular search result item
                             OutlinedCard(
@@ -446,7 +459,7 @@ fun SearchWithAdsCard() {
 fun SplashScreenTestCard() {
     val context = LocalContext.current
     val activity = context as? ComponentActivity
-    
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -459,14 +472,14 @@ fun SplashScreenTestCard() {
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
-            
+
             Text(
                 "Test different splash screen configurations",
                 style = MaterialTheme.typography.bodySmall
             )
-            
+
             Spacer(modifier = Modifier.height(12.dp))
-            
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -474,35 +487,33 @@ fun SplashScreenTestCard() {
                 Button(
                     onClick = {
                         activity?.let { act ->
-                            // Test with 2 second splash with progress
-                            SimpleSplashHelper.Builder(act)
+                            SimpleSplashHelper.showSplash(act)
+                            SimpleSplashHelper
                                 .setDuration(2000)
-                                .showProgress(true)
-                                .onComplete { 
+                                .setShowProgress(true)
+                                .setOnComplete {
                                     Log.d("SplashTest", "2 second splash completed")
                                 }
-                                .build()
-                                .show()
+                            SimpleSplashHelper.startProgress()
                         }
                     },
                     modifier = Modifier.weight(1f)
                 ) {
                     Text("2s Splash")
                 }
-                
+
                 Button(
                     onClick = {
                         activity?.let { act ->
-                            // Test with 5 second splash without progress
-                            SimpleSplashHelper.Builder(act)
+                            SimpleSplashHelper.showSplash(act)
+                            SimpleSplashHelper
                                 .setDuration(5000)
-                                .showProgress(false)
-                                .onComplete { 
+                                .setShowProgress(false)
+                                .setOnComplete {
                                     Log.d("SplashTest", "5 second splash completed")
                                     MzgsHelper.showToast("Splash completed!")
                                 }
-                                .build()
-                                .show()
+                            SimpleSplashHelper.startProgress()
                         }
                     },
                     modifier = Modifier.weight(1f)
@@ -510,30 +521,29 @@ fun SplashScreenTestCard() {
                     Text("5s No Progress")
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             Button(
                 onClick = {
                     activity?.let { act ->
-                        // Test 3 second splash with progress
-                        SimpleSplashHelper.Builder(act)
+                        SimpleSplashHelper.showSplash(act)
+                        SimpleSplashHelper
                             .setDuration(3000)
-                            .showProgress(true)
-                            .onComplete { 
+                            .setShowProgress(true)
+                            .setOnComplete {
                                 Log.d("SplashTest", "3 second splash completed")
                             }
-                            .build()
-                            .show()
+                        SimpleSplashHelper.startProgress()
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Test 3s with Progress")
             }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             Text(
                 "Note: Splash screen already shown on app start (3s)",
                 style = MaterialTheme.typography.bodySmall,
@@ -544,18 +554,21 @@ fun SplashScreenTestCard() {
 }
 
 @Composable
-fun AdsHelperCard(isFullyInitialized: Boolean = false, snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }) {
+fun AdsHelperCard(
+    isFullyInitialized: Boolean = false,
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
+) {
     val context = LocalContext.current
     val activity = context as? Activity
     val scope = rememberCoroutineScope()
-    
+
     // States for ad loading
     var interstitialLoaded by remember { mutableStateOf(false) }
     var rewardedLoaded by remember { mutableStateOf(false) }
     var rewardedInterstitialLoaded by remember { mutableStateOf(false) }
     var appOpenLoaded by remember { mutableStateOf(false) }
     var userCoins by remember { mutableStateOf(0) }
-    
+
     // Load ads on initialization
     LaunchedEffect(activity) {
         // Activity is now automatically tracked via lifecycle callbacks
@@ -574,7 +587,7 @@ fun AdsHelperCard(isFullyInitialized: Boolean = false, snackbarHostState: Snackb
             }
         )
     }
-    
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -587,15 +600,15 @@ fun AdsHelperCard(isFullyInitialized: Boolean = false, snackbarHostState: Snackb
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
-            
+
             Text(
                 "All ads auto-loaded on init. Just click to show!",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             // Interstitial Ad
             OutlinedCard(
                 modifier = Modifier.fillMaxWidth()
@@ -615,8 +628,8 @@ fun AdsHelperCard(isFullyInitialized: Boolean = false, snackbarHostState: Snackb
                         Text(
                             if (Ads.isAnyInterstitialReady()) "Ready ✓" else "Loading...",
                             style = MaterialTheme.typography.bodySmall,
-                            color = if (Ads.isAnyInterstitialReady()) 
-                                MaterialTheme.colorScheme.primary 
+                            color = if (Ads.isAnyInterstitialReady())
+                                MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -636,9 +649,9 @@ fun AdsHelperCard(isFullyInitialized: Boolean = false, snackbarHostState: Snackb
                     }
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             // Interstitial with Cycle
             OutlinedCard(
                 modifier = Modifier.fillMaxWidth()
@@ -674,9 +687,9 @@ fun AdsHelperCard(isFullyInitialized: Boolean = false, snackbarHostState: Snackb
                     }
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             // Rewarded Ad
             OutlinedCard(
                 modifier = Modifier.fillMaxWidth()
@@ -700,8 +713,8 @@ fun AdsHelperCard(isFullyInitialized: Boolean = false, snackbarHostState: Snackb
                         Text(
                             if (Ads.isAnyRewardedAdReady()) "Ready ✓" else "Loading...",
                             style = MaterialTheme.typography.bodySmall,
-                            color = if (Ads.isAnyRewardedAdReady()) 
-                                MaterialTheme.colorScheme.primary 
+                            color = if (Ads.isAnyRewardedAdReady())
+                                MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -710,15 +723,16 @@ fun AdsHelperCard(isFullyInitialized: Boolean = false, snackbarHostState: Snackb
                             activity?.let { act ->
                                 // Activity is auto-tracked via lifecycle callbacks
                                 if (Ads.showRewardedAd(
-                                    onUserEarnedReward = { type, amount ->
-                                        userCoins += amount
-                                        scope.launch {
-                                            snackbarHostState.showSnackbar(
-                                                "Earned $amount $type!"
-                                            )
+                                        onUserEarnedReward = { type, amount ->
+                                            userCoins += amount
+                                            scope.launch {
+                                                snackbarHostState.showSnackbar(
+                                                    "Earned $amount $type!"
+                                                )
+                                            }
                                         }
-                                    }
-                                )) {
+                                    )
+                                ) {
                                     rewardedLoaded = false
                                 }
                             }
@@ -728,9 +742,9 @@ fun AdsHelperCard(isFullyInitialized: Boolean = false, snackbarHostState: Snackb
                     }
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             // Rewarded Interstitial Ad
             OutlinedCard(
                 modifier = Modifier.fillMaxWidth()
@@ -750,8 +764,8 @@ fun AdsHelperCard(isFullyInitialized: Boolean = false, snackbarHostState: Snackb
                         Text(
                             if (rewardedInterstitialLoaded) "Ready ✓" else "Loading...",
                             style = MaterialTheme.typography.bodySmall,
-                            color = if (rewardedInterstitialLoaded) 
-                                MaterialTheme.colorScheme.primary 
+                            color = if (rewardedInterstitialLoaded)
+                                MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -760,16 +774,17 @@ fun AdsHelperCard(isFullyInitialized: Boolean = false, snackbarHostState: Snackb
                             activity?.let { act ->
                                 // Activity is auto-tracked via lifecycle callbacks
                                 if (AdMobManager.showRewardedInterstitialAd(
-                                    activity = act,
-                                    onUserEarnedReward = { reward: RewardItem ->
-                                        userCoins += reward.amount
-                                        scope.launch {
-                                            snackbarHostState.showSnackbar(
-                                                "Earned ${reward.amount} ${reward.type}!"
-                                            )
+                                        activity = act,
+                                        onUserEarnedReward = { reward: RewardItem ->
+                                            userCoins += reward.amount
+                                            scope.launch {
+                                                snackbarHostState.showSnackbar(
+                                                    "Earned ${reward.amount} ${reward.type}!"
+                                                )
+                                            }
                                         }
-                                    }
-                                )) {
+                                    )
+                                ) {
                                     rewardedInterstitialLoaded = false
                                     // Reload for next time
                                     AdMobManager.loadRewardedInterstitialAd()
@@ -785,9 +800,9 @@ fun AdsHelperCard(isFullyInitialized: Boolean = false, snackbarHostState: Snackb
                     }
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             // App Open Ad
             OutlinedCard(
                 modifier = Modifier.fillMaxWidth()
@@ -824,9 +839,9 @@ fun AdsHelperCard(isFullyInitialized: Boolean = false, snackbarHostState: Snackb
                     }
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             // Banner Ad
             OutlinedCard(
                 modifier = Modifier.fillMaxWidth()
@@ -839,7 +854,7 @@ fun AdsHelperCard(isFullyInitialized: Boolean = false, snackbarHostState: Snackb
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
-                    
+
                     // Banner container - always visible
                     Box(
                         modifier = Modifier
@@ -871,9 +886,9 @@ fun AdsHelperCard(isFullyInitialized: Boolean = false, snackbarHostState: Snackb
                     }
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             // MREC Ad
             OutlinedCard(
                 modifier = Modifier.fillMaxWidth()
@@ -887,7 +902,7 @@ fun AdsHelperCard(isFullyInitialized: Boolean = false, snackbarHostState: Snackb
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
-                    
+
                     // MREC container - always visible
                     Card(
                         modifier = Modifier
@@ -915,9 +930,9 @@ fun AdsHelperCard(isFullyInitialized: Boolean = false, snackbarHostState: Snackb
                     }
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             // Native Ad
             OutlinedCard(
                 modifier = Modifier.fillMaxWidth()
@@ -929,9 +944,9 @@ fun AdsHelperCard(isFullyInitialized: Boolean = false, snackbarHostState: Snackb
                         "Native Ad",
                         fontWeight = FontWeight.Bold
                     )
-                    
+
                     Spacer(modifier = Modifier.height(8.dp))
-                    
+
                     // Native ad container
                     AndroidView(
                         modifier = Modifier

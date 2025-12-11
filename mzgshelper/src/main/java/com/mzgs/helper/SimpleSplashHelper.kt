@@ -1,17 +1,19 @@
 package com.mzgs.helper
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.app.Activity
 import android.app.Dialog
 import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.WindowManager
@@ -21,11 +23,12 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 
-class SimpleSplashHelper(private val activity: Activity) {
-    
+object SimpleSplashHelper {
+
+    private var activity: Activity? = null
     private var splashDuration: Long = 3000L
     private var onComplete: (() -> Unit)? = null
-    private var showProgress: Boolean = true
+    private var shouldShowProgress: Boolean = true
     private var splashDialog: Dialog? = null
     private var progressBar: ProgressBar? = null
     private var progressText: TextView? = null
@@ -33,101 +36,78 @@ class SimpleSplashHelper(private val activity: Activity) {
     private var progressAnimator: ValueAnimator? = null
     private var handler: Handler? = null
     private var dismissRunnable: Runnable? = null
-    private var remainingTime: Long = 0L
-    private var lastPauseTime: Long = 0L
-    private var isPaused: Boolean = false
     private var onCompleteInvoked: Boolean = false
-    private var rotateLogo: Boolean = false
+    private var rotateLogo: Boolean = true
     private var logoAnimatorSet: AnimatorSet? = null
     private var logoImageView: ImageView? = null
-    
-    class Builder(private val activity: Activity) {
-        private val helper = SimpleSplashHelper(activity)
-        
-        fun setDuration(millis: Long): Builder {
-            helper.splashDuration = millis
-            return this
-        }
-        
-        fun showProgress(show: Boolean): Builder {
-            helper.showProgress = show
-            return this
-        }
-        
-        fun onComplete(callback: () -> Unit): Builder {
-            helper.onComplete = callback
-            return this
-        }
-        
-        fun setRotateLogo(rotate: Boolean): Builder {
-            helper.rotateLogo = rotate
-            return this
-        }
-        
-        fun build(): SimpleSplashHelper = helper
+    private var progressStarted: Boolean = false
+
+    @JvmStatic
+    fun showSplash(activity: Activity, duration: Long = 3000L) {
+        dismiss()
+        resetState()
+        this.activity = activity
+        this.splashDuration = duration
+        createAndShowSplash(activity)
+        startLogoRotationAnimation()
+        showCircularProgress()
     }
-    
-    fun show() {
-        createAndShowSplash()
-        
-        remainingTime = splashDuration
-        
-        // Start logo rotation if enabled
-        if (rotateLogo && logoImageView != null) {
-            startLogoRotationAnimation()
-        }
-        
-        // Only start animation and timer if not paused
-        if (!isPaused) {
-            if (showProgress) {
-                startProgressAnimation()
-            }
-            
-            handler = Handler(Looper.getMainLooper())
-            
-            // Trigger onComplete 1 second before dismissal
-            if (splashDuration > 1000L) {
-                handler?.postDelayed({
-                    if (!onCompleteInvoked) {
-                        onComplete?.invoke()
-                        onCompleteInvoked = true
-                    }
-                }, splashDuration - 1000L)
-            } else {
-                // If duration is 1 second or less, trigger immediately
-                if (!onCompleteInvoked) {
-                    onComplete?.invoke()
-                    onCompleteInvoked = true
+
+    fun setDuration(millis: Long): SimpleSplashHelper = apply { splashDuration = millis }
+
+    fun setShowProgress(show: Boolean): SimpleSplashHelper = apply { shouldShowProgress = show }
+
+    fun setOnComplete(callback: () -> Unit): SimpleSplashHelper = apply { onComplete = callback }
+
+    fun setRotateLogo(rotate: Boolean): SimpleSplashHelper = apply { rotateLogo = rotate }
+
+    @JvmStatic
+    fun startProgress() {
+        if (progressStarted) return
+        progressStarted = true
+
+        handler = handler ?: Handler(Looper.getMainLooper())
+
+        if (shouldShowProgress) {
+            showProgressIndicators()
+            progressAnimator = ValueAnimator.ofInt(0, 100).apply {
+                duration = splashDuration
+                interpolator = AccelerateDecelerateInterpolator()
+                addUpdateListener { animator ->
+                    val progress = animator.animatedValue as Int
+                    progressBar?.progress = progress
+                    progressText?.text = "$progress%"
                 }
+                addListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
+                        invokeCompleteAndDismiss()
+                    }
+                })
+                start()
             }
-            
-            // Dismiss after full duration
-            dismissRunnable = Runnable {
-                splashDialog?.dismiss()
-                progressAnimator?.cancel()
-                handler?.removeCallbacks(dismissRunnable ?: return@Runnable)
-            }
-            handler?.postDelayed(dismissRunnable!!, splashDuration)
         } else {
-            // If starting paused, show circular progress
-            showCircularProgress()
+            dismissRunnable = Runnable { invokeCompleteAndDismiss() }
+            handler?.postDelayed(dismissRunnable!!, splashDuration)
         }
     }
-    
-    private fun createAndShowSplash() {
-        splashDialog = Dialog(activity, android.R.style.Theme_Black_NoTitleBar_Fullscreen).apply {
-            setContentView(createSplashView())
+
+    @JvmStatic
+    fun hideSplash() {
+        invokeCompleteAndDismiss()
+    }
+
+    private fun createAndShowSplash(currentActivity: Activity) {
+        splashDialog = Dialog(currentActivity, android.R.style.Theme_Black_NoTitleBar_Fullscreen).apply {
+            setContentView(createSplashView(currentActivity))
             window?.apply {
-                // Create white gradient background
                 val gradientDrawable = GradientDrawable(
                     GradientDrawable.Orientation.TOP_BOTTOM,
                     intArrayOf(
-                        Color.parseColor("#FFFFFF"), // Pure white
-                        Color.parseColor("#F5F5F5")  // Light gray
+                        Color.parseColor("#FFFFFF"),
+                        Color.parseColor("#F5F5F5")
                     )
                 )
                 setBackgroundDrawable(gradientDrawable)
-                // FLAG_FULLSCREEN is deprecated, use WindowInsetsController instead
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     window?.insetsController?.hide(WindowInsets.Type.statusBars())
                 } else {
@@ -140,35 +120,31 @@ class SimpleSplashHelper(private val activity: Activity) {
             show()
         }
     }
-    
-    private fun createSplashView(): LinearLayout {
-        return LinearLayout(activity).apply {
+
+    private fun createSplashView(currentActivity: Activity): LinearLayout {
+        return LinearLayout(currentActivity).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            // Transparent background to show gradient behind
             setBackgroundColor(Color.TRANSPARENT)
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
-            
-            // Add padding to the container
+
             setPadding(40, 0, 40, 0)
-            
-            // App Icon with better size
+
             logoImageView = ImageView(context).apply {
-                setImageResource(activity.applicationInfo.icon)
+                setImageResource(currentActivity.applicationInfo.icon)
                 layoutParams = LinearLayout.LayoutParams(240, 240).apply {
                     bottomMargin = 40
                 }
                 scaleType = ImageView.ScaleType.FIT_CENTER
             }
             addView(logoImageView)
-            
-            // App Name with dark text for white background
+
             val appName = TextView(context).apply {
-                text = activity.applicationInfo.loadLabel(activity.packageManager)
-                setTextColor(Color.parseColor("#212121")) // Dark gray text
+                text = currentActivity.applicationInfo.loadLabel(currentActivity.packageManager)
+                setTextColor(Color.parseColor("#212121"))
                 textSize = 26f
                 gravity = Gravity.CENTER
                 setShadowLayer(2f, 0f, 1f, Color.parseColor("#20000000"))
@@ -180,53 +156,48 @@ class SimpleSplashHelper(private val activity: Activity) {
                 }
             }
             addView(appName)
-            
-            if (showProgress) {
-                // Progress Bar with beautiful green gradient and rounded corners
+
+            if (shouldShowProgress) {
                 progressBar = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal).apply {
                     layoutParams = LinearLayout.LayoutParams(
                         700,
-                        36  // Much thicker progress bar
+                        36
                     ).apply {
                         bottomMargin = 28
                     }
                     max = 100
                     progress = 0
-                    
-                    // Create custom drawable with rounded corners and flat blue
+
                     val progressDrawable = android.graphics.drawable.LayerDrawable(
                         arrayOf(
-                            // Background track
                             GradientDrawable().apply {
                                 cornerRadius = 18f
                                 setColor(Color.parseColor("#E0E0E0"))
                             },
-                            // Secondary progress (not used)
                             GradientDrawable().apply {
                                 cornerRadius = 18f
                                 setColor(Color.TRANSPARENT)
                             },
-                            // Primary progress with flat blue
                             android.graphics.drawable.ClipDrawable(
                                 GradientDrawable().apply {
                                     cornerRadius = 18f
-                                    setColor(Color.parseColor("#2196F3")) // Flat blue color
+                                    setColor(Color.parseColor("#2196F3"))
                                 },
                                 Gravity.START,
                                 android.graphics.drawable.ClipDrawable.HORIZONTAL
                             )
                         )
                     )
-                    
+
                     progressDrawable.setId(0, android.R.id.background)
                     progressDrawable.setId(1, android.R.id.secondaryProgress)
                     progressDrawable.setId(2, android.R.id.progress)
-                    
+
                     this.progressDrawable = progressDrawable
+                    visibility = View.GONE
                 }
                 addView(progressBar)
-                
-                // Circular Progress Bar (hidden by default)
+
                 circularProgressBar = ProgressBar(context).apply {
                     layoutParams = LinearLayout.LayoutParams(
                         120,
@@ -234,8 +205,7 @@ class SimpleSplashHelper(private val activity: Activity) {
                     ).apply {
                         bottomMargin = 20
                     }
-                    visibility = android.view.View.GONE
-                    // Blue circular progress to match
+                    visibility = View.VISIBLE
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                         indeterminateDrawable?.colorFilter = android.graphics.BlendModeColorFilter(
                             Color.parseColor("#2196F3"),
@@ -250,69 +220,53 @@ class SimpleSplashHelper(private val activity: Activity) {
                     }
                 }
                 addView(circularProgressBar)
-                
-                // Progress Text - just percentage
+
                 progressText = TextView(context).apply {
                     text = "0%"
-                    setTextColor(Color.parseColor("#424242")) // Darker gray for better contrast
+                    setTextColor(Color.parseColor("#424242"))
                     textSize = 20f
                     gravity = Gravity.CENTER
                     letterSpacing = 0.1f
                     setTypeface(null, android.graphics.Typeface.BOLD)
                     setPadding(0, 8, 0, 0)
+                    visibility = View.GONE
                 }
                 addView(progressText)
             }
         }
     }
-    
-    private fun startProgressAnimation() {
-        progressAnimator = ValueAnimator.ofInt(0, 100).apply {
-            duration = splashDuration
-            interpolator = AccelerateDecelerateInterpolator() // Smooth acceleration/deceleration
-            addUpdateListener { animator ->
-                val progress = animator.animatedValue as Int
-                progressBar?.progress = progress
-                progressText?.text = "$progress%"
-            }
-            start()
-        }
-    }
-    
+
     private fun startLogoRotationAnimation() {
+        if (!rotateLogo) return
         logoImageView?.let { logo ->
-            // Create rotation animation
             val rotationAnimator = ObjectAnimator.ofFloat(logo, "rotation", 0f, 360f).apply {
-                duration = 1500 // 1.5 seconds for one full rotation (faster)
+                duration = 1500
                 repeatCount = ValueAnimator.INFINITE
                 repeatMode = ValueAnimator.RESTART
                 interpolator = AccelerateDecelerateInterpolator()
             }
-            
-            // Create pulse animation for scaleX
+
             val pulseScaleX = ObjectAnimator.ofFloat(logo, "scaleX", 1f, 1.15f, 1f).apply {
-                duration = 1500 // 1.5 seconds for one pulse
+                duration = 1500
                 repeatCount = ValueAnimator.INFINITE
                 repeatMode = ValueAnimator.RESTART
                 interpolator = AccelerateDecelerateInterpolator()
             }
-            
-            // Create pulse animation for scaleY
+
             val pulseScaleY = ObjectAnimator.ofFloat(logo, "scaleY", 1f, 1.15f, 1f).apply {
-                duration = 1500 // 1.5 seconds for one pulse
+                duration = 1500
                 repeatCount = ValueAnimator.INFINITE
                 repeatMode = ValueAnimator.RESTART
                 interpolator = AccelerateDecelerateInterpolator()
             }
-            
-            // Combine all animations
+
             logoAnimatorSet = AnimatorSet().apply {
                 playTogether(rotationAnimator, pulseScaleX, pulseScaleY)
                 start()
             }
         }
     }
-    
+
     private fun dismiss() {
         progressAnimator?.cancel()
         logoAnimatorSet?.cancel()
@@ -323,116 +277,57 @@ class SimpleSplashHelper(private val activity: Activity) {
         } catch (e: IllegalArgumentException) {
             // Dialog was already dismissed or window was detached
         }
-        handler?.removeCallbacks(dismissRunnable ?: return)
-        // onComplete is now called 1 second before dismissal in show()
+        dismissRunnable?.let { handler?.removeCallbacks(it) }
+        progressStarted = false
     }
-    
-    fun pause() {
-        if (!isPaused) {
-            isPaused = true
-            lastPauseTime = System.currentTimeMillis()
-            
-            // Only do these if dialog is actually showing
-            if (splashDialog?.isShowing == true) {
-                // Pause the progress animation
-                progressAnimator?.pause()
-                
-                // Logo rotation animation continues even when paused (not affected by pause)
-                // logoRotationAnimator?.pause() // REMOVED - logo keeps rotating
-                
-                // Cancel the dismiss handler
-                dismissRunnable?.let {
-                    handler?.removeCallbacks(it)
-                }
-                
-                // Calculate remaining time
-                val elapsedTime = splashDuration - remainingTime
-                remainingTime = splashDuration - elapsedTime - (System.currentTimeMillis() - lastPauseTime)
-                
-                // Show circular progress when paused
-                showCircularProgress()
-            }
-        }
+
+    private fun resetState() {
+        activity = null
+        splashDuration = 3000L
+        onComplete = null
+        shouldShowProgress = true
+        splashDialog = null
+        progressBar = null
+        progressText = null
+        circularProgressBar = null
+        progressAnimator = null
+        handler = null
+        dismissRunnable = null
+        onCompleteInvoked = false
+        rotateLogo = true
+        logoAnimatorSet = null
+        logoImageView = null
+        progressStarted = false
     }
-    
-    fun resume() {
-        if (isPaused && splashDialog?.isShowing == true) {
-            isPaused = false
-            
-            // Show progress indicators
-            showProgress()
-            
-            // Resume or start the progress animation
-            if (progressAnimator == null && showProgress) {
-                startProgressAnimation()
-            } else {
-                progressAnimator?.resume()
-            }
-            
-            // Logo rotation animation continues independently (not affected by resume)
-            // logoRotationAnimator?.resume() // REMOVED - logo keeps rotating
-            
-            // Create handler and runnable if needed
-            if (handler == null) {
-                handler = Handler(Looper.getMainLooper())
-            }
-            if (dismissRunnable == null) {
-                dismissRunnable = Runnable {
-                    try {
-                        if (splashDialog?.isShowing == true) {
-                            splashDialog?.dismiss()
-                        }
-                    } catch (e: IllegalArgumentException) {
-                        // Dialog was already dismissed or window was detached
-                    }
-                    progressAnimator?.cancel()
-                    handler?.removeCallbacks(dismissRunnable ?: return@Runnable)
-                }
-            }
-            
-            // Reschedule onComplete and dismiss with remaining time
-            if (remainingTime > 0) {
-                // Schedule onComplete 1 second before dismissal if not already called
-                if (remainingTime > 1000L && !onCompleteInvoked) {
-                    handler?.postDelayed({
-                        if (!onCompleteInvoked) {
-                            onComplete?.invoke()
-                            onCompleteInvoked = true
-                        }
-                    }, remainingTime - 1000L)
-                } else if (remainingTime <= 1000L && !onCompleteInvoked) {
-                    // If less than 1 second remains, call immediately
-                    onComplete?.invoke()
-                    onCompleteInvoked = true
-                }
-                
-                // Schedule dismissal
-                dismissRunnable?.let {
-                    handler?.postDelayed(it, remainingTime)
-                }
-            }
-        }
-    }
-    
+
     fun hideProgress() {
-        progressBar?.visibility = android.view.View.INVISIBLE
-        progressText?.visibility = android.view.View.INVISIBLE
-        circularProgressBar?.visibility = android.view.View.GONE
+        progressBar?.visibility = View.INVISIBLE
+        progressText?.visibility = View.INVISIBLE
+        circularProgressBar?.visibility = View.GONE
     }
-    
-    fun showProgress() {
-        if (showProgress) {
-            progressBar?.visibility = android.view.View.VISIBLE
-            progressText?.visibility = android.view.View.VISIBLE
-            circularProgressBar?.visibility = android.view.View.GONE
+
+    private fun showProgressIndicators() {
+        if (shouldShowProgress) {
+            progressBar?.visibility = View.VISIBLE
+            progressText?.visibility = View.VISIBLE
+            circularProgressBar?.visibility = View.GONE
         }
     }
-    
+
     private fun showCircularProgress() {
-        if (showProgress) {
-            progressBar?.visibility = android.view.View.INVISIBLE
-            progressText?.visibility = android.view.View.INVISIBLE
-            circularProgressBar?.visibility = android.view.View.VISIBLE
+        if (shouldShowProgress) {
+            progressBar?.visibility = View.INVISIBLE
+            progressText?.visibility = View.INVISIBLE
+            circularProgressBar?.visibility = View.VISIBLE
         }
+    }
+
+    private fun invokeCompleteAndDismiss() {
+        if (!onCompleteInvoked) {
+            onCompleteInvoked = true
+            onComplete?.invoke()
+        }
+        dismiss()
+        resetState()
     }
 }
