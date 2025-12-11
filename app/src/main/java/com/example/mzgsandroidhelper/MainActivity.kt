@@ -56,7 +56,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.os.BuildCompat
 import com.example.mzgsandroidhelper.ui.theme.MzgsAndroidHelperTheme
 import com.mzgs.helper.Ads
 import com.mzgs.helper.MzgsHelper
@@ -65,15 +64,9 @@ import com.mzgs.helper.SimpleSplashHelper
 import com.mzgs.helper.admob.AdMobConfig
 import com.mzgs.helper.admob.AdMobManager
 import com.mzgs.helper.analytics.FirebaseAnalyticsManager
-import com.mzgs.helper.applovin.AppLovinAppOpenAdManager
 import com.mzgs.helper.applovin.AppLovinConfig
 import com.mzgs.helper.applovin.AppLovinMediationManager
-import com.mzgs.helper.p
-import com.mzgs.helper.printLine
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeout
-import kotlin.system.measureTimeMillis
 
 class MainActivity : ComponentActivity() {
     
@@ -89,13 +82,6 @@ class MainActivity : ComponentActivity() {
 
         MzgsHelper.init(this, this, BuildConfig.DEBUG, skipAdsInDebug = false)
 
-        lifecycleScope.launch{
-            Remote.initSync()
-            MzgsHelper.setIPCountry()
-            FirebaseAnalyticsManager.initialize()
-            Ads.init()
-        }
-  
 
         val admobConfig = AdMobConfig(
             appId = "ca-app-pub-8689213949805403~6434330617",
@@ -121,13 +107,14 @@ class MainActivity : ComponentActivity() {
 
 
         val appLovinConfig = AppLovinConfig(
-            sdkKey = "sTOrf_0s7y7dzVqfTPRR0Ck_synT0Xrs0DgfChVKedyc7nGgAi6BwrAnnxEoT3dTHJ7T0dpfFmGNXX3hE9u9_",
+            sdkKey = "sTOrf_0s7y7dzVqfTPRR0Ck_synT0Xrs0DgfChVKedyc7nGgAi6BwrAnnxEoT3dTHJ7T0dpfFmGNXX3hE9u9_2",
             // Add your real AppLovin ad unit IDs here (from your AppLovin dashboard)
             bannerAdUnitId = "",
             interstitialAdUnitId = "",
             rewardedAdUnitId = "",
             mrecAdUnitId = "",
             nativeAdUnitId = "",
+            enableTestCMP = true,
             bannerAutoRefreshSeconds = 30,  // Refresh banner/MREC ads every 30 seconds (0 to disable)
             enableTestMode = true,
             verboseLogging = true,
@@ -137,25 +124,36 @@ class MainActivity : ComponentActivity() {
             testDeviceAdvertisingIds = listOf("3d6496d1-4784-4b96-bf5e-2d61200765de") // e.g., listOf("38400000-8cf0-11bd-b23e-10b96e40000d")
         )
 
-        MzgsHelper.initSplashWithInterstitialShow(
-            activity = this,
-            admobConfig = admobConfig,
-            appLovinConfig  ,
-            defaultSplashTime = 9000,
-            onSplashCompleteAdClosed = {
-                Log.d("MainActivity", "Splash and ad sequence completed")
-                MzgsHelper.setRestrictedCountriesFromRemoteConfig()
-                MzgsHelper.setIsAllowedCountry()
+//        MzgsHelper.initSplashWithInterstitialShow(
+//            activity = this,
+//            admobConfig = admobConfig,
+//            appLovinConfig  ,
+//            defaultSplashTime = 9000,
+//            onSplashCompleteAdClosed = {
+//                Log.d("MainActivity", "Splash and ad sequence completed")
+//                MzgsHelper.setRestrictedCountriesFromRemoteConfig()
+//                MzgsHelper.setIsAllowedCountry()
+//
+//
+//
+//            },
+//            onCompleteWithAdsReady = {
+//                isFullyInitialized.value = true
+//                AdMobManager.loadRewardedAd()
+//                AppLovinMediationManager.loadRewardedAd()
+//            }
+//        )
 
+        lifecycleScope.launch{
+            Remote.initSync()
+            MzgsHelper.setIPCountry()
+            FirebaseAnalyticsManager.initialize()
+            Ads.init()
 
+        }
 
-            },
-            onCompleteWithAdsReady = {
-                isFullyInitialized.value = true
-                AdMobManager.loadRewardedAd()
-                AppLovinMediationManager.loadRewardedAd()
-            }
-        )
+        MzgsHelper.showSplashInitAds(admobConfig,appLovinConfig)
+
 
         setContent {
             MzgsAndroidHelperTheme {

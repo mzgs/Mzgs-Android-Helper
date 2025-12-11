@@ -1,11 +1,9 @@
 package com.mzgs.helper
 
 import android.Manifest
-import android.R
 import android.app.Activity
 import android.app.Application
 import android.content.Context
-import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -26,11 +24,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
 import org.json.JSONObject
 import com.google.android.play.core.review.ReviewManagerFactory
 import java.net.URL
-import java.text.SimpleDateFormat
 import java.util.*
 
 fun p(obj: Any) {
@@ -304,12 +300,13 @@ object MzgsHelper {
     }
 
 
-    fun loadAdsShowSpash( admobConfig: AdMobConfig,
-            appLovinConfig: AppLovinConfig){
+    fun showSplashInitAds(admobConfig: AdMobConfig,
+                          appLovinConfig: AppLovinConfig){
+
 
 
         val splash = SimpleSplashHelper.Builder(getActivity()!!)
-            .setDuration(Remote.getLong("splash_time", 10))
+            .setDuration(Remote.getLong("splash_time", 10_000))
             .setRotateLogo(true)
             .showProgress(true)
             .onComplete {
@@ -340,6 +337,7 @@ object MzgsHelper {
         splash.show()
 
          Ads.initAppLovinMax(appLovinConfig) {
+             printLine("applovin init success")
             splash.resume()
 
              Ads.initAdMob(admobConfig){

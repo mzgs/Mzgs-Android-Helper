@@ -13,6 +13,8 @@ data class AppLovinConfig(
     val bannerAutoRefreshSeconds: Int = 60,  // Auto-refresh banner/MREC ads every X seconds (0 to disable)
     val enableAppOpenAd: Boolean = true,
     val enableTestCMP: Boolean = false,
+    val consentFlowPrivacyPolicyUrl: String? = null,
+    val consentFlowTermsOfServiceUrl: String? = null,
     val enableTestMode: Boolean = false,  // DEBUG ONLY: Protected by isDebugMode check
     val verboseLogging: Boolean = false,  // Note: Currently only logged, not applied to SDK
     val muteAudio: Boolean = false,
@@ -43,6 +45,9 @@ data class AppLovinConfig(
                 nativeAdUnitId = "",
                 enableAppOpenAd = true,
                 enableTestMode = true,
+                enableTestCMP = true,
+                consentFlowPrivacyPolicyUrl = "https://example.com/privacy",
+                consentFlowTermsOfServiceUrl = "https://example.com/terms",
                 verboseLogging = true,
                 creativeDebuggerEnabled = true
             )

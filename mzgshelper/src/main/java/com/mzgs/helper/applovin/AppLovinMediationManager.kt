@@ -99,9 +99,24 @@ object AppLovinMediationManager {
         val initConfig = initConfigBuilder.build()
         val settings = AppLovinSdk.getInstance(context).settings
         settings.termsAndPrivacyPolicyFlowSettings.setShowTermsAndPrivacyPolicyAlertInGdpr(true)
-
-        if (config.enableTestCMP){
+        if (config.enableTestCMP && MzgsHelper.isDebug) {
+            // Force GDPR geography for test CMP and wire URLs if provided
             settings.termsAndPrivacyPolicyFlowSettings.debugUserGeography = AppLovinSdkConfiguration.ConsentFlowUserGeography.GDPR
+            settings.termsAndPrivacyPolicyFlowSettings.setEnabled(true)
+
+            val privacyUrl = config.consentFlowPrivacyPolicyUrl ?: "https://example.com/privacy"
+            val termsUrl = config.consentFlowTermsOfServiceUrl ?: "https://example.com/terms"
+
+            try {
+                settings.termsAndPrivacyPolicyFlowSettings.setPrivacyPolicyUri(android.net.Uri.parse(privacyUrl))
+            } catch (e: Exception) {
+                Log.w(TAG, "Invalid privacy policy URL: $privacyUrl", e)
+            }
+            try {
+                settings.termsAndPrivacyPolicyFlowSettings.setTermsOfServiceUri(android.net.Uri.parse(termsUrl))
+            } catch (e: Exception) {
+                Log.w(TAG, "Invalid terms of service URL: $termsUrl", e)
+            }
         }
 
         // Initialize SDK with configuration
