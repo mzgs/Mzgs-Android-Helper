@@ -105,10 +105,12 @@ If you need AppLovin CMP test flow, also provide your privacy/terms URLs in `App
 
 ```kotlin
 class MainActivity : ComponentActivity() {
+     private var isSplashComplete = mutableStateOf(false)
+     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        MzgsHelper.init(this, this, skipAdsInDebug = BuildConfig.DEBUG)
+        MzgsHelper.init(this, this, skipAdsInDebug = false)
         FirebaseAnalyticsManager.initialize()
 
         lifecycleScope.launch {
@@ -130,7 +132,7 @@ class MainActivity : ComponentActivity() {
                 mrecAdUnitId = "",
                 appOpenAdUnitId = "",
                 enableAppOpenAd = true,
-                enableTestMode = BuildConfig.DEBUG,
+                enableTestMode = true,
                 testDeviceIds = listOf("HASHED_TEST_DEVICE_ID"), // AdMob requires hashed IDs
                 debugEmptyIds = false
             )
@@ -144,15 +146,16 @@ class MainActivity : ComponentActivity() {
                 nativeAdUnitId = "",
                 appOpenAdUnitId = "",
                 enableAppOpenAd = true,
-                enableTestCMP = BuildConfig.DEBUG,
+                enableTestCMP = true,
                 consentFlowPrivacyPolicyUrl = "https://yourdomain.com/privacy",
                 consentFlowTermsOfServiceUrl = "https://yourdomain.com/terms",
                 testDeviceAdvertisingIds = listOf("YOUR_GAID_FOR_TESTS"), // MAX uses GAID
-                enableTestMode = BuildConfig.DEBUG,
+                enableTestMode = true,
                 debugEmptyIds = false
             )
 
             Ads.initAppLovinMax(appLovinConfig) {
+                SimpleSplashHelper.startProgress()
                 Ads.initAdMob(admobConfig) {
                     Ads.loadAdmobInterstitial()
                 }
@@ -164,13 +167,21 @@ class MainActivity : ComponentActivity() {
                 .setOnComplete {
                     val result = Ads.showInterstitialWithResult {
                         // Called when closed; preload next round here
+                                                    // MzgsHelper.restrictedCountries = listOf("UK", "US", "GB", "CN", "MX", "JP", "KR", "AR", "HK", "IN", "PK", "TR", "VN", "RU", "SG", "MO", "TW", "PY","BR")
+
                         Ads.loadApplovinMaxInterstitial()
                         MzgsHelper.setRestrictedCountriesFromRemoteConfig()
                         MzgsHelper.setIsAllowedCountry()
+                        isSplashComplete.value = true
                     }
-                    Log.d("Splash", "Ad result: ${result.network ?: "none"} success=${result.success}")
+                    FirebaseAnalyticsManager.logEvent(
+                        if (result.success) "splash_ad_shown" else "splash_ad_failed",
+                        Bundle().apply {
+                            putString("ad_network", result.network ?: "unknown")
+                        }
+                    )
                 }
-            SimpleSplashHelper.startProgress()
+          
         }
     }
 }
