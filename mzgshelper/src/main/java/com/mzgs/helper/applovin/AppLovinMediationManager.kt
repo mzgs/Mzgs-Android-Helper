@@ -3,6 +3,7 @@ package com.mzgs.helper.applovin
 import android.app.Activity
 import android.app.Application
 import android.content.Context
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -24,6 +25,7 @@ import java.lang.ref.WeakReference
 import java.util.concurrent.TimeUnit
 import kotlin.math.min
 import kotlin.math.pow
+import androidx.core.net.toUri
 
 object AppLovinMediationManager {
     
@@ -98,25 +100,13 @@ object AppLovinMediationManager {
         
         val initConfig = initConfigBuilder.build()
         val settings = AppLovinSdk.getInstance(context).settings
-        settings.termsAndPrivacyPolicyFlowSettings.setShowTermsAndPrivacyPolicyAlertInGdpr(true)
+        settings.termsAndPrivacyPolicyFlowSettings.isEnabled = true;
+        settings.termsAndPrivacyPolicyFlowSettings.privacyPolicyUri =
+            "https://mzgs.net/privacy.html".toUri();
+
         if (config.enableTestCMP && MzgsHelper.isDebug()) {
             // Force GDPR geography for test CMP and wire URLs if provided
             settings.termsAndPrivacyPolicyFlowSettings.debugUserGeography = AppLovinSdkConfiguration.ConsentFlowUserGeography.GDPR
-            settings.termsAndPrivacyPolicyFlowSettings.setEnabled(true)
-
-            val privacyUrl = config.consentFlowPrivacyPolicyUrl ?: "https://example.com/privacy"
-            val termsUrl = config.consentFlowTermsOfServiceUrl ?: "https://example.com/terms"
-
-            try {
-                settings.termsAndPrivacyPolicyFlowSettings.setPrivacyPolicyUri(android.net.Uri.parse(privacyUrl))
-            } catch (e: Exception) {
-                Log.w(TAG, "Invalid privacy policy URL: $privacyUrl", e)
-            }
-            try {
-                settings.termsAndPrivacyPolicyFlowSettings.setTermsOfServiceUri(android.net.Uri.parse(termsUrl))
-            } catch (e: Exception) {
-                Log.w(TAG, "Invalid terms of service URL: $termsUrl", e)
-            }
         }
 
         // Initialize SDK with configuration
