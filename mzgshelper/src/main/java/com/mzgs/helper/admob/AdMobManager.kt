@@ -17,6 +17,10 @@ import com.google.android.gms.ads.rewarded.RewardedAd
 import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAd
 import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAdLoadCallback
+import com.google.android.ump.ConsentDebugSettings
+import com.google.android.ump.ConsentInformation
+import com.google.android.ump.ConsentRequestParameters
+import com.google.android.ump.UserMessagingPlatform
 import com.mzgs.helper.analytics.FirebaseAnalyticsManager
 import com.mzgs.helper.MzgsHelper
 import com.mzgs.helper.p
@@ -175,6 +179,104 @@ object AdMobManager {
     fun createAdRequest(): AdRequest {
         // Standard ad request; personalization is handled by your CMP if configured
         return AdRequest.Builder().build()
+    }
+    
+    @JvmStatic
+    fun showUmpConsent(onComplete: () -> Unit = {}) {
+        val context = contextRef?.get()
+        if (context == null) {
+            Log.e(TAG, "Context not set. Call init() before requesting UMP consent.")
+            onComplete()
+            return
+        }
+        
+        val activity = Ads.getCurrentActivity()
+        if (activity == null) {
+            Log.e(TAG, "No current activity available to show UMP consent form")
+            onComplete()
+            return
+        }
+        
+        val consentInformation = UserMessagingPlatform.getConsentInformation(context)
+        val paramsBuilder = ConsentRequestParameters.Builder()
+        
+        // Enable debug consent flow even outside EEA if requested in debug builds
+        if (MzgsHelper.isDebug() && adConfig?.forceDebugConsentInEea == true) {
+            val debugSettingsBuilder = ConsentDebugSettings.Builder(activity)
+                .setDebugGeography(ConsentDebugSettings.DebugGeography.DEBUG_GEOGRAPHY_EEA)
+            
+            // Reuse test device IDs (hashed) if provided
+            adConfig?.testDeviceIds?.forEach { debugSettingsBuilder.addTestDeviceHashedId(it) }
+            
+            paramsBuilder.setConsentDebugSettings(debugSettingsBuilder.build())
+        }
+        
+        val params = paramsBuilder.build()
+        
+        consentInformation.requestConsentInfoUpdate(
+            activity,
+            params,
+            {
+                Log.d(
+                    TAG,
+                    "UMP consent info updated: status=${consentInformation.consentStatus}, formAvailable=${consentInformation.isConsentFormAvailable}"
+                )
+                if (
+                    consentInformation.consentStatus == ConsentInformation.ConsentStatus.REQUIRED &&
+                    consentInformation.isConsentFormAvailable
+                ) {
+                    loadAndShowConsentForm(activity, consentInformation, onComplete)
+                } else {
+                    Log.d(TAG, "UMP consent form not required (status=${consentInformation.consentStatus})")
+                    onComplete()
+                }
+            },
+            { requestError ->
+                Log.e(TAG, "Failed to update UMP consent info: ${requestError.message}")
+                onComplete()
+            }
+        )
+    }
+    
+    private fun loadAndShowConsentForm(
+        activity: Activity,
+        consentInformation: ConsentInformation,
+        onComplete: () -> Unit,
+        attempt: Int = 0
+    ) {
+        if (activity.isFinishing || activity.isDestroyed) {
+            Log.w(TAG, "Activity is not in a valid state to show consent form")
+            onComplete()
+            return
+        }
+        
+        UserMessagingPlatform.loadConsentForm(
+            activity,
+            { consentForm ->
+                if (consentInformation.consentStatus == ConsentInformation.ConsentStatus.REQUIRED) {
+                    consentForm.show(activity) { formError ->
+                        formError?.let { Log.e(TAG, "UMP consent form dismissed with error: ${it.message}") }
+                        if (
+                            consentInformation.consentStatus == ConsentInformation.ConsentStatus.REQUIRED &&
+                            consentInformation.isConsentFormAvailable &&
+                            attempt == 0
+                        ) {
+                            loadAndShowConsentForm(activity, consentInformation, onComplete, attempt + 1)
+                        } else {
+                            Log.d(TAG, "UMP consent flow finished with status: ${consentInformation.consentStatus}")
+                            onComplete()
+                        }
+                    }
+                } else {
+                    Log.d(TAG, "Consent form loaded but not required (status=${consentInformation.consentStatus})")
+                    onComplete()
+                }
+            },
+            { formError ->
+                Log.e(TAG, "Failed to load UMP consent form: ${formError?.message}")
+                onComplete()
+            }
+        )
     }
     
     @JvmStatic

@@ -97,7 +97,9 @@ class MainActivity : ComponentActivity() {
             showAppOpenAdInDebug = true,
             showBannersInDebug = true,
             showNativeAdsInDebug = true,
-            showRewardedAdsInDebug = true
+            showRewardedAdsInDebug = true,
+            forceDebugConsentInEea = true
+
         )
 
 
@@ -109,7 +111,7 @@ class MainActivity : ComponentActivity() {
             mrecAdUnitId = "",
             nativeAdUnitId = "",
             enableTestCMP = true,
-            bannerAutoRefreshSeconds = 30,  // Refresh banner/MREC ads every 30 seconds (0 to disable)
+            bannerAutoRefreshSeconds = 30,
             enableTestMode = true,
             verboseLogging = true,
             creativeDebuggerEnabled = true,
@@ -138,8 +140,14 @@ class MainActivity : ComponentActivity() {
                             MzgsHelper.restrictedCountries = listOf("UK", "US", "GB", "CN", "MX", "JP", "KR", "AR", "HK", "IN", "PK", "TR", "VN", "RU", "SG", "MO", "TW", "PY","BR")
                             MzgsHelper.setRestrictedCountriesFromRemoteConfig()
                             MzgsHelper.setIsAllowedCountry()
-                            Ads.loadApplovinMaxInterstitial()
+
                             isSplashComplete.value = true
+
+                            Ads.initAppLovinMax(appLovinConfig) {
+                                Ads.loadApplovinMaxInterstitial()
+                            }
+
+
                         }
                     )
                     FirebaseAnalyticsManager.logEvent(
@@ -151,15 +159,13 @@ class MainActivity : ComponentActivity() {
                 }
 
 
-            // Init applovin and admob
-            Ads.initAppLovinMax(appLovinConfig) {
-                printLine("applovin init success")
-                SimpleSplashHelper.startProgress()
+            AdMobManager.showUmpConsent {
 
                 Ads.initAdMob(admobConfig) {
                     Ads.loadAdmobInterstitial()
-                }
+                    SimpleSplashHelper.startProgress()
 
+                }
 
             }
 
