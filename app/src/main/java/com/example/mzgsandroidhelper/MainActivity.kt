@@ -97,8 +97,7 @@ class MainActivity : ComponentActivity() {
             showAppOpenAdInDebug = true,
             showBannersInDebug = true,
             showNativeAdsInDebug = true,
-            showRewardedAdsInDebug = true,
-            forceDebugConsentInEea = true
+            showRewardedAdsInDebug = true
 
         )
 
@@ -158,9 +157,10 @@ class MainActivity : ComponentActivity() {
                 }
 
 
-            AdMobManager.showUmpConsent {
+            AdMobManager.showUmpConsent(forceDebugConsentInEea = true) {
 
                 Ads.initAdMob(admobConfig) {
+                    printLine("admob init success")
                     Ads.loadAdmobInterstitial()
                     SimpleSplashHelper.startProgress()
 

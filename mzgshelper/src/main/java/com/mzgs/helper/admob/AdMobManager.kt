@@ -182,31 +182,34 @@ object AdMobManager {
     }
     
     @JvmStatic
-    fun showUmpConsent(onComplete: () -> Unit = {}) {
-        val context = contextRef?.get()
-        if (context == null) {
-            Log.e(TAG, "Context not set. Call init() before requesting UMP consent.")
-            onComplete()
-            return
-        }
-        
-        val activity = Ads.getCurrentActivity()
+    fun showUmpConsent(
+        forceDebugConsentInEea: Boolean = false,
+        onComplete: () -> Unit = {}
+    ) {
+        val activity = runCatching { MzgsHelper.getActivity() }.getOrNull()
         if (activity == null) {
             Log.e(TAG, "No current activity available to show UMP consent form")
             onComplete()
             return
         }
+
+        // Populate context if init() wasn't called yet
+        val context = contextRef?.get() ?: activity.applicationContext.also {
+            contextRef = WeakReference(it)
+        }
+
+        val effectiveConfig = adConfig
         
         val consentInformation = UserMessagingPlatform.getConsentInformation(context)
         val paramsBuilder = ConsentRequestParameters.Builder()
         
         // Enable debug consent flow even outside EEA if requested in debug builds
-        if (MzgsHelper.isDebug() && adConfig?.forceDebugConsentInEea == true) {
+        if (MzgsHelper.isDebug() && forceDebugConsentInEea) {
             val debugSettingsBuilder = ConsentDebugSettings.Builder(activity)
                 .setDebugGeography(ConsentDebugSettings.DebugGeography.DEBUG_GEOGRAPHY_EEA)
             
             // Reuse test device IDs (hashed) if provided
-            adConfig?.testDeviceIds?.forEach { debugSettingsBuilder.addTestDeviceHashedId(it) }
+            effectiveConfig?.testDeviceIds?.forEach { debugSettingsBuilder.addTestDeviceHashedId(it) }
             
             paramsBuilder.setConsentDebugSettings(debugSettingsBuilder.build())
         }
