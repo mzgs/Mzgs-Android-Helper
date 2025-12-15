@@ -29,30 +29,7 @@ data class AppLovinConfig(
     val testDeviceAdvertisingIds: List<String> = emptyList(),  // DEBUG ONLY: Protected by isDebugMode check
     val debugEmptyIds: Boolean = false  // DEBUG ONLY: Use empty ad unit IDs in debug mode (prevents real ad loading)
 ) {
-    companion object {
-        // IMPORTANT: AppLovin MAX uses testDeviceAdvertisingIds for test mode
-        // Test ads are shown by adding your device's advertising ID to testDeviceAdvertisingIds
-        // when using production ad unit IDs
-        
-        fun createTestConfig(sdkKey: String): AppLovinConfig {
-            return AppLovinConfig(
-                sdkKey = sdkKey,
-                bannerAdUnitId = "",
-                mrecAdUnitId = "",
-                interstitialAdUnitId = "",
-                rewardedAdUnitId = "",
-                appOpenAdUnitId = "",
-                nativeAdUnitId = "",
-                enableAppOpenAd = true,
-                enableTestMode = true,
-                enableTestCMP = true,
-                consentFlowPrivacyPolicyUrl = "https://example.com/privacy",
-                consentFlowTermsOfServiceUrl = "https://example.com/terms",
-                verboseLogging = true,
-                creativeDebuggerEnabled = true
-            )
-        }
-    }
+
     
     fun shouldShowAds(context: android.content.Context): Boolean {
         if (!MzgsHelper.isDebug()) return true
