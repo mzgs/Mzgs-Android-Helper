@@ -100,9 +100,10 @@ object AppLovinMediationManager {
         
         val initConfig = initConfigBuilder.build()
         val settings = AppLovinSdk.getInstance(context).settings
-        settings.termsAndPrivacyPolicyFlowSettings.isEnabled = true;
-        settings.termsAndPrivacyPolicyFlowSettings.privacyPolicyUri =
-            "https://mzgs.net/privacy.html".toUri();
+        AppLovinPrivacySettings.setHasUserConsent( true )
+//        settings.termsAndPrivacyPolicyFlowSettings.isEnabled = true;
+//        settings.termsAndPrivacyPolicyFlowSettings.privacyPolicyUri =
+//            "https://mzgs.net/privacy.html".toUri();
 
         if (config.enableTestCMP && MzgsHelper.isDebug()) {
             // Force GDPR geography for test CMP and wire URLs if provided
