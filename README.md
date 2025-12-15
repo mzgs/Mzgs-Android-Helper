@@ -1,5 +1,6 @@
 # Mzgs-Android-Helper
-[![JitPack](https://jitpack.io/v/mzgs/Mzgs-Android-Helper.svg)](https://jitpack.io/#mzgs/Mzgs-Android-Helper)
+[![JitPack](https://jitpack.io/v/mzgs/Mzgs-Android-Helper.svg)](https://jitpack.io/#mzgs/Mzgs-Android-Helper)  
+
 Android helper library with utility tools and dual ad mediation (AdMob + AppLovin MAX)
 
 ## 🚀 Features
