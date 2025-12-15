@@ -6,7 +6,7 @@ Android helper library with utility tools and dual ad mediation (AdMob + AppLovi
 
 - ✅ Unified Ads helper that falls back between AppLovin MAX and AdMob for interstitial, rewarded, banner, MREC, native, and app-open ads
 - 🌍 Remote JSON config helper with country gating, ad-cycle control, and safe-mode flags
-- 🧪 Debug/test controls: skip all ads in debug, test-mode IDs, empty debug IDs, AppLovin CMP test flow, GAID logger
+- 🧪 Debug/test controls: skip all ads in debug, test-mode IDs, empty debug IDs, GAID logger
 - 🚦 Simple splash helper for quick branded splashes and ad preloading
 - 📊 Firebase Analytics hooks for ad events plus Pref, ActionCounter, rating, toast, network/version helpers
 - 🧱 Compose-ready ad views (banner, MREC) and classic ViewGroup helpers
@@ -97,8 +97,6 @@ Add to your `AndroidManifest.xml`:
 </application>
 ```
 
-If you need AppLovin CMP test flow, also provide your privacy/terms URLs in `AppLovinConfig`.
-
 ## 🎯 Quick Start
 
 ### 1) Bootstrap the helper and fetch remote config
@@ -146,9 +144,6 @@ class MainActivity : ComponentActivity() {
                 nativeAdUnitId = "",
                 appOpenAdUnitId = "",
                 enableAppOpenAd = true,
-                enableTestCMP = true,
-                consentFlowPrivacyPolicyUrl = "https://yourdomain.com/privacy",
-                consentFlowTermsOfServiceUrl = "https://yourdomain.com/terms",
                 testDeviceAdvertisingIds = listOf("YOUR_GAID_FOR_TESTS"), // MAX uses GAID
                 enableTestMode = true,
                 debugEmptyIds = false
@@ -511,7 +506,6 @@ When using the Ads API, many events are automatically tracked:
 - `skipAdsInDebug` on `MzgsHelper.init(...)` turns off all ads for debug sessions
 - `enableTestMode` swaps in Google test IDs for AdMob; `debugEmptyIds` zeros IDs to prevent loading anything in debug
 - `testDeviceIds` (hashed) for AdMob and `testDeviceAdvertisingIds` (GAID) for AppLovin MAX enable device-scoped test traffic
-- `enableTestCMP` plus `consentFlowPrivacyPolicyUrl`/`consentFlowTermsOfServiceUrl` forces AppLovin CMP test flow in debug
 - Advertising ID helper logs your GAID when `Ads.init()` runs (copy into test device lists)
 
 ## ⚠️ Deprecated API Warnings

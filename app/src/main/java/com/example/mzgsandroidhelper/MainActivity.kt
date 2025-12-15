@@ -110,7 +110,6 @@ class MainActivity : ComponentActivity() {
             rewardedAdUnitId = "",
             mrecAdUnitId = "",
             nativeAdUnitId = "",
-            enableTestCMP = true,
             bannerAutoRefreshSeconds = 30,
             enableTestMode = true,
             verboseLogging = true,
@@ -573,6 +572,7 @@ fun AdsHelperCard(
     var rewardedInterstitialLoaded by remember { mutableStateOf(false) }
     var appOpenLoaded by remember { mutableStateOf(false) }
     var userCoins by remember { mutableStateOf(0) }
+    var hasRequestedMrec by remember { mutableStateOf(false) }
 
     // Load ads on initialization
     LaunchedEffect(activity) {
@@ -926,9 +926,12 @@ fun AdsHelperCard(
                                         FrameLayout.LayoutParams.MATCH_PARENT,
                                         FrameLayout.LayoutParams.MATCH_PARENT
                                     )
-                                    // Load MREC immediately when view is created
-                                    Log.d("AdsHelper", "Loading MREC ad on create")
-                                    Ads.showMREC(this)
+                                }
+                            },
+                            update = { frameLayout ->
+                                if (isFullyInitialized && !hasRequestedMrec) {
+                                    Log.d("AdsHelper", "Loading MREC ad after initialization")
+                                    hasRequestedMrec = Ads.showMREC(frameLayout)
                                 }
                             }
                         )

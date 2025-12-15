@@ -1,10 +1,7 @@
 package com.mzgs.helper.applovin
 
 import android.app.Activity
-import android.app.Application
 import android.content.Context
-import android.net.Uri
-import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -17,7 +14,6 @@ import com.applovin.sdk.AppLovinPrivacySettings
 import com.applovin.sdk.AppLovinSdk
 import com.applovin.sdk.AppLovinSdkConfiguration
 import com.applovin.sdk.AppLovinSdkInitializationConfiguration
-import com.applovin.sdk.AppLovinSdkSettings
 import com.mzgs.helper.Ads
 import com.mzgs.helper.MzgsHelper
 import com.mzgs.helper.analytics.FirebaseAnalyticsManager
@@ -25,7 +21,6 @@ import java.lang.ref.WeakReference
 import java.util.concurrent.TimeUnit
 import kotlin.math.min
 import kotlin.math.pow
-import androidx.core.net.toUri
 
 object AppLovinMediationManager {
     
@@ -99,18 +94,6 @@ object AppLovinMediationManager {
         }
         
         val initConfig = initConfigBuilder.build()
-        val settings = AppLovinSdk.getInstance(context).settings
-
-        settings.termsAndPrivacyPolicyFlowSettings.isEnabled = true;
-        settings.termsAndPrivacyPolicyFlowSettings.privacyPolicyUri =
-            "https://mzgs.net/privacy.html".toUri();
-
-        AppLovinPrivacySettings.setHasUserConsent( true )
-
-        if (config.enableTestCMP && MzgsHelper.isDebug()) {
-            // Force GDPR geography for test CMP and wire URLs if provided
-            settings.termsAndPrivacyPolicyFlowSettings.debugUserGeography = AppLovinSdkConfiguration.ConsentFlowUserGeography.GDPR
-        }
 
         // Initialize SDK with configuration
         AppLovinSdk.getInstance(context).initialize(initConfig) { sdkConfig ->
