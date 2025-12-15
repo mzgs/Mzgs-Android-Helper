@@ -108,77 +108,98 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+         val admobConfig = AdMobConfig(
+            appId = "ca-app-pub-8689213949805403~6434330617",
+            bannerAdUnitId = "",
+            interstitialAdUnitId = "",
+            rewardedAdUnitId = "",
+            rewardedInterstitialAdUnitId = "",
+            nativeAdUnitId = "",
+            mrecAdUnitId = "",
+            appOpenAdUnitId = "",
+            enableAppOpenAd = true,
+            enableTestMode = true,
+            testDeviceIds = listOf("3d6496d1-4784-4b96-bf5e-2d61200765de"),
+            showAdsInDebug = true,
+            showInterstitialsInDebug = true,
+            bannerAutoRefreshSeconds = 30,
+            showAppOpenAdInDebug = true,
+            showBannersInDebug = true,
+            showNativeAdsInDebug = true,
+            showRewardedAdsInDebug = true,
+            forceDebugConsentInEea = true
+
+        )
+
+
+        val appLovinConfig = AppLovinConfig(
+            sdkKey = "sTOrf_0s7y7dzVqfTPRR0Ck_synT0Xrs0DgfChVKedyc7nGgAi6BwrAnnxEoT3dTHJ7T0dpfFmGNXX3hE9u9",
+            bannerAdUnitId = "",
+            interstitialAdUnitId = "",
+            rewardedAdUnitId = "",
+            mrecAdUnitId = "",
+            nativeAdUnitId = "",
+            bannerAutoRefreshSeconds = 30,
+            enableTestMode = true,
+            verboseLogging = true,
+            creativeDebuggerEnabled = true,
+            showAdsInDebug = true,
+            testDeviceAdvertisingIds = listOf("ebd59ada-3c0f-4d4a-bb8a-1e8966dee95f")
+        )
+
+
         MzgsHelper.init(this, this, skipAdsInDebug = false)
         FirebaseAnalyticsManager.initialize()
 
         lifecycleScope.launch {
-            // Optional splash while you prep config/ads
-            SimpleSplashHelper.showSplash(this@MainActivity)
-
-            // Load remote JSON config, country, and register lifecycle observers
+            SimpleSplashHelper.showSplash(MzgsHelper.getActivity())
             Remote.initSync()
             MzgsHelper.setIPCountry()
             Ads.init()
 
-            val admobConfig = AdMobConfig(
-                appId = "ca-app-pub-XXXX~YYYY",
-                bannerAdUnitId = "",
-                interstitialAdUnitId = "",
-                rewardedAdUnitId = "",
-                rewardedInterstitialAdUnitId = "",
-                nativeAdUnitId = "",
-                mrecAdUnitId = "",
-                appOpenAdUnitId = "",
-                enableAppOpenAd = true,
-                enableTestMode = true,
-                testDeviceIds = listOf("HASHED_TEST_DEVICE_ID"), // AdMob requires hashed IDs
-                debugEmptyIds = false
-            )
-
-            val appLovinConfig = AppLovinConfig(
-                sdkKey = "YOUR_SDK_KEY",
-                bannerAdUnitId = "",
-                interstitialAdUnitId = "",
-                rewardedAdUnitId = "",
-                mrecAdUnitId = "",
-                nativeAdUnitId = "",
-                appOpenAdUnitId = "",
-                enableAppOpenAd = true,
-                testDeviceAdvertisingIds = listOf("YOUR_GAID_FOR_TESTS"), // MAX uses GAID
-                enableTestMode = true,
-                debugEmptyIds = false
-            )
-
-            Ads.initAppLovinMax(appLovinConfig) {
-                SimpleSplashHelper.startProgress()
-                Ads.initAdMob(admobConfig) {
-                    Ads.loadAdmobInterstitial()
-                }
-            }
-
-            // Finish splash and optionally show an interstitial before UI
+            // Splash duration and OnComplete
             SimpleSplashHelper
-                .setDuration(Remote.getLong("splash_time", 8_000))
+                .setDuration(Remote.getLong("splash_time", 10_000))
                 .setOnComplete {
-                    val result = Ads.showInterstitialWithResult {
-                        // Called when closed; preload next round here
-                                                    // MzgsHelper.restrictedCountries = listOf("UK", "US", "GB", "CN", "MX", "JP", "KR", "AR", "HK", "IN", "PK", "TR", "VN", "RU", "SG", "MO", "TW", "PY","BR")
 
-                        Ads.loadApplovinMaxInterstitial()
-                        MzgsHelper.setRestrictedCountriesFromRemoteConfig()
-                        MzgsHelper.setIsAllowedCountry()
-                        isSplashComplete.value = true
-                    }
+                    // Show interstitial ad
+                    val adResult = Ads.showInterstitialWithResult(
+                        onAdClosed = {
+                            MzgsHelper.restrictedCountries = listOf("UK", "US", "GB", "CN", "MX", "JP", "KR", "AR", "HK", "IN", "PK", "TR", "VN", "RU", "SG", "MO", "TW", "PY","BR")
+                            MzgsHelper.setRestrictedCountriesFromRemoteConfig()
+                            MzgsHelper.setIsAllowedCountry()
+
+                            isSplashComplete.value = true
+
+                            Ads.initAppLovinMax(appLovinConfig) {
+                                Ads.loadApplovinMaxInterstitial()
+                            }
+
+
+                        }
+                    )
                     FirebaseAnalyticsManager.logEvent(
-                        if (result.success) "splash_ad_shown" else "splash_ad_failed",
+                        if (adResult.success) "splash_ad_shown" else "splash_ad_failed",
                         Bundle().apply {
-                            putString("ad_network", result.network ?: "unknown")
+                            putString("ad_network", adResult.network ?: "unknown")
                         }
                     )
                 }
-          
+
+
+            AdMobManager.showUmpConsent {
+
+                Ads.initAdMob(admobConfig) {
+                    Ads.loadAdmobInterstitial()
+                    SimpleSplashHelper.startProgress()
+
+                }
+
+            }
+
+
         }
-    }
+
 }
 ```
 
