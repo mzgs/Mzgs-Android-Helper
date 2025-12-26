@@ -6,6 +6,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import com.mzgs.helper.admob.*
 import com.mzgs.helper.applovin.*
 import com.mzgs.helper.analytics.FirebaseAnalyticsManager
@@ -27,6 +28,23 @@ object Ads : DefaultLifecycleObserver {
     private var applicationContextRef: WeakReference<Context>? = null
     private var isFirstLaunch = true
     private var appOpenAdEnabled = false
+
+    private fun ensureFrameLayout(container: ViewGroup): FrameLayout {
+        return if (container is FrameLayout) {
+            container
+        } else {
+            val wrapper = FrameLayout(container.context)
+            container.removeAllViews()
+            container.addView(
+                wrapper,
+                ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+            )
+            wrapper
+        }
+    }
     
     private fun getAppContext(): Context? {
         return applicationContextRef?.get() ?: MzgsHelper.getContext()
@@ -378,6 +396,8 @@ object Ads : DefaultLifecycleObserver {
             return false
         }
         
+        val frameContainer = ensureFrameLayout(container)
+
         Log.d(TAG, "Attempting to show banner - checking AppLovin MAX first")
         
         // Helper function to try AdMob as fallback
@@ -396,7 +416,7 @@ object Ads : DefaultLifecycleObserver {
                 bannerHelper.createBannerView(
                     adUnitId = AdMobManager.getConfig()?.bannerAdUnitId ?: "",
                     bannerType = bannerType,
-                    container = container as android.widget.FrameLayout,
+                    container = frameContainer,
                     onAdLoaded = {
                         Log.d(TAG, "AdMob banner loaded successfully (fallback)")
                         FirebaseAnalyticsManager.logAdShown("banner", ADMOB, true)
@@ -425,7 +445,7 @@ object Ads : DefaultLifecycleObserver {
                 bannerHelper.createBannerView(
                     adUnitId = adUnitId,
                     bannerType = bannerType,
-                    container = container as android.widget.FrameLayout,
+                    container = frameContainer,
                     onAdLoaded = {
                         Log.d(TAG, "AppLovin MAX banner loaded successfully (primary)")
                         FirebaseAnalyticsManager.logAdShown("banner", APPLOVIN_MAX, true)
@@ -624,6 +644,8 @@ object Ads : DefaultLifecycleObserver {
             return false
         }
         
+        val frameContainer = ensureFrameLayout(container)
+
         Log.d(TAG, "Attempting to show MREC - checking AppLovin MAX first")
         
         // Helper function to try AdMob as fallback
@@ -635,8 +657,8 @@ object Ads : DefaultLifecycleObserver {
                     adUnitId = AdMobManager.getConfig()?.mrecAdUnitId ?: "",
                     onAdLoaded = {
                         Log.d(TAG, "AdMob MREC loaded successfully (fallback)")
-                        container.removeAllViews()
-                        container.addView(mrecView)
+                        frameContainer.removeAllViews()
+                        frameContainer.addView(mrecView)
                         FirebaseAnalyticsManager.logAdShown("mrec", ADMOB, true)
                     },
                     onAdFailedToLoad = { error ->
@@ -657,7 +679,7 @@ object Ads : DefaultLifecycleObserver {
                 bannerHelper.createBannerView(
                     adUnitId = adUnitId,
                     bannerType = AppLovinBannerHelper.BannerType.MREC,
-                    container = container as android.widget.FrameLayout,
+                    container = frameContainer,
                     onAdLoaded = {
                         Log.d(TAG, "AppLovin MAX MREC loaded successfully (primary)")
                         FirebaseAnalyticsManager.logAdShown("mrec", APPLOVIN_MAX, true)
