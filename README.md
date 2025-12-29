@@ -36,7 +36,7 @@ Then add the dependency to your app's `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    // Replace <version> with the latest tag shown in the badge above (current: 1.0.11)
+    // Replace <version> with the latest tag shown in the badge above (current: 1.0.14)
     implementation("com.github.mzgs:Mzgs-Android-Helper:<version>")
 }
 ```
