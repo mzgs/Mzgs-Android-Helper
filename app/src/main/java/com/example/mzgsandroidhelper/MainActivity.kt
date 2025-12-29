@@ -145,7 +145,6 @@ class MainActivity : ComponentActivity() {
                                 Ads.loadApplovinMaxInterstitial()
                             }
 
-
                         }
                     )
                     FirebaseAnalyticsManager.logEvent(

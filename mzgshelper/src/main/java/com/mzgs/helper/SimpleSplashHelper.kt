@@ -22,6 +22,11 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
+import androidx.activity.ComponentActivity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.whenStateAtLeast
+import kotlinx.coroutines.launch
 
 object SimpleSplashHelper {
 
@@ -325,9 +330,29 @@ object SimpleSplashHelper {
     private fun invokeCompleteAndDismiss() {
         if (!onCompleteInvoked) {
             onCompleteInvoked = true
-            onComplete?.invoke()
+            runOnCompleteWhenResumed()
         }
         dismiss()
         resetState()
+    }
+
+    private fun runOnCompleteWhenResumed() {
+        val callback = onComplete ?: return
+        val currentActivity = activity ?: return
+
+        // If we don't have a lifecycle owner, run immediately
+        val componentActivity = currentActivity as? ComponentActivity ?: run {
+            callback.invoke()
+            return
+        }
+
+        // Run callback once the activity is safely RESUMED to avoid ActivityResultRegistry crashes
+        componentActivity.lifecycleScope.launch {
+            componentActivity.lifecycle.whenStateAtLeast(Lifecycle.State.RESUMED) {
+                if (!componentActivity.isFinishing && !componentActivity.isDestroyed) {
+                    callback.invoke()
+                }
+            }
+        }
     }
 }
