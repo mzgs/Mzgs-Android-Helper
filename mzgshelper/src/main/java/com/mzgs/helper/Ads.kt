@@ -143,7 +143,12 @@ object Ads : DefaultLifecycleObserver {
                 Log.d(TAG, "Attempting to show app open ad after returning from background")
                 val shown = showAppOpenAd()
                 if (!shown) {
-                    FirebaseAnalyticsManager.logAdShown("app_open", "none", false)
+                    FirebaseAnalyticsManager.logAdShown(
+                        adType = "app_open",
+                        adNetwork = APPLOVIN_MAX,
+                        success = false,
+                        errorMessage = "App open ad not shown after resuming from background"
+                    )
                 }
             }, 100)
         } else if (isFirstLaunch) {
@@ -310,7 +315,12 @@ object Ads : DefaultLifecycleObserver {
         Log.d(TAG, "AdMob interstitial not ready")
         
         Log.d(TAG, "No interstitial ads ready from any network")
-        FirebaseAnalyticsManager.logAdShown("interstitial", "none", false)
+        FirebaseAnalyticsManager.logAdShown(
+            adType = "interstitial",
+            adNetwork = ADMOB,
+            success = false,
+            errorMessage = "Interstitial not ready on AppLovin MAX or AdMob"
+        )
         onAdClosed?.invoke()  // Call the callback if no ads were shown
         return false
     }
@@ -349,7 +359,12 @@ object Ads : DefaultLifecycleObserver {
         Log.d(TAG, "AdMob interstitial not ready")
         
         Log.d(TAG, "No interstitial ads ready from any network")
-        FirebaseAnalyticsManager.logAdShown("interstitial", "none", false)
+        FirebaseAnalyticsManager.logAdShown(
+            adType = "interstitial",
+            adNetwork = ADMOB,
+            success = false,
+            errorMessage = "Interstitial not ready on AppLovin MAX or AdMob"
+        )
         onAdClosed?.invoke()  // Call the callback if no ads were shown
         return AdShowResult(false, null)
     }
@@ -503,7 +518,12 @@ object Ads : DefaultLifecycleObserver {
         Log.d(TAG, "AdMob rewarded ad not ready")
         
         Log.d(TAG, "No rewarded ads ready from any network")
-        FirebaseAnalyticsManager.logAdShown("rewarded", "none", false)
+        FirebaseAnalyticsManager.logAdShown(
+            adType = "rewarded",
+            adNetwork = ADMOB,
+            success = false,
+            errorMessage = "Rewarded ad not ready on AppLovin MAX or AdMob"
+        )
         return false
     }
     
@@ -733,7 +753,17 @@ object Ads : DefaultLifecycleObserver {
         Log.d(TAG, "AdMob app open ad not ready or no activity available")
         
         Log.d(TAG, "No app open ads ready from any network")
-        FirebaseAnalyticsManager.logAdShown("app_open", "none", false)
+        val failureNetwork = when {
+            admobAppOpenManager != null -> ADMOB
+            appLovinAppOpenManager != null -> APPLOVIN_MAX
+            else -> APPLOVIN_MAX
+        }
+        FirebaseAnalyticsManager.logAdShown(
+            adType = "app_open",
+            adNetwork = failureNetwork,
+            success = false,
+            errorMessage = "App open ad not ready on AppLovin MAX or AdMob"
+        )
         return false
     }
     

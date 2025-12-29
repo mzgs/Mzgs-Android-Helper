@@ -73,12 +73,16 @@ object FirebaseAnalyticsManager {
     fun logAdShown(
         adType: String,
         adNetwork: String,
-        success: Boolean = true
+        success: Boolean = true,
+        errorMessage: String? = null
     ) {
         if (!ensureInitialized()) return
         val bundle = Bundle().apply {
             putString("ad_type", adType)
             putString("ad_network", adNetwork)
+            if (!success) {
+                errorMessage?.let { putString("error_message", it) }
+            }
         }
         val eventName = if (success) "ad_show_success" else "ad_show_failed"
         logEvent(eventName, bundle)
