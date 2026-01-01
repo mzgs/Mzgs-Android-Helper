@@ -2,7 +2,10 @@ package com.mzgs.helper
 
 import android.content.Context
 import android.util.Log
+import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.MobileAds
+import com.google.android.gms.ads.interstitial.InterstitialAdPreloader
+import com.google.android.gms.ads.preload.PreloadConfiguration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -21,6 +24,11 @@ object AdmobMediation {
                         "Adapter: $adapterClass, Status: ${status.description}, Latency: ${status.latency}ms",
                     )
                 }
+
+                val adUnitId = "ca-app-pub-8689213949805403/4964803980"
+                val adRequest = AdRequest.Builder(adUnitId).build()
+                val preloadConfig = PreloadConfiguration(adRequest)
+                InterstitialAdPreloader.start(adUnitId, preloadConfig)
                 // Switch back to the main thread to invoke the callback.
                 CoroutineScope(Dispatchers.Main).launch {
                     onInitComplete()
