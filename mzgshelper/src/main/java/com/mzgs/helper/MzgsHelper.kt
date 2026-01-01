@@ -62,7 +62,7 @@ object MzgsHelper {
         override fun onActivityPaused(activity: Activity) {}
 
         override fun onActivityStopped(activity: Activity) {
-            if (weakActivity.get() == activity) {
+            if (::weakActivity.isInitialized && weakActivity.get() == activity) {
                 updateActivity(null)
             }
         }
@@ -70,7 +70,7 @@ object MzgsHelper {
         override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
 
         override fun onActivityDestroyed(activity: Activity) {
-            if (weakActivity.get() == activity) {
+            if (::weakActivity.isInitialized && weakActivity.get() == activity) {
                 updateActivity(null)
             }
             AdMobManager.onActivityDestroyed(activity)
@@ -88,15 +88,32 @@ object MzgsHelper {
     var IPCountry: String? = null
     private var debugCountryOverride: String? = null
     
-      fun init(context: Context, activity: Activity, skipAdsInDebug: Boolean = false, remoteConfigUrl: String = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/nest.json" ) {
+    fun init(context: Context) {
         applicationContext = context.applicationContext
-        weakActivity = java.lang.ref.WeakReference(activity)
         if (!lifecycleCallbacksRegistered) {
-            activity.application.registerActivityLifecycleCallbacks(activityLifecycleCallbacks)
-            lifecycleCallbacksRegistered = true
+            val app = when (context) {
+                is Application -> context
+                else -> context.applicationContext as? Application
+            }
+            if (app != null) {
+                app.registerActivityLifecycleCallbacks(activityLifecycleCallbacks)
+                lifecycleCallbacksRegistered = true
+            } else {
+                Log.w(TAG, "Unable to register lifecycle callbacks; Application context not available")
+            }
         }
         initialized = true
-        
+    }
+
+    fun init(
+        context: Context,
+        activity: Activity,
+        skipAdsInDebug: Boolean = false,
+        remoteConfigUrl: String = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/nest.json"
+    ) {
+        init(context)
+        updateActivity(activity)
+
         // Only set debugNoAds if we're in debug mode
         debugNoAds = skipAdsInDebug && isDebug()
         
@@ -118,13 +135,22 @@ object MzgsHelper {
     fun isInitialized(): Boolean = initialized
     
     fun getContext(): Context {
-        check(initialized) { "MzgsHelper.init(context, activity, ...) must be called before getContext()" }
+        check(::applicationContext.isInitialized) {
+            "MzgsHelper.init(context) or MzgsHelper.init(context, activity, ...) must be called before getContext()"
+        }
         return applicationContext
     }
 
     fun getActivity(): Activity {
+        if (!::weakActivity.isInitialized) {
+            throw IllegalStateException(
+                "MzgsHelper.init(context, activity, ...) or MzgsHelper.updateActivity(activity) must be called before getActivity()"
+            )
+        }
         return weakActivity.get()
-            ?: throw IllegalStateException("MzgsHelper.init(context, activity, ...) must be called with a live activity before accessing getActivity()")
+            ?: throw IllegalStateException(
+                "MzgsHelper.init(context, activity, ...) must be called with a live activity before accessing getActivity()"
+            )
     }
 
     fun updateActivity(activity: Activity?) {
