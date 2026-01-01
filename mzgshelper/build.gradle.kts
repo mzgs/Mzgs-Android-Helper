@@ -89,6 +89,11 @@ dependencies {
     
     // AdMob (exposed to consuming modules)
     api("com.google.android.gms:play-services-ads:24.9.0")
+    implementation("com.google.ads.mediation:applovin:13.5.1.0")
+    implementation("com.google.ads.mediation:fyber:8.4.1.0")
+    implementation("com.google.ads.mediation:vungle:7.6.2.0")
+    implementation("com.unity3d.ads:unity-ads:4.16.2")
+    implementation("com.google.ads.mediation:unity:4.16.5.0")
     
     // AppLovin MAX (downgraded to 13.3.1 for Google adapter compatibility)
     implementation("com.applovin:applovin-sdk:13.5.1")

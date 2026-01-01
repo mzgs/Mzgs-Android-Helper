@@ -48,6 +48,10 @@ object MzgsHelper {
     private lateinit var applicationContext: Context
     private lateinit var weakActivity: java.lang.ref.WeakReference<Activity>
     private var lifecycleCallbacksRegistered = false
+    private var firstActivityReadyDispatched = false
+    private var firstActivityRef: java.lang.ref.WeakReference<Activity>? = null
+    private val firstActivityReadyCallbacks = mutableListOf<(Activity) -> Unit>()
+    private val firstActivityReadyLock = Any()
     private val activityLifecycleCallbacks = object : Application.ActivityLifecycleCallbacks {
         override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
 
@@ -84,7 +88,9 @@ object MzgsHelper {
     @Volatile
     private var initialized = false
     var isAllowedCountry = true
+    @JvmField
     var debugNoAds = false
+    private var debugNoAdsRequested: Boolean? = null
     var IPCountry: String? = null
     private var debugCountryOverride: String? = null
     
@@ -103,6 +109,7 @@ object MzgsHelper {
             }
         }
         initialized = true
+        debugNoAdsRequested?.let { applyDebugNoAds(it) }
     }
 
     fun init(
@@ -115,16 +122,8 @@ object MzgsHelper {
         updateActivity(activity)
 
         // Only set debugNoAds if we're in debug mode
-        debugNoAds = skipAdsInDebug && isDebug()
-        
-        if (debugNoAds) {
-            Log.d(TAG, "")
-            Log.d(TAG, "|||------------------------------------------------------------|||")
-            Log.d(TAG, "|||              DEBUG NO ADS MODE ENABLED                     |||")
-            Log.d(TAG, "|||         All ads will be skipped in this session            |||")
-            Log.d(TAG, "|||------------------------------------------------------------|||")
-            Log.d(TAG, "")
-        }
+        debugNoAdsRequested = skipAdsInDebug
+        applyDebugNoAds(skipAdsInDebug)
 
 
 
@@ -133,6 +132,27 @@ object MzgsHelper {
     }
     
     fun isInitialized(): Boolean = initialized
+
+    fun setDebugNoAds(enabled: Boolean) {
+        debugNoAdsRequested = enabled
+        if (!::applicationContext.isInitialized) {
+            Log.w(TAG, "setDebugNoAds called before init; will be applied after init")
+            return
+        }
+        applyDebugNoAds(enabled)
+    }
+
+    private fun applyDebugNoAds(enabled: Boolean) {
+        debugNoAds = enabled && isDebug()
+        if (debugNoAds) {
+            Log.d(TAG, "")
+            Log.d(TAG, "|||------------------------------------------------------------|||")
+            Log.d(TAG, "|||              DEBUG NO ADS MODE ENABLED                     |||")
+            Log.d(TAG, "|||         All ads will be skipped in this session            |||")
+            Log.d(TAG, "|||------------------------------------------------------------|||")
+            Log.d(TAG, "")
+        }
+    }
     
     fun getContext(): Context {
         check(::applicationContext.isInitialized) {
@@ -157,14 +177,70 @@ object MzgsHelper {
         if (!::weakActivity.isInitialized) {
             if (activity != null) {
                 weakActivity = java.lang.ref.WeakReference(activity)
+                dispatchFirstActivityReady(activity)
             }
             return
         }
 
         if (activity != null) {
             weakActivity = java.lang.ref.WeakReference(activity)
+            dispatchFirstActivityReady(activity)
         } else {
             weakActivity.clear()
+        }
+    }
+
+    fun onActivityReady(callback: (Activity) -> Unit) {
+        var activityToUse: Activity? = null
+        var registered = false
+
+        synchronized(firstActivityReadyLock) {
+            if (!firstActivityReadyDispatched) {
+                firstActivityReadyCallbacks.add(callback)
+                registered = true
+            } else {
+                activityToUse = firstActivityRef?.get()
+                if (activityToUse == null && ::weakActivity.isInitialized) {
+                    activityToUse = weakActivity.get()
+                }
+            }
+        }
+
+        if (registered) {
+            return
+        }
+
+        activityToUse?.let { callback(it) }
+            ?: Log.w(TAG, "onActivityReady called after first activity finished; no activity available")
+    }
+
+    private fun dispatchFirstActivityReady(activity: Activity) {
+        val callbacks = synchronized(firstActivityReadyLock) {
+            if (firstActivityReadyDispatched) {
+                emptyList()
+            } else {
+                firstActivityReadyDispatched = true
+                firstActivityRef = java.lang.ref.WeakReference(activity)
+                if (firstActivityReadyCallbacks.isEmpty()) {
+                    emptyList()
+                } else {
+                    val pending = firstActivityReadyCallbacks.toList()
+                    firstActivityReadyCallbacks.clear()
+                    pending
+                }
+            }
+        }
+
+        if (callbacks.isEmpty()) {
+            return
+        }
+
+        callbacks.forEach { callback ->
+            try {
+                callback(activity)
+            } catch (error: Throwable) {
+                Log.e(TAG, "onActivityReady callback failed", error)
+            }
         }
     }
 

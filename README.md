@@ -100,7 +100,19 @@ Add to your `AndroidManifest.xml`:
 
 ## 🎯 Quick Start
 
-### 1) Bootstrap the helper and fetch remote config
+### 1) Initialize the helper in Application (recommended)
+
+```kotlin
+class MyApplication : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        MzgsHelper.init(this)
+        MzgsHelper.setDebugNoAds(true) // Optional: disable ads in debug builds
+    }
+}
+```
+
+### 2) Bootstrap the helper and fetch remote config
 
 ```kotlin
 class MainActivity : ComponentActivity() {
@@ -108,6 +120,8 @@ class MainActivity : ComponentActivity() {
      
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        MzgsHelper.updateActivity(this)
 
          val admobConfig = AdMobConfig(
             appId = "ca-app-pub-8689213949805403~6434330617",
@@ -147,8 +161,6 @@ class MainActivity : ComponentActivity() {
             testDeviceAdvertisingIds = listOf("ebd59ada-3c0f-4d4a-bb8a-1e8966dee95f")
         )
 
-
-        MzgsHelper.init(this, this, skipAdsInDebug = false)
         FirebaseAnalyticsManager.initialize()
 
         lifecycleScope.launch {
@@ -524,7 +536,7 @@ When using the Ads API, many events are automatically tracked:
 
 ## 🔬 Debug & Test Controls
 
-- `skipAdsInDebug` on `MzgsHelper.init(...)` turns off all ads for debug sessions
+- `skipAdsInDebug` on `MzgsHelper.init(...)` or `MzgsHelper.setDebugNoAds(true)` turns off all ads for debug sessions
 - `enableTestMode` swaps in Google test IDs for AdMob; `debugEmptyIds` zeros IDs to prevent loading anything in debug
 - `testDeviceIds` (hashed) for AdMob and `testDeviceAdvertisingIds` (GAID) for AppLovin MAX enable device-scoped test traffic
 - Advertising ID helper logs your GAID when `Ads.init()` runs (copy into test device lists)
