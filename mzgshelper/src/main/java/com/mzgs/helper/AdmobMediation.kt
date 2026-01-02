@@ -5,16 +5,36 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
 import com.google.android.libraries.ads.mobile.sdk.MobileAds
+import com.google.android.libraries.ads.mobile.sdk.appopen.AppOpenAdEventCallback
+import com.google.android.libraries.ads.mobile.sdk.appopen.AppOpenAdPreloader
+import com.google.android.libraries.ads.mobile.sdk.banner.AdSize
+import com.google.android.libraries.ads.mobile.sdk.banner.AdView
+import com.google.android.libraries.ads.mobile.sdk.banner.BannerAdRequest
 import com.google.android.libraries.ads.mobile.sdk.common.AdRequest
+import com.google.android.libraries.ads.mobile.sdk.common.AdLoadCallback
 import com.google.android.libraries.ads.mobile.sdk.common.FullScreenContentError
+import com.google.android.libraries.ads.mobile.sdk.common.LoadAdError
 import com.google.android.libraries.ads.mobile.sdk.common.PreloadConfiguration
 import com.google.android.libraries.ads.mobile.sdk.initialization.InitializationConfig
 import com.google.android.libraries.ads.mobile.sdk.interstitial.InterstitialAdPreloader
 import com.google.android.libraries.ads.mobile.sdk.interstitial.InterstitialAdEventCallback
+import com.google.android.libraries.ads.mobile.sdk.rewarded.OnUserEarnedRewardListener
+import com.google.android.libraries.ads.mobile.sdk.rewarded.RewardedAdEventCallback
+import com.google.android.libraries.ads.mobile.sdk.rewarded.RewardedAdPreloader
 import com.mzgs.helper.analytics.FirebaseAnalyticsManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 object AdmobMediation {
@@ -48,6 +68,14 @@ object AdmobMediation {
                 val preloadConfig = PreloadConfiguration(adRequest)
                 InterstitialAdPreloader.start(config.INTERSTITIAL_AD_UNIT_ID, preloadConfig)
 
+                val rewardedRequest = AdRequest.Builder(config.REWARDED_AD_UNIT_ID).build()
+                val rewardedPreloadConfig = PreloadConfiguration(rewardedRequest)
+                RewardedAdPreloader.start(config.REWARDED_AD_UNIT_ID, rewardedPreloadConfig)
+
+                val appOpenRequest = AdRequest.Builder(config.APP_OPEN_AD_UNIT_ID).build()
+                val appOpenPreloadConfig = PreloadConfiguration(appOpenRequest)
+                AppOpenAdPreloader.start(config.APP_OPEN_AD_UNIT_ID, appOpenPreloadConfig)
+
                 onInitComplete()
 
             }
@@ -69,6 +97,158 @@ object AdmobMediation {
                             putString("ad_unit_id", config.INTERSTITIAL_AD_UNIT_ID)
                             putString("error_message", fullScreenContentError.message)
                         }
+                    )
+                }
+            }
+            ad.show(activity)
+            return true
+        }
+
+        onAdClosed()
+        return false
+    }
+
+    @Composable
+    fun showBanner(
+        modifier: Modifier = Modifier,
+        adUnitId: String = config.BANNER_AD_UNIT_ID,
+        adSize: AdSize? = null,
+        onAdFailedToLoad: ((LoadAdError) -> Unit)? = null,
+    ) {
+        if (adUnitId.isBlank()) {
+            return
+        }
+        val context = LocalContext.current
+        val isInitialized = remember { mutableStateOf(MobileAds.isInitialized) }
+        val configuration = LocalConfiguration.current
+        val resolvedAdSize = remember(adSize, configuration) {
+            adSize
+                ?: AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(
+                    context,
+                    configuration.screenWidthDp,
+                )
+        }
+        val adViewState = remember { mutableStateOf<AdView?>(null) }
+        val requestKey = remember(adUnitId, resolvedAdSize) { "$adUnitId:$resolvedAdSize" }
+        val lastRequestKey = remember { mutableStateOf("") }
+
+        LaunchedEffect(Unit) {
+            while (!MobileAds.isInitialized) {
+                delay(1000)
+            }
+            isInitialized.value = true
+        }
+
+        if (isInitialized.value) {
+            AndroidView(
+                modifier = modifier,
+                factory = { viewContext ->
+                    AdView(viewContext, null, 0, 0).also { adView ->
+                        adViewState.value = adView
+                        adView.resize(resolvedAdSize)
+                        if (lastRequestKey.value != requestKey) {
+                            val request = BannerAdRequest.Builder(adUnitId, resolvedAdSize).build()
+                            adView.loadAd(
+                                request,
+                                object : AdLoadCallback<com.google.android.libraries.ads.mobile.sdk.banner.BannerAd> {
+                                    override fun onAdFailedToLoad(adError: LoadAdError) {
+                                        onAdFailedToLoad?.invoke(adError)
+                                    }
+                                },
+                            )
+                            lastRequestKey.value = requestKey
+                        }
+                    }
+                },
+                update = { adView ->
+                    adView.resize(resolvedAdSize)
+                    if (lastRequestKey.value != requestKey) {
+                        val request = BannerAdRequest.Builder(adUnitId, resolvedAdSize).build()
+                        adView.loadAd(request, object : AdLoadCallback<com.google.android.libraries.ads.mobile.sdk.banner.BannerAd> {
+                            override fun onAdFailedToLoad(adError: LoadAdError) {
+                                onAdFailedToLoad?.invoke(adError)
+                            }
+                        })
+                        lastRequestKey.value = requestKey
+                    }
+                },
+            )
+        }
+
+        DisposableEffect(Unit) {
+            onDispose {
+                adViewState.value?.destroy()
+                adViewState.value = null
+            }
+        }
+    }
+
+    @Composable
+    fun showMrec(
+        modifier: Modifier = Modifier,
+        adUnitId: String = config.MREC_AD_UNIT_ID,
+        onAdFailedToLoad: ((LoadAdError) -> Unit)? = null,
+    ) {
+        showBanner(
+            modifier = modifier,
+            adUnitId = adUnitId,
+            adSize = AdSize.MEDIUM_RECTANGLE,
+            onAdFailedToLoad = onAdFailedToLoad,
+        )
+    }
+
+    fun showReward(
+        activity: Activity,
+        onRewarded: (type: String, amount: Int) -> Unit = { _, _ -> },
+        onAdClosed: () -> Unit = {},
+    ): Boolean {
+        val ad = RewardedAdPreloader.pollAd(config.REWARDED_AD_UNIT_ID)
+        if (ad != null) {
+            ad.adEventCallback = object : RewardedAdEventCallback {
+                override fun onAdDismissedFullScreenContent() {
+                    onAdClosed()
+                }
+
+                override fun onAdFailedToShowFullScreenContent(fullScreenContentError: FullScreenContentError) {
+                    onAdClosed()
+                    FirebaseAnalyticsManager.logEvent(
+                        "rewarded_ad_failed_to_show",
+                        Bundle().apply {
+                            putString("ad_unit_id", config.REWARDED_AD_UNIT_ID)
+                            putString("error_message", fullScreenContentError.message)
+                        },
+                    )
+                }
+            }
+            ad.show(
+                activity,
+                OnUserEarnedRewardListener { rewardItem ->
+                    onRewarded(rewardItem.type, rewardItem.amount)
+                },
+            )
+            return true
+        }
+
+        onAdClosed()
+        return false
+    }
+
+    fun showAppOpenAd(activity: Activity, onAdClosed: () -> Unit = {}): Boolean {
+        val ad = AppOpenAdPreloader.pollAd(config.APP_OPEN_AD_UNIT_ID)
+        if (ad != null) {
+            ad.adEventCallback = object : AppOpenAdEventCallback {
+                override fun onAdDismissedFullScreenContent() {
+                    onAdClosed()
+                }
+
+                override fun onAdFailedToShowFullScreenContent(fullScreenContentError: FullScreenContentError) {
+                    onAdClosed()
+                    FirebaseAnalyticsManager.logEvent(
+                        "app_open_ad_failed_to_show",
+                        Bundle().apply {
+                            putString("ad_unit_id", config.APP_OPEN_AD_UNIT_ID)
+                            putString("error_message", fullScreenContentError.message)
+                        },
                     )
                 }
             }

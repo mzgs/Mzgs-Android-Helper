@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -63,18 +64,17 @@ class MainActivity : ComponentActivity() {
             MzgsHelper.initAllowedCountry(activity)
 
             MzgsHelper.showUmpConsent(activity,forceDebugConsentInEea = true) {
-
                 SimpleSplashHelper.startProgress(activity)
-
-
-
-
                 AdmobMediation.initialize(activity, AdmobConfig(
                     INTERSTITIAL_AD_UNIT_ID = INTERSTITIAL_AD_UNIT_ID,
                 )) {
                     printLine("initialized AdMob Mediation")
                 }
 
+            }
+
+            SimpleSplashHelper.setOnComplete {
+                isSplashComplete.value = true
             }
 
         } // end launch
@@ -137,6 +137,64 @@ private fun MainExampleScreen() {
             ) {
                 Text("Show Interstitial")
             }
+
+            Text(
+                text = "Rewarded + App Open",
+                style = MaterialTheme.typography.headlineSmall
+            )
+            Button(
+                onClick = {
+                    val currentActivity = activity
+                    if (currentActivity == null) {
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("Activity not available")
+                        }
+                        return@Button
+                    }
+                    AdmobMediation.showReward(
+                        currentActivity,
+                        onRewarded = { type, amount ->
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("Rewarded: $amount $type")
+                            }
+                        },
+                    )
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Show Rewarded")
+            }
+            Button(
+                onClick = {
+                    val currentActivity = activity
+                    if (currentActivity == null) {
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("Activity not available")
+                        }
+                        return@Button
+                    }
+                    AdmobMediation.showAppOpenAd(currentActivity)
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Show App Open")
+            }
+
+            Text(
+                text = "Banner",
+                style = MaterialTheme.typography.headlineSmall
+            )
+            AdmobMediation.showBanner(
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Text(
+                text = "MREC",
+                style = MaterialTheme.typography.headlineSmall
+            )
+            AdmobMediation.showMrec(
+                modifier = Modifier.size(300.dp, 250.dp),
+            )
         }
     }
 }
