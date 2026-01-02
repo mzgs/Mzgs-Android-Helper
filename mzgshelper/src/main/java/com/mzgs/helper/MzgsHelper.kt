@@ -97,7 +97,66 @@ object MzgsHelper {
                     consentInformation.consentStatus == ConsentInformation.ConsentStatus.REQUIRED &&
                     consentInformation.isConsentFormAvailable
                 ) {
-                    loadAndShowConsentForm(activity, consentInformation, onComplete)
+                    if (activity.isFinishing || activity.isDestroyed) {
+                        Log.w(TAG, "Activity is not in a valid state to show consent form")
+                        onComplete()
+                        return@requestConsentInfoUpdate
+                    }
+                    UserMessagingPlatform.loadConsentForm(
+                        activity,
+                        { consentForm ->
+                            if (consentInformation.consentStatus == ConsentInformation.ConsentStatus.REQUIRED) {
+                                consentForm.show(activity) { formError ->
+                                    if (formError != null) {
+                                        Log.e(TAG, "UMP consent form error: ${formError.message}")
+                                    }
+                                    // Retry once if consent is still required after dismissal.
+                                    if (consentInformation.consentStatus == ConsentInformation.ConsentStatus.REQUIRED) {
+                                        if (activity.isFinishing || activity.isDestroyed) {
+                                            Log.w(TAG, "Activity is not in a valid state to show consent form")
+                                            onComplete()
+                                            return@show
+                                        }
+                                        UserMessagingPlatform.loadConsentForm(
+                                            activity,
+                                            { retryForm ->
+                                                if (consentInformation.consentStatus ==
+                                                    ConsentInformation.ConsentStatus.REQUIRED
+                                                ) {
+                                                    retryForm.show(activity) { retryError ->
+                                                        if (retryError != null) {
+                                                            Log.e(
+                                                                TAG,
+                                                                "UMP consent form error: ${retryError.message}"
+                                                            )
+                                                        }
+                                                        onComplete()
+                                                    }
+                                                } else {
+                                                    onComplete()
+                                                }
+                                            },
+                                            { loadError ->
+                                                Log.e(
+                                                    TAG,
+                                                    "Failed to load UMP consent form: ${loadError.message}"
+                                                )
+                                                onComplete()
+                                            }
+                                        )
+                                    } else {
+                                        onComplete()
+                                    }
+                                }
+                            } else {
+                                onComplete()
+                            }
+                        },
+                        { loadError ->
+                            Log.e(TAG, "Failed to load UMP consent form: ${loadError.message}")
+                            onComplete()
+                        }
+                    )
                 } else {
                     Log.d(TAG, "UMP consent form not required (status=${consentInformation.consentStatus})")
                     onComplete()
@@ -105,47 +164,6 @@ object MzgsHelper {
             },
             { requestError ->
                 Log.e(TAG, "Failed to update UMP consent info: ${requestError.message}")
-                onComplete()
-            }
-        )
-    }
-
-    private fun loadAndShowConsentForm(
-        activity: Activity,
-        consentInformation: ConsentInformation,
-        onComplete: () -> Unit,
-        attempt: Int = 0
-    ) {
-        if (activity.isFinishing || activity.isDestroyed) {
-            Log.w(TAG, "Activity is not in a valid state to show consent form")
-            onComplete()
-            return
-        }
-
-        UserMessagingPlatform.loadConsentForm(
-            activity,
-            { consentForm ->
-                if (consentInformation.consentStatus == ConsentInformation.ConsentStatus.REQUIRED) {
-                    consentForm.show(activity) { formError ->
-                        if (formError != null) {
-                            Log.e(TAG, "UMP consent form error: ${formError.message}")
-                        }
-                        // Retry once if consent is still required after dismissal.
-                        if (
-                            consentInformation.consentStatus == ConsentInformation.ConsentStatus.REQUIRED &&
-                            attempt < 1
-                        ) {
-                            loadAndShowConsentForm(activity, consentInformation, onComplete, attempt + 1)
-                        } else {
-                            onComplete()
-                        }
-                    }
-                } else {
-                    onComplete()
-                }
-            },
-            { loadError ->
-                Log.e(TAG, "Failed to load UMP consent form: ${loadError.message}")
                 onComplete()
             }
         )
