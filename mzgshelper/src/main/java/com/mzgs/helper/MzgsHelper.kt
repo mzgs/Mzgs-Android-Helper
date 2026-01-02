@@ -49,7 +49,7 @@ object MzgsHelper {
 
     var isAllowedCountry = true
     var IPCountry: String? = null
-    private var debugCountryOverride: String? = null
+
     
     fun init(
         activity: Activity,
@@ -183,31 +183,9 @@ object MzgsHelper {
     }
 
 
-    fun setDebugCountry(context: Context, country: String = "TR") {
-        if (!isDebug(context)) {
-            Log.d("LibHelper", "setDebugCountry ignored because app is not in debug mode")
-            return
-        }
 
-        val trimmedCountry = country.trim()
-        if (trimmedCountry.isEmpty()) {
-            Log.w("LibHelper", "setDebugCountry called with blank country, ignoring request")
-            return
-        }
 
-        val normalizedCountry = trimmedCountry.uppercase(Locale.ROOT)
-        debugCountryOverride = normalizedCountry
-        IPCountry = normalizedCountry
-        Log.d("LibHelper", "Debug country override set to $normalizedCountry")
-    }
-
-    fun getPhoneCountry(context: Context): List<String> {
-        if (isDebug(context)) {
-            debugCountryOverride?.let { override ->
-                Log.d("LibHelper", "Using debug country override for phone country: $override")
-                return listOf(override)
-            }
-        }
+    fun getPhoneCountries(context: Context): List<String> {
 
         val countries = mutableListOf<String>()
         val appContext = context.applicationContext
@@ -230,12 +208,8 @@ object MzgsHelper {
             }
 
             // Add system locale country (from phone settings)
-            val localeCountry = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            val localeCountry =
                 appContext.resources.configuration.locales[0].country
-            } else {
-                @Suppress("DEPRECATION")
-                appContext.resources.configuration.locale.country
-            }
             if (!localeCountry.isNullOrEmpty()) {
                 val upperLocale = localeCountry.uppercase(Locale.ROOT)
                 if (!countries.contains(upperLocale)) {
@@ -254,7 +228,8 @@ object MzgsHelper {
     /**
      * Set country using IP geolocation (async, non-blocking)
      */
-    fun setIPCountry() {
+   private fun setIPCountry(context: Context ) {
+
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val url = URL("https://ipinfo.io/json")
@@ -266,6 +241,7 @@ object MzgsHelper {
                 val json = JSONObject(response)
                 IPCountry = json.optString("country")?.uppercase(Locale.ROOT) ?: "US"
                 Log.d("LibHelper", "IP country set to: $IPCountry")
+                setIsAllowedCountry(context)
             } catch (e: Exception) {
                 Log.e("LibHelper", "Error getting country from IP, defaulting to US", e)
                 IPCountry = "X"
@@ -274,44 +250,46 @@ object MzgsHelper {
     }
 
     fun initAllowedCountry(context: Context, debugAllow: Boolean? = null) {
-        setIPCountry()
-        setIsAllowedCountry(context, debugAllow)
-    }
-
-    /**
-     * Check if the current country is allowed based on phone countries and IP country
-     * @param debugAllow Optional parameter to override the restriction check in debug mode
-     *                   - null: normal behavior (default)
-     *                   - true: force allow in debug mode
-     *                   - false: force restrict in debug mode
-     */
-    fun setIsAllowedCountry(context: Context, debugAllow: Boolean? = null) {
-        // Handle debug override if provided and we're in debug mode
         if (debugAllow != null && isDebug(context)) {
             isAllowedCountry = debugAllow
             Log.d("LibHelper", "Debug mode with debugAllow=$debugAllow, setting isAllowedCountry to $debugAllow")
             return
         }
+        setRestrictedCountriesFromRemoteConfig()
+
+        setIsAllowedCountry(context)
+
+        if (!isAllowedCountry){
+            return
+        }
+
+        setIPCountry(context)
+
+    }
+
+
+   private fun setIsAllowedCountry(context: Context ) {
+
 
         // Check if only free music mode is enabled
         if (Remote.getBool("only_free_music", false)) {
             val allowedCountries = Remote.getStringArray("allowed_countries", emptyList())
             
             // Get all phone countries
-            val phoneCountries = getPhoneCountry(context)
+            val phoneCountries = getPhoneCountries(context)
             
             // Check if any phone country is in the allowed list
             val isInAllowedCountry = phoneCountries.any { country ->
                 allowedCountries.contains(country)
             } || (IPCountry?.let { allowedCountries.contains(it) } ?: false)
             
-            MzgsHelper.isAllowedCountry = isInAllowedCountry
+            isAllowedCountry = isInAllowedCountry
             Log.d("LibHelper", "Only free music mode enabled, isAllowedCountry: $isInAllowedCountry")
             return
         }
         
         // Get all phone countries
-        val phoneCountries = getPhoneCountry(context)
+        val phoneCountries = getPhoneCountries(context)
         
         // Check if any phone country is in the restricted list
         val phoneCountryRestricted = phoneCountries.any { country ->
@@ -332,9 +310,9 @@ object MzgsHelper {
     }
 
     /**
-     * Set restricted countries from remote configuration
+     * Set restricted countries from remote configuration , key : restricted_countries = ["US","FR"]
      */
-    fun setRestrictedCountriesFromRemoteConfig() {
+  private fun setRestrictedCountriesFromRemoteConfig() {
         try {
             val remoteCountries = Remote.getStringArray("restricted_countries", restrictedCountries)
             restrictedCountries = remoteCountries.map { it.uppercase(Locale.ROOT) }

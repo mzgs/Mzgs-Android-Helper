@@ -24,14 +24,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.lifecycleScope
 import com.example.mzgsandroidhelper.ui.theme.MzgsAndroidHelperTheme
 import com.google.android.libraries.ads.mobile.sdk.interstitial.InterstitialAdPreloader
+import com.mzgs.helper.MzgsHelper
+import com.mzgs.helper.Remote
+import com.mzgs.helper.SimpleSplashHelper
 import com.mzgs.helper.analytics.FirebaseAnalyticsManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
 
@@ -42,9 +51,29 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-
-
         FirebaseAnalyticsManager.initialize(this)
+
+
+        lifecycleScope.launch {
+            SimpleSplashHelper.showSplash(this@MainActivity)
+            val result = withContext(Dispatchers.IO) {
+                Remote.initSync(this@MainActivity)
+            }
+            MzgsHelper.initAllowedCountry(this@MainActivity)
+
+
+            MzgsHelper.showUmpConsent(this@MainActivity,forceDebugConsentInEea = true) {
+
+                SimpleSplashHelper.startProgress()
+
+            }
+
+
+
+        }
+
+
+
 
         setContent {
             MzgsAndroidHelperTheme {
