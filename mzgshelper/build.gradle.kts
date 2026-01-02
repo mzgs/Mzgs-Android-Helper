@@ -96,7 +96,7 @@ dependencies {
     // AdMob (exposed to consuming modules)
 //    api("com.google.android.gms:play-services-ads:24.9.0")
     implementation("com.google.android.libraries.ads.mobile.sdk:ads-mobile-sdk:0.22.0-beta04")
-    implementation("com.google.ads.mediation:applovin:13.5.1.0")
+//    implementation("com.google.ads.mediation:applovin:13.5.1.0")
     implementation("com.google.ads.mediation:fyber:8.4.1.0")
     implementation("com.google.ads.mediation:vungle:7.6.2.0")
     implementation("com.unity3d.ads:unity-ads:4.16.2")
