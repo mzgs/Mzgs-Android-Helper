@@ -51,6 +51,11 @@ android {
     }
 }
 
+configurations.configureEach {
+    // ads-mobile-sdk includes the Ads API classes, so drop legacy Play Services ads API to avoid duplicates.
+    exclude(group = "com.google.android.gms", module = "play-services-ads-api")
+}
+
 
 dependencies {
     // AndroidX Core
@@ -71,7 +76,8 @@ dependencies {
     implementation("androidx.compose.runtime:runtime")
     
     // Networking & Data
-    implementation("com.squareup.okhttp3:okhttp:5.3.2")
+    // ads-mobile-sdk expects OkHttp 4 internal classes at runtime.
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jsoup:jsoup:1.21.2")
     implementation("com.google.code.gson:gson:2.13.2")
     
