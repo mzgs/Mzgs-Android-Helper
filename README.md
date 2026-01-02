@@ -100,16 +100,15 @@ Add to your `AndroidManifest.xml`:
 
 ## 🎯 Quick Start
 
-### 1) Initialize the helper in Application (recommended)
+### 1) Initialize the helper in Activity (recommended)
 
 ```kotlin
-class MyApplication : Application() {
-    override fun onCreate() {
-        super.onCreate()
-        MzgsHelper.init(this)
-        MzgsHelper.setDebugNoAds(true) // Optional: disable ads in debug builds
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        MzgsHelper.init(this, skipAdsInDebug = true)
     }
-}
+} 
 ```
 
 ### 2) Bootstrap the helper and fetch remote config
@@ -121,7 +120,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        MzgsHelper.updateActivity(this)
+        MzgsHelper.init(this, skipAdsInDebug = true)
 
          val admobConfig = AdMobConfig(
             appId = "ca-app-pub-8689213949805403~6434330617",
@@ -161,11 +160,12 @@ class MainActivity : ComponentActivity() {
             testDeviceAdvertisingIds = listOf("ebd59ada-3c0f-4d4a-bb8a-1e8966dee95f")
         )
 
-        FirebaseAnalyticsManager.initialize()
+        FirebaseAnalyticsManager.initialize(this)
 
+        val activity = this
         lifecycleScope.launch {
-            SimpleSplashHelper.showSplash(MzgsHelper.getActivity())
-            Remote.initSync()
+            SimpleSplashHelper.showSplash(activity)
+            Remote.initSync(activity)
             MzgsHelper.setIPCountry()
             Ads.init()
 
@@ -179,7 +179,7 @@ class MainActivity : ComponentActivity() {
                         onAdClosed = {
                             MzgsHelper.restrictedCountries = listOf("UK", "US", "GB", "CN", "MX", "JP", "KR", "AR", "HK", "IN", "PK", "TR", "VN", "RU", "SG", "MO", "TW", "PY","BR")
                             MzgsHelper.setRestrictedCountriesFromRemoteConfig()
-                            MzgsHelper.setIsAllowedCountry()
+                            MzgsHelper.setIsAllowedCountry(activity)
 
                             isSplashComplete.value = true
 
@@ -199,7 +199,7 @@ class MainActivity : ComponentActivity() {
                 }
 
 
-            AdMobManager.showUmpConsent(forceDebugConsentInEea = true) {
+            AdMobManager.showUmpConsent(activity, forceDebugConsentInEea = true) {
 
                 Ads.initAdMob(admobConfig) {
                     Ads.loadAdmobInterstitial()
@@ -247,16 +247,16 @@ App-open ads are automatically handled when `enableAppOpenAd = true` in either c
 ### 3) Remote config and country gating
 
 ```kotlin
-Remote.init()                // Async; or Remote.initSync() to block until loaded
+Remote.init(context)                // Async; or Remote.initSync(context) to block until loaded
 Remote.getBool("only_free_music", false)
 Remote.getIntArray("download_rate_show_at_counts", listOf(1, 9, 30))
 
 MzgsHelper.setRestrictedCountriesFromRemoteConfig()
 MzgsHelper.setIPCountry()
-MzgsHelper.setIsAllowedCountry() // Uses phone + IP country against restricted list
+MzgsHelper.setIsAllowedCountry(context) // Uses phone + IP country against restricted list
 
 // Debug helper to fake country (debug builds only)
-MzgsHelper.setDebugCountry("DE")
+MzgsHelper.setDebugCountry(context, "DE")
 ```
 
 ### 4) Utility Features
@@ -299,16 +299,16 @@ The rating dialog automatically tracks:
 
 ```kotlin
 // Show a simple toast
-MzgsHelper.showToast("Hello World")
+MzgsHelper.showToast(context, "Hello World")
 
 // With custom duration
-MzgsHelper.showToast("Processing...", Toast.LENGTH_LONG)
+MzgsHelper.showToast(context, "Processing...", Toast.LENGTH_LONG)
 ```
 
 #### Network Availability Check
 
 ```kotlin
-if (MzgsHelper.isNetworkAvailable()) {
+if (MzgsHelper.isNetworkAvailable(context)) {
     // Network is available
 } else {
     // No network connection
@@ -319,23 +319,23 @@ if (MzgsHelper.isNetworkAvailable()) {
 
 ```kotlin
 // Get app version name (e.g., "1.0.0")
-val versionName = MzgsHelper.getAppVersion()
+val versionName = MzgsHelper.getAppVersion(context)
 
 // Get app version code (e.g., 1)
-val versionCode = MzgsHelper.getAppVersionCode()
+val versionCode = MzgsHelper.getAppVersionCode(context)
 ```
 
 #### Country Detection & Restrictions
 
 ```kotlin
 // Get phone country codes (SIM, Network, Locale)
-val countries = MzgsHelper.getPhoneCountry()
+val countries = MzgsHelper.getPhoneCountry(context)
 
 // Set IP-based country (async)
 MzgsHelper.setIPCountry()
 
 // Check if current country is allowed
-MzgsHelper.setIsAllowedCountry()
+MzgsHelper.setIsAllowedCountry(context)
 if (MzgsHelper.isAllowedCountry) {
     // Country is allowed
 }
@@ -428,10 +428,10 @@ Common use cases:
 #### Quick helpers
 
 ```kotlin
-MzgsHelper.showToast("Hello World")
-val online = MzgsHelper.isNetworkAvailable()
-val versionName = MzgsHelper.getAppVersion()
-val versionCode = MzgsHelper.getAppVersionCode()
+MzgsHelper.showToast(context, "Hello World")
+val online = MzgsHelper.isNetworkAvailable(context)
+val versionName = MzgsHelper.getAppVersion(context)
+val versionCode = MzgsHelper.getAppVersionCode(context)
 ```
 
 ## 🎨 Compose Integration
@@ -483,7 +483,7 @@ The library includes built-in Firebase Analytics support for tracking ad events 
 
 ```kotlin
 // Initialize in your Application class or MainActivity
-FirebaseAnalyticsManager.initialize()
+FirebaseAnalyticsManager.initialize(context)
 ```
 
 ### Log Custom Events
@@ -536,7 +536,7 @@ When using the Ads API, many events are automatically tracked:
 
 ## 🔬 Debug & Test Controls
 
-- `skipAdsInDebug` on `MzgsHelper.init(...)` or `MzgsHelper.setDebugNoAds(true)` turns off all ads for debug sessions
+- `skipAdsInDebug` on `MzgsHelper.init(...)` or `MzgsHelper.setDebugNoAds(context, true)` turns off all ads for debug sessions
 - `enableTestMode` swaps in Google test IDs for AdMob; `debugEmptyIds` zeros IDs to prevent loading anything in debug
 - `testDeviceIds` (hashed) for AdMob and `testDeviceAdvertisingIds` (GAID) for AppLovin MAX enable device-scoped test traffic
 - Advertising ID helper logs your GAID when `Ads.init()` runs (copy into test device lists)

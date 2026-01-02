@@ -2,24 +2,24 @@ package com.mzgs.helper.analytics
 
 import android.content.Context
 import android.os.Bundle
-import android.util.Log
 import com.google.firebase.analytics.FirebaseAnalytics
-import com.mzgs.helper.MzgsHelper
 
 object FirebaseAnalyticsManager {
     private var firebaseAnalytics: FirebaseAnalytics? = null
+    private var applicationContext: Context? = null
     
-    fun initialize( ) {
-        val resolvedContext =  MzgsHelper.getContext()
-
+    fun initialize(context: Context) {
+        val appContext = context.applicationContext
+        applicationContext = appContext
         if (firebaseAnalytics == null) {
-            firebaseAnalytics = FirebaseAnalytics.getInstance(resolvedContext.applicationContext)
+            firebaseAnalytics = FirebaseAnalytics.getInstance(appContext)
         }
     }
 
     private fun ensureInitialized(): Boolean {
         if (firebaseAnalytics == null) {
-            initialize()
+            val context = applicationContext ?: return false
+            firebaseAnalytics = FirebaseAnalytics.getInstance(context)
         }
         return firebaseAnalytics != null
     }

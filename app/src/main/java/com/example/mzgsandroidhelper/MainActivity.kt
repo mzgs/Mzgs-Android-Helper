@@ -44,60 +44,7 @@ class MainActivity : ComponentActivity() {
 
 
 
-        FirebaseAnalyticsManager.initialize()
-
-//        MzgsHelper.onActivityReady { activity ->
-//            lifecycleScope.launch {
-//                SimpleSplashHelper.showSplash(activity)
-//                Remote.initSync()
-//                MzgsHelper.setIPCountry()
-//                Ads.init()
-//
-//                // Splash duration and OnComplete
-//                SimpleSplashHelper
-//                    .setDuration(Remote.getLong("splash_time", 10_000))
-//                    .setOnComplete {
-//                        // Show interstitial ad
-//                        val adResult = Ads.showInterstitialWithResult(
-//                            onAdClosed = {
-//                                MzgsHelper.restrictedCountries = listOf("UK", "US", "GB", "CN", "MX", "JP", "KR", "AR", "HK", "IN", "PK", "TR", "VN", "RU", "SG", "MO", "TW", "PY","BR")
-//                                MzgsHelper.setRestrictedCountriesFromRemoteConfig()
-//                                MzgsHelper.setIsAllowedCountry()
-//
-//                                isSplashComplete.value = true
-//
-//                                Ads.initAppLovinMax(appLovinConfig) {
-//                                    Ads.loadApplovinMaxInterstitial()
-//                                }
-//
-//                            }
-//                        )
-//                        FirebaseAnalyticsManager.logEvent(
-//                            if (adResult.success) "splash_ad_shown" else "splash_ad_failed",
-//                            Bundle().apply {
-//                                putString("ad_network", adResult.network ?: "unknown")
-//                            }
-//                        )
-//                    }
-//
-//
-//                AdMobManager.showUmpConsent(forceDebugConsentInEea = true) {
-//
-//                    Ads.initAdMob(admobConfig) {
-//                        printLine("admob init success")
-//                        Ads.loadAdmobInterstitial()
-//                        SimpleSplashHelper.startProgress()
-//
-//                    }
-//
-//                }
-//
-//
-//            }
-//        }
-
-
-
+        FirebaseAnalyticsManager.initialize(this)
 
         setContent {
             MzgsAndroidHelperTheme {

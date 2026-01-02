@@ -2,14 +2,12 @@ package com.mzgs.helper
 
 import android.Manifest
 import android.app.Activity
-import android.app.Application
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
-import android.os.Bundle
 import android.telephony.TelephonyManager
 import android.util.Log
 
@@ -45,39 +43,6 @@ object MzgsHelper {
     
     private const val TAG = "MzgsHelper"
     private lateinit var applicationContext: Context
-    private lateinit var weakActivity: java.lang.ref.WeakReference<Activity>
-    private var lifecycleCallbacksRegistered = false
-    private var firstActivityReadyDispatched = false
-    private var firstActivityRef: java.lang.ref.WeakReference<Activity>? = null
-    private val firstActivityReadyCallbacks = mutableListOf<(Activity) -> Unit>()
-    private val firstActivityReadyLock = Any()
-    private val activityLifecycleCallbacks = object : Application.ActivityLifecycleCallbacks {
-        override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
-
-        override fun onActivityStarted(activity: Activity) {
-            updateActivity(activity)
-        }
-
-        override fun onActivityResumed(activity: Activity) {
-            updateActivity(activity)
-        }
-
-        override fun onActivityPaused(activity: Activity) {}
-
-        override fun onActivityStopped(activity: Activity) {
-            if (::weakActivity.isInitialized && weakActivity.get() == activity) {
-                updateActivity(null)
-            }
-        }
-
-        override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
-
-        override fun onActivityDestroyed(activity: Activity) {
-            if (::weakActivity.isInitialized && weakActivity.get() == activity) {
-                updateActivity(null)
-            }
-        }
-    }
     var restrictedCountries: List<String> = listOf(
         "UK", "US", "GB", "CN", "MX", "JP", "KR", "AR", "HK", "IN",
         "PK", "TR", "VN", "RU", "SG", "MO", "TW", "PY"
@@ -92,61 +57,43 @@ object MzgsHelper {
     var IPCountry: String? = null
     private var debugCountryOverride: String? = null
     
-    fun init(context: Context) {
-        applicationContext = context.applicationContext
-        if (!lifecycleCallbacksRegistered) {
-            val app = when (context) {
-                is Application -> context
-                else -> context.applicationContext as? Application
-            }
-            if (app != null) {
-                app.registerActivityLifecycleCallbacks(activityLifecycleCallbacks)
-                lifecycleCallbacksRegistered = true
-            } else {
-                Log.w(TAG, "Unable to register lifecycle callbacks; Application context not available")
-            }
-        }
-        initialized = true
-        debugNoAdsRequested?.let { applyDebugNoAds(it) }
-    }
-
     fun init(
-        context: Context,
         activity: Activity,
         skipAdsInDebug: Boolean = false,
         remoteConfigUrl: String = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/nest.json"
     ) {
-        init(context)
-        updateActivity(activity)
+        val appContext = activity.applicationContext
+        applicationContext = appContext
+        initialized = true
+        debugNoAdsRequested?.let { applyDebugNoAds(appContext, it) }
 
         // Only set debugNoAds if we're in debug mode
         debugNoAdsRequested = skipAdsInDebug
-        applyDebugNoAds(skipAdsInDebug)
-
-
-
-
-
+        applyDebugNoAds(appContext, skipAdsInDebug)
     }
     
     fun isInitialized(): Boolean = initialized
 
-    fun setDebugNoAds(enabled: Boolean) {
+    internal fun getApplicationContextOrNull(): Context? {
+        return if (::applicationContext.isInitialized) applicationContext else null
+    }
+
+    fun setDebugNoAds(context: Context, enabled: Boolean) {
         debugNoAdsRequested = enabled
         if (!::applicationContext.isInitialized) {
             Log.w(TAG, "setDebugNoAds called before init; will be applied after init")
             return
         }
-        applyDebugNoAds(enabled)
+        applyDebugNoAds(context, enabled)
     }
 
     fun showUmpConsent(
+        activity: Activity,
         forceDebugConsentInEea: Boolean = false,
         onComplete: () -> Unit = {}
     ) {
-        val activity = runCatching { getActivity() }.getOrNull()
-        if (activity == null) {
-            Log.e(TAG, "No current activity available to show UMP consent form")
+        if (activity.isFinishing || activity.isDestroyed) {
+            Log.w(TAG, "Activity is not in a valid state to show UMP consent form")
             onComplete()
             return
         }
@@ -156,7 +103,7 @@ object MzgsHelper {
         val paramsBuilder = ConsentRequestParameters.Builder()
 
         // Enable debug consent flow even outside EEA if requested in debug builds.
-        if (isDebug() && forceDebugConsentInEea) {
+        if (isDebug(activity) && forceDebugConsentInEea) {
             val debugSettingsBuilder = ConsentDebugSettings.Builder(activity)
                 .setDebugGeography(ConsentDebugSettings.DebugGeography.DEBUG_GEOGRAPHY_EEA)
             paramsBuilder.setConsentDebugSettings(debugSettingsBuilder.build())
@@ -230,8 +177,8 @@ object MzgsHelper {
         )
     }
 
-    private fun applyDebugNoAds(enabled: Boolean) {
-        debugNoAds = enabled && isDebug()
+    private fun applyDebugNoAds(context: Context, enabled: Boolean) {
+        debugNoAds = enabled && isDebug(context)
         if (debugNoAds) {
             Log.d(TAG, "")
             Log.d(TAG, "|||------------------------------------------------------------|||")
@@ -242,111 +189,20 @@ object MzgsHelper {
         }
     }
     
-    fun getContext(): Context {
-        check(::applicationContext.isInitialized) {
-            "MzgsHelper.init(context) or MzgsHelper.init(context, activity, ...) must be called before getContext()"
-        }
-        return applicationContext
-    }
-
-    fun getActivity(): Activity {
-        if (!::weakActivity.isInitialized) {
-            throw IllegalStateException(
-                "MzgsHelper.init(context, activity, ...) or MzgsHelper.updateActivity(activity) must be called before getActivity()"
-            )
-        }
-        return weakActivity.get()
-            ?: throw IllegalStateException(
-                "MzgsHelper.init(context, activity, ...) must be called with a live activity before accessing getActivity()"
-            )
-    }
-
-    fun updateActivity(activity: Activity?) {
-        if (!::weakActivity.isInitialized) {
-            if (activity != null) {
-                weakActivity = java.lang.ref.WeakReference(activity)
-                dispatchFirstActivityReady(activity)
-            }
-            return
-        }
-
-        if (activity != null) {
-            weakActivity = java.lang.ref.WeakReference(activity)
-            dispatchFirstActivityReady(activity)
-        } else {
-            weakActivity.clear()
-        }
-    }
-
-    fun onActivityReady(callback: (Activity) -> Unit) {
-        var activityToUse: Activity? = null
-        var registered = false
-
-        synchronized(firstActivityReadyLock) {
-            if (!firstActivityReadyDispatched) {
-                firstActivityReadyCallbacks.add(callback)
-                registered = true
-            } else {
-                activityToUse = firstActivityRef?.get()
-                if (activityToUse == null && ::weakActivity.isInitialized) {
-                    activityToUse = weakActivity.get()
-                }
-            }
-        }
-
-        if (registered) {
-            return
-        }
-
-        activityToUse?.let { callback(it) }
-            ?: Log.w(TAG, "onActivityReady called after first activity finished; no activity available")
-    }
-
-    private fun dispatchFirstActivityReady(activity: Activity) {
-        val callbacks = synchronized(firstActivityReadyLock) {
-            if (firstActivityReadyDispatched) {
-                emptyList()
-            } else {
-                firstActivityReadyDispatched = true
-                firstActivityRef = java.lang.ref.WeakReference(activity)
-                if (firstActivityReadyCallbacks.isEmpty()) {
-                    emptyList()
-                } else {
-                    val pending = firstActivityReadyCallbacks.toList()
-                    firstActivityReadyCallbacks.clear()
-                    pending
-                }
-            }
-        }
-
-        if (callbacks.isEmpty()) {
-            return
-        }
-
-        callbacks.forEach { callback ->
-            try {
-                callback(activity)
-            } catch (error: Throwable) {
-                Log.e(TAG, "onActivityReady callback failed", error)
-            }
-        }
-    }
-
-    fun isDebug(): Boolean {
-        val ctx = getContext()
-        val flags = ctx.applicationInfo.flags
+    fun isDebug(context: Context): Boolean {
+        val flags = context.applicationInfo.flags
         val isDebuggable = (flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
         val isTestOnly = (flags and ApplicationInfo.FLAG_TEST_ONLY) != 0
         return isDebuggable || isTestOnly
     }
     
-    fun showToast(message: String, duration: Int = Toast.LENGTH_SHORT) {
-        Toast.makeText(getContext(), message, duration).show()
+    fun showToast(context: Context, message: String, duration: Int = Toast.LENGTH_SHORT) {
+        Toast.makeText(context.applicationContext, message, duration).show()
     }
 
 
-    fun setDebugCountry(country: String = "TR") {
-        if (!isDebug()) {
+    fun setDebugCountry(context: Context, country: String = "TR") {
+        if (!isDebug(context)) {
             Log.d("LibHelper", "setDebugCountry ignored because app is not in debug mode")
             return
         }
@@ -363,8 +219,8 @@ object MzgsHelper {
         Log.d("LibHelper", "Debug country override set to $normalizedCountry")
     }
 
-    fun getPhoneCountry(): List<String> {
-        if (isDebug()) {
+    fun getPhoneCountry(context: Context): List<String> {
+        if (isDebug(context)) {
             debugCountryOverride?.let { override ->
                 Log.d("LibHelper", "Using debug country override for phone country: $override")
                 return listOf(override)
@@ -372,9 +228,9 @@ object MzgsHelper {
         }
 
         val countries = mutableListOf<String>()
-        val context = getContext()
+        val appContext = context.applicationContext
         try {
-            val telephonyManager = context?.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
+            val telephonyManager = appContext.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
             telephonyManager?.let {
                 // Add SIM country code if available
                 val simCountry = it.simCountryIso?.uppercase(Locale.ROOT)
@@ -393,10 +249,10 @@ object MzgsHelper {
 
             // Add system locale country (from phone settings)
             val localeCountry = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                context?.resources?.configuration?.locales[0]?.country
+                appContext.resources.configuration.locales[0].country
             } else {
                 @Suppress("DEPRECATION")
-                context?.resources?.configuration?.locale?.country
+                appContext.resources.configuration.locale.country
             }
             if (!localeCountry.isNullOrEmpty()) {
                 val upperLocale = localeCountry.uppercase(Locale.ROOT)
@@ -442,9 +298,9 @@ object MzgsHelper {
      *                   - true: force allow in debug mode
      *                   - false: force restrict in debug mode
      */
-    fun setIsAllowedCountry(debugAllow: Boolean? = null) {
+    fun setIsAllowedCountry(context: Context, debugAllow: Boolean? = null) {
         // Handle debug override if provided and we're in debug mode
-        if (debugAllow != null && isDebug()) {
+        if (debugAllow != null && isDebug(context)) {
             isAllowedCountry = debugAllow
             Log.d("LibHelper", "Debug mode with debugAllow=$debugAllow, setting isAllowedCountry to $debugAllow")
             return
@@ -455,7 +311,7 @@ object MzgsHelper {
             val allowedCountries = Remote.getStringArray("allowed_countries", emptyList())
             
             // Get all phone countries
-            val phoneCountries = getPhoneCountry()
+            val phoneCountries = getPhoneCountry(context)
             
             // Check if any phone country is in the allowed list
             val isInAllowedCountry = phoneCountries.any { country ->
@@ -468,7 +324,7 @@ object MzgsHelper {
         }
         
         // Get all phone countries
-        val phoneCountries = getPhoneCountry()
+        val phoneCountries = getPhoneCountry(context)
         
         // Check if any phone country is in the restricted list
         val phoneCountryRestricted = phoneCountries.any { country ->
@@ -503,11 +359,11 @@ object MzgsHelper {
 
     
     @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
-    fun isNetworkAvailable(): Boolean {
-        val context = getContext()
+    fun isNetworkAvailable(context: Context): Boolean {
+        val appContext = context.applicationContext
         return try {
             val hasPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                context.checkSelfPermission(Manifest.permission.ACCESS_NETWORK_STATE) == PackageManager.PERMISSION_GRANTED
+                appContext.checkSelfPermission(Manifest.permission.ACCESS_NETWORK_STATE) == PackageManager.PERMISSION_GRANTED
             } else {
                 true
             }
@@ -517,7 +373,7 @@ object MzgsHelper {
                 return true
             }
 
-            val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val connectivityManager = appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
             val network = connectivityManager.activeNetwork ?: return false
             val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
@@ -531,14 +387,14 @@ object MzgsHelper {
     }
 
     
-    fun getAppVersion(): String {
-        val context = getContext()
+    fun getAppVersion(context: Context): String {
+        val appContext = context.applicationContext
         return try {
             val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                context.packageManager.getPackageInfo(context.packageName, PackageManager.PackageInfoFlags.of(0))
+                appContext.packageManager.getPackageInfo(appContext.packageName, PackageManager.PackageInfoFlags.of(0))
             } else {
                 @Suppress("DEPRECATION")
-                context.packageManager.getPackageInfo(context.packageName, 0)
+                appContext.packageManager.getPackageInfo(appContext.packageName, 0)
             }
             packageInfo.versionName ?: "Unknown"
         } catch (e: PackageManager.NameNotFoundException) {
@@ -547,14 +403,14 @@ object MzgsHelper {
         }
     }
     
-    fun getAppVersionCode(): Long {
-        val context = getContext()
+    fun getAppVersionCode(context: Context): Long {
+        val appContext = context.applicationContext
         return try {
             val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                context.packageManager.getPackageInfo(context.packageName, PackageManager.PackageInfoFlags.of(0))
+                appContext.packageManager.getPackageInfo(appContext.packageName, PackageManager.PackageInfoFlags.of(0))
             } else {
                 @Suppress("DEPRECATION")
-                context.packageManager.getPackageInfo(context.packageName, 0)
+                appContext.packageManager.getPackageInfo(appContext.packageName, 0)
             }
             
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -569,10 +425,9 @@ object MzgsHelper {
         }
     }
 
-    fun isSafe(): Boolean {
+    fun isSafe(context: Context): Boolean {
         return try {
-
-            MzgsHelper.getAppVersion().toDouble() <= Remote.getDouble("safe", 0.9)
+            MzgsHelper.getAppVersion(context).toDouble() <= Remote.getDouble("safe", 0.9)
         } catch (e: Exception) {
             e.printStackTrace()
             true // Default to safe if there's an error
@@ -636,11 +491,12 @@ object Remote {
      * Initialize with application context and optionally fetch remote config
      * Call this method in your Application class onCreate or Activity onCreate
      *
-     * @param context Context to use. Defaults to the one stored in MzgsHelper.
+     * @param context Context to use.
      * @param url Optional remote configuration URL (if provided, will fetch config asynchronously)
      */
-    fun init(context: Context = MzgsHelper.getContext(), url: String? = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/nest.json") {
-        applicationContext = context.applicationContext
+    fun init(context: Context, url: String? = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/nest.json") {
+        val appContext = context.applicationContext
+        applicationContext = appContext
         
         // Initialize with empty config immediately (will use default values from getter functions)
         app = JSONObject()
@@ -649,7 +505,7 @@ object Remote {
         url?.takeIf { it.isNotEmpty() }?.let { configUrl ->
             CoroutineScope(Dispatchers.IO).launch { 
                 // Check network connectivity before attempting to fetch
-                if (MzgsHelper.isNetworkAvailable()) {
+                if (MzgsHelper.isNetworkAvailable(appContext)) {
                     fetchRemoteConfig(configUrl)
                 } else {
                     Log.w("Remote", "Network not available, using default values")
@@ -662,12 +518,13 @@ object Remote {
      * Synchronous init that suspends until remote config is fetched (or fails).
      * Use this when you need to await completion before proceeding.
      */
-    suspend fun initSync(  url: String? = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/nest.json") {
-        applicationContext = MzgsHelper.getContext()
+    suspend fun initSync(context: Context, url: String? = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/nest.json") {
+        val appContext = context.applicationContext
+        applicationContext = appContext
         app = JSONObject()
 
         url?.takeIf { it.isNotEmpty() }?.let { configUrl ->
-            if (MzgsHelper.isNetworkAvailable()) {
+            if (MzgsHelper.isNetworkAvailable(appContext)) {
                 fetchRemoteConfig(configUrl)
             } else {
                 Log.w("Remote", "Network not available, using default values")
@@ -830,7 +687,7 @@ object Remote {
      * @return The application context, or null if not initialized
      */
     fun getApplicationContext(): Context? {
-        return applicationContext ?: MzgsHelper.getContext()
+        return applicationContext ?: MzgsHelper.getApplicationContextOrNull()
     }
 }
 
