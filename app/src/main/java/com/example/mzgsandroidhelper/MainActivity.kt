@@ -186,7 +186,7 @@ private fun MainExampleScreen() {
                 style = MaterialTheme.typography.headlineSmall
             )
             AdmobMediation.showBanner(
-                modifier = Modifier.fillMaxWidth(), AdmobMediation.config.BANNER_AD_UNIT_ID, AdSize.LARGE_BANNER
+                modifier = Modifier.fillMaxWidth()
             ) { errorMessage ->
                 printLine("Banner ad failed: $errorMessage")
             }
