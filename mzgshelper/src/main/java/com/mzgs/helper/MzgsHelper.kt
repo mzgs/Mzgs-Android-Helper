@@ -42,18 +42,12 @@ fun printLine(message: Any? = null) {
 object MzgsHelper {
     
     private const val TAG = "MzgsHelper"
-    private lateinit var applicationContext: Context
     var restrictedCountries: List<String> = listOf(
         "UK", "US", "GB", "CN", "MX", "JP", "KR", "AR", "HK", "IN",
         "PK", "TR", "VN", "RU", "SG", "MO", "TW", "PY"
     )
 
-    @Volatile
-    private var initialized = false
     var isAllowedCountry = true
-    @JvmField
-    var debugNoAds = false
-    private var debugNoAdsRequested: Boolean? = null
     var IPCountry: String? = null
     private var debugCountryOverride: String? = null
     
@@ -63,27 +57,11 @@ object MzgsHelper {
         remoteConfigUrl: String = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/nest.json"
     ) {
         val appContext = activity.applicationContext
-        applicationContext = appContext
-        initialized = true
-        debugNoAdsRequested?.let { applyDebugNoAds(appContext, it) }
-
-        // Only set debugNoAds if we're in debug mode
-        debugNoAdsRequested = skipAdsInDebug
+        // Apply the requested debug skip-ads setting.
         applyDebugNoAds(appContext, skipAdsInDebug)
-    }
-    
-    fun isInitialized(): Boolean = initialized
-
-    internal fun getApplicationContextOrNull(): Context? {
-        return if (::applicationContext.isInitialized) applicationContext else null
     }
 
     fun setDebugNoAds(context: Context, enabled: Boolean) {
-        debugNoAdsRequested = enabled
-        if (!::applicationContext.isInitialized) {
-            Log.w(TAG, "setDebugNoAds called before init; will be applied after init")
-            return
-        }
         applyDebugNoAds(context, enabled)
     }
 
@@ -177,17 +155,7 @@ object MzgsHelper {
         )
     }
 
-    private fun applyDebugNoAds(context: Context, enabled: Boolean) {
-        debugNoAds = enabled && isDebug(context)
-        if (debugNoAds) {
-            Log.d(TAG, "")
-            Log.d(TAG, "|||------------------------------------------------------------|||")
-            Log.d(TAG, "|||              DEBUG NO ADS MODE ENABLED                     |||")
-            Log.d(TAG, "|||         All ads will be skipped in this session            |||")
-            Log.d(TAG, "|||------------------------------------------------------------|||")
-            Log.d(TAG, "")
-        }
-    }
+    
     
     fun isDebug(context: Context): Boolean {
         val flags = context.applicationInfo.flags
@@ -289,6 +257,11 @@ object MzgsHelper {
                 IPCountry = "X"
             }
         }
+    }
+
+    fun initAllowedCountry(context: Context, debugAllow: Boolean? = null) {
+        setIPCountry()
+        setIsAllowedCountry(context, debugAllow)
     }
 
     /**
@@ -687,7 +660,7 @@ object Remote {
      * @return The application context, or null if not initialized
      */
     fun getApplicationContext(): Context? {
-        return applicationContext ?: MzgsHelper.getApplicationContextOrNull()
+        return applicationContext
     }
 }
 
