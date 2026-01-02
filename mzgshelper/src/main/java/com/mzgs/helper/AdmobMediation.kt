@@ -1,11 +1,13 @@
 package com.mzgs.helper
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.util.Log
-import com.google.android.gms.ads.AdRequest
-import com.google.android.gms.ads.MobileAds
-import com.google.android.gms.ads.interstitial.InterstitialAdPreloader
-import com.google.android.gms.ads.preload.PreloadConfiguration
+import com.google.android.libraries.ads.mobile.sdk.MobileAds
+import com.google.android.libraries.ads.mobile.sdk.common.AdRequest
+import com.google.android.libraries.ads.mobile.sdk.common.PreloadConfiguration
+import com.google.android.libraries.ads.mobile.sdk.initialization.InitializationConfig
+import com.google.android.libraries.ads.mobile.sdk.interstitial.InterstitialAdPreloader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -13,11 +15,21 @@ import kotlinx.coroutines.launch
 object AdmobMediation {
 
     const val TAG = "AdmobMediation"
+    private const val ADMOB_APP_ID_KEY = "com.google.android.gms.ads.APPLICATION_ID"
 
-    fun initialize(context: Context,  onInitComplete: () -> Unit = {}) {
+    fun initialize(context: Context, appId: String? = null, onInitComplete: () -> Unit = {}) {
         CoroutineScope(Dispatchers.IO).launch {
+            val resolvedAppId = appId ?: getAdMobAppId(context)
+            if (resolvedAppId.isNullOrBlank()) {
+                Log.w(TAG, "AdMob app ID not found; set $ADMOB_APP_ID_KEY in the manifest or pass appId.")
+                CoroutineScope(Dispatchers.Main).launch {
+                    onInitComplete()
+                }
+                return@launch
+            }
             // Initialize the Google Mobile Ads SDK on a background thread.
-            MobileAds.initialize(context) { initializationStatus ->
+            val initConfig = InitializationConfig.Builder(resolvedAppId).build()
+            MobileAds.initialize(context, initConfig) { initializationStatus ->
                 for ((adapterClass, status) in initializationStatus.adapterStatusMap) {
                     Log.d(
                         TAG,
@@ -37,5 +49,17 @@ object AdmobMediation {
         }
     }
 
+    private fun getAdMobAppId(context: Context): String? {
+        return try {
+            val appInfo = context.packageManager.getApplicationInfo(
+                context.packageName,
+                PackageManager.GET_META_DATA,
+            )
+            appInfo.metaData?.getString(ADMOB_APP_ID_KEY)
+        } catch (e: PackageManager.NameNotFoundException) {
+            Log.w(TAG, "Failed to read AdMob app ID from manifest", e)
+            null
+        }
+    }
 
 }
