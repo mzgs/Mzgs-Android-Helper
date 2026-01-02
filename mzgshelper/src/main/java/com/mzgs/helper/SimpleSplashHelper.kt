@@ -25,33 +25,32 @@ import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.whenStateAtLeast
+import androidx.lifecycle.withStateAtLeast
 import kotlinx.coroutines.launch
+import java.lang.ref.WeakReference
+import androidx.core.graphics.toColorInt
 
 object SimpleSplashHelper {
 
-    private var activity: Activity? = null
     private var splashDuration: Long = 3000L
     private var onComplete: (() -> Unit)? = null
     private var shouldShowProgress: Boolean = true
-    private var splashDialog: Dialog? = null
-    private var progressBar: ProgressBar? = null
-    private var progressText: TextView? = null
-    private var circularProgressBar: ProgressBar? = null
+    private var splashDialogRef: WeakReference<Dialog>? = null
+    private var progressBarId: Int = View.NO_ID
+    private var progressTextId: Int = View.NO_ID
+    private var circularProgressBarId: Int = View.NO_ID
+    private var logoImageViewId: Int = View.NO_ID
     private var progressAnimator: ValueAnimator? = null
     private var handler: Handler? = null
     private var dismissRunnable: Runnable? = null
     private var onCompleteInvoked: Boolean = false
     private var rotateLogo: Boolean = true
     private var logoAnimatorSet: AnimatorSet? = null
-    private var logoImageView: ImageView? = null
     private var progressStarted: Boolean = false
 
-    @JvmStatic
     fun showSplash(activity: Activity, duration: Long = 3000L) {
         dismiss()
         resetState()
-        this.activity = activity
         this.splashDuration = duration
         createAndShowSplash(activity)
         startLogoRotationAnimation()
@@ -66,10 +65,11 @@ object SimpleSplashHelper {
 
     fun setRotateLogo(rotate: Boolean): SimpleSplashHelper = apply { rotateLogo = rotate }
 
-    @JvmStatic
-    fun startProgress() {
+    @JvmOverloads
+    fun startProgress(activity: Activity? = null) {
         if (progressStarted) return
         progressStarted = true
+        val callbackActivity = activity
 
         handler = handler ?: Handler(Looper.getMainLooper())
 
@@ -80,36 +80,36 @@ object SimpleSplashHelper {
                 interpolator = AccelerateDecelerateInterpolator()
                 addUpdateListener { animator ->
                     val progress = animator.animatedValue as Int
-                    progressBar?.progress = progress
-                    progressText?.text = "$progress%"
+                    findProgressBar()?.progress = progress
+                    findProgressText()?.text = "$progress%"
                 }
                 addListener(object : AnimatorListenerAdapter() {
                     override fun onAnimationEnd(animation: Animator) {
-                        invokeCompleteAndDismiss()
+                        invokeCompleteAndDismiss(callbackActivity)
                     }
                 })
                 start()
             }
         } else {
-            dismissRunnable = Runnable { invokeCompleteAndDismiss() }
+            dismissRunnable = Runnable { invokeCompleteAndDismiss(callbackActivity) }
             handler?.postDelayed(dismissRunnable!!, splashDuration)
         }
     }
 
-    @JvmStatic
-    fun hideSplash() {
-        invokeCompleteAndDismiss()
+    @JvmOverloads
+    fun hideSplash(activity: Activity? = null) {
+        invokeCompleteAndDismiss(activity)
     }
 
     private fun createAndShowSplash(currentActivity: Activity) {
-        splashDialog = Dialog(currentActivity, android.R.style.Theme_Black_NoTitleBar_Fullscreen).apply {
+        val dialog = Dialog(currentActivity, android.R.style.Theme_Black_NoTitleBar_Fullscreen).apply {
             setContentView(createSplashView(currentActivity))
             window?.apply {
                 val gradientDrawable = GradientDrawable(
                     GradientDrawable.Orientation.TOP_BOTTOM,
                     intArrayOf(
-                        Color.parseColor("#FFFFFF"),
-                        Color.parseColor("#F5F5F5")
+                        "#FFFFFF".toColorInt(),
+                        "#F5F5F5".toColorInt()
                     )
                 )
                 setBackgroundDrawable(gradientDrawable)
@@ -124,6 +124,7 @@ object SimpleSplashHelper {
             setCancelable(false)
             show()
         }
+        splashDialogRef = WeakReference(dialog)
     }
 
     private fun createSplashView(currentActivity: Activity): LinearLayout {
@@ -138,21 +139,23 @@ object SimpleSplashHelper {
 
             setPadding(40, 0, 40, 0)
 
-            logoImageView = ImageView(context).apply {
+            val logo = ImageView(context).apply {
+                logoImageViewId = View.generateViewId()
+                id = logoImageViewId
                 setImageResource(currentActivity.applicationInfo.icon)
                 layoutParams = LinearLayout.LayoutParams(240, 240).apply {
                     bottomMargin = 40
                 }
                 scaleType = ImageView.ScaleType.FIT_CENTER
             }
-            addView(logoImageView)
+            addView(logo)
 
             val appName = TextView(context).apply {
                 text = currentActivity.applicationInfo.loadLabel(currentActivity.packageManager)
-                setTextColor(Color.parseColor("#212121"))
+                setTextColor("#212121".toColorInt())
                 textSize = 26f
                 gravity = Gravity.CENTER
-                setShadowLayer(2f, 0f, 1f, Color.parseColor("#20000000"))
+                setShadowLayer(2f, 0f, 1f, "#20000000".toColorInt())
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
@@ -163,7 +166,9 @@ object SimpleSplashHelper {
             addView(appName)
 
             if (shouldShowProgress) {
-                progressBar = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal).apply {
+                val horizontalProgressBar = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal).apply {
+                    progressBarId = View.generateViewId()
+                    id = progressBarId
                     layoutParams = LinearLayout.LayoutParams(
                         700,
                         36
@@ -177,7 +182,7 @@ object SimpleSplashHelper {
                         arrayOf(
                             GradientDrawable().apply {
                                 cornerRadius = 18f
-                                setColor(Color.parseColor("#E0E0E0"))
+                                setColor("#E0E0E0".toColorInt())
                             },
                             GradientDrawable().apply {
                                 cornerRadius = 18f
@@ -186,7 +191,7 @@ object SimpleSplashHelper {
                             android.graphics.drawable.ClipDrawable(
                                 GradientDrawable().apply {
                                     cornerRadius = 18f
-                                    setColor(Color.parseColor("#2196F3"))
+                                    setColor("#2196F3".toColorInt())
                                 },
                                 Gravity.START,
                                 android.graphics.drawable.ClipDrawable.HORIZONTAL
@@ -201,9 +206,11 @@ object SimpleSplashHelper {
                     this.progressDrawable = progressDrawable
                     visibility = View.GONE
                 }
-                addView(progressBar)
+                addView(horizontalProgressBar)
 
-                circularProgressBar = ProgressBar(context).apply {
+                val circularProgress = ProgressBar(context).apply {
+                    circularProgressBarId = View.generateViewId()
+                    id = circularProgressBarId
                     layoutParams = LinearLayout.LayoutParams(
                         120,
                         120
@@ -213,22 +220,24 @@ object SimpleSplashHelper {
                     visibility = View.VISIBLE
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                         indeterminateDrawable?.colorFilter = android.graphics.BlendModeColorFilter(
-                            Color.parseColor("#2196F3"),
+                            "#2196F3".toColorInt(),
                             android.graphics.BlendMode.SRC_IN
                         )
                     } else {
                         @Suppress("DEPRECATION")
                         indeterminateDrawable?.setColorFilter(
-                            Color.parseColor("#2196F3"),
+                            "#2196F3".toColorInt(),
                             android.graphics.PorterDuff.Mode.SRC_IN
                         )
                     }
                 }
-                addView(circularProgressBar)
+                addView(circularProgress)
 
-                progressText = TextView(context).apply {
+                val progressLabel = TextView(context).apply {
+                    progressTextId = View.generateViewId()
+                    id = progressTextId
                     text = "0%"
-                    setTextColor(Color.parseColor("#424242"))
+                    setTextColor("#424242".toColorInt())
                     textSize = 20f
                     gravity = Gravity.CENTER
                     letterSpacing = 0.1f
@@ -236,14 +245,14 @@ object SimpleSplashHelper {
                     setPadding(0, 8, 0, 0)
                     visibility = View.GONE
                 }
-                addView(progressText)
+                addView(progressLabel)
             }
         }
     }
 
     private fun startLogoRotationAnimation() {
         if (!rotateLogo) return
-        logoImageView?.let { logo ->
+        findLogoImageView()?.let { logo ->
             val rotationAnimator = ObjectAnimator.ofFloat(logo, "rotation", 0f, 360f).apply {
                 duration = 1500
                 repeatCount = ValueAnimator.INFINITE
@@ -276,8 +285,8 @@ object SimpleSplashHelper {
         progressAnimator?.cancel()
         logoAnimatorSet?.cancel()
         try {
-            if (splashDialog?.isShowing == true) {
-                splashDialog?.dismiss()
+            if (splashDialogRef?.get()?.isShowing == true) {
+                splashDialogRef?.get()?.dismiss()
             }
         } catch (e: IllegalArgumentException) {
             // Dialog was already dismissed or window was detached
@@ -287,58 +296,56 @@ object SimpleSplashHelper {
     }
 
     private fun resetState() {
-        activity = null
         splashDuration = 3000L
         onComplete = null
         shouldShowProgress = true
-        splashDialog = null
-        progressBar = null
-        progressText = null
-        circularProgressBar = null
+        splashDialogRef = null
+        progressBarId = View.NO_ID
+        progressTextId = View.NO_ID
+        circularProgressBarId = View.NO_ID
+        logoImageViewId = View.NO_ID
         progressAnimator = null
         handler = null
         dismissRunnable = null
         onCompleteInvoked = false
         rotateLogo = true
         logoAnimatorSet = null
-        logoImageView = null
         progressStarted = false
     }
 
     fun hideProgress() {
-        progressBar?.visibility = View.INVISIBLE
-        progressText?.visibility = View.INVISIBLE
-        circularProgressBar?.visibility = View.GONE
+        findProgressBar()?.visibility = View.INVISIBLE
+        findProgressText()?.visibility = View.INVISIBLE
+        findCircularProgressBar()?.visibility = View.GONE
     }
 
     private fun showProgressIndicators() {
         if (shouldShowProgress) {
-            progressBar?.visibility = View.VISIBLE
-            progressText?.visibility = View.VISIBLE
-            circularProgressBar?.visibility = View.GONE
+            findProgressBar()?.visibility = View.VISIBLE
+            findProgressText()?.visibility = View.VISIBLE
+            findCircularProgressBar()?.visibility = View.GONE
         }
     }
 
     private fun showCircularProgress() {
         if (shouldShowProgress) {
-            progressBar?.visibility = View.INVISIBLE
-            progressText?.visibility = View.INVISIBLE
-            circularProgressBar?.visibility = View.VISIBLE
+            findProgressBar()?.visibility = View.INVISIBLE
+            findProgressText()?.visibility = View.INVISIBLE
+            findCircularProgressBar()?.visibility = View.VISIBLE
         }
     }
 
-    private fun invokeCompleteAndDismiss() {
+    private fun invokeCompleteAndDismiss(currentActivity: Activity?) {
         if (!onCompleteInvoked) {
             onCompleteInvoked = true
-            runOnCompleteWhenResumed()
+            runOnCompleteWhenResumed(currentActivity)
         }
         dismiss()
         resetState()
     }
 
-    private fun runOnCompleteWhenResumed() {
+    private fun runOnCompleteWhenResumed(currentActivity: Activity?) {
         val callback = onComplete ?: return
-        val currentActivity = activity ?: return
 
         // If we don't have a lifecycle owner, run immediately
         val componentActivity = currentActivity as? ComponentActivity ?: run {
@@ -348,11 +355,35 @@ object SimpleSplashHelper {
 
         // Run callback once the activity is safely RESUMED to avoid ActivityResultRegistry crashes
         componentActivity.lifecycleScope.launch {
-            componentActivity.lifecycle.whenStateAtLeast(Lifecycle.State.RESUMED) {
+            componentActivity.lifecycle.withStateAtLeast(Lifecycle.State.RESUMED) {
                 if (!componentActivity.isFinishing && !componentActivity.isDestroyed) {
                     callback.invoke()
                 }
             }
         }
+    }
+
+    private fun findProgressBar(): ProgressBar? {
+        val dialog = splashDialogRef?.get() ?: return null
+        if (progressBarId == View.NO_ID) return null
+        return dialog.findViewById(progressBarId)
+    }
+
+    private fun findProgressText(): TextView? {
+        val dialog = splashDialogRef?.get() ?: return null
+        if (progressTextId == View.NO_ID) return null
+        return dialog.findViewById(progressTextId)
+    }
+
+    private fun findCircularProgressBar(): ProgressBar? {
+        val dialog = splashDialogRef?.get() ?: return null
+        if (circularProgressBarId == View.NO_ID) return null
+        return dialog.findViewById(circularProgressBarId)
+    }
+
+    private fun findLogoImageView(): ImageView? {
+        val dialog = splashDialogRef?.get() ?: return null
+        if (logoImageViewId == View.NO_ID) return null
+        return dialog.findViewById(logoImageViewId)
     }
 }

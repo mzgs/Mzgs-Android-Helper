@@ -203,7 +203,7 @@ class MainActivity : ComponentActivity() {
 
                 Ads.initAdMob(admobConfig) {
                     Ads.loadAdmobInterstitial()
-                    SimpleSplashHelper.startProgress()
+                    SimpleSplashHelper.startProgress(activity)
 
                 }
 

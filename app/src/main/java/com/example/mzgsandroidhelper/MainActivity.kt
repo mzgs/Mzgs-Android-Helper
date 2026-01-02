@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import com.example.mzgsandroidhelper.ui.theme.MzgsAndroidHelperTheme
 import com.google.android.libraries.ads.mobile.sdk.interstitial.InterstitialAdPreloader
+import com.mzgs.helper.AdmobMediation
 import com.mzgs.helper.MzgsHelper
 import com.mzgs.helper.Remote
 import com.mzgs.helper.SimpleSplashHelper
@@ -56,16 +57,21 @@ class MainActivity : ComponentActivity() {
 
 
         lifecycleScope.launch {
-            SimpleSplashHelper.showSplash(this@MainActivity)
+            val activity = this@MainActivity
+            SimpleSplashHelper.showSplash(activity)
             withContext(Dispatchers.IO) {
-                Remote.initSync(this@MainActivity)
+                Remote.initSync(activity)
             }
 
-            MzgsHelper.initAllowedCountry(this@MainActivity)
+            MzgsHelper.initAllowedCountry(activity)
 
-            MzgsHelper.showUmpConsent(this@MainActivity,forceDebugConsentInEea = true) {
+            MzgsHelper.showUmpConsent(activity,forceDebugConsentInEea = true) {
 
-                SimpleSplashHelper.startProgress()
+                SimpleSplashHelper.startProgress(activity)
+
+                AdmobMediation.initialize(activity){
+                    printLine("initialized AdMob Mediation")
+                }
 
             }
 
