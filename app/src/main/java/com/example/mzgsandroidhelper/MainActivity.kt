@@ -31,6 +31,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import com.example.mzgsandroidhelper.ui.theme.MzgsAndroidHelperTheme
+import com.google.android.libraries.ads.mobile.sdk.banner.AdSize
 import com.mzgs.helper.AdmobConfig
 import com.mzgs.helper.AdmobMediation
 import com.mzgs.helper.MzgsHelper
@@ -185,8 +186,10 @@ private fun MainExampleScreen() {
                 style = MaterialTheme.typography.headlineSmall
             )
             AdmobMediation.showBanner(
-                modifier = Modifier.fillMaxWidth(),
-            )
+                modifier = Modifier.fillMaxWidth(), AdmobMediation.config.BANNER_AD_UNIT_ID, AdSize.LARGE_BANNER
+            ) { errorMessage ->
+                printLine("Banner ad failed: $errorMessage")
+            }
 
             Text(
                 text = "MREC",

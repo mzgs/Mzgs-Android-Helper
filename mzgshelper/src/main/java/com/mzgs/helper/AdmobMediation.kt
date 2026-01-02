@@ -113,7 +113,7 @@ object AdmobMediation {
         modifier: Modifier = Modifier,
         adUnitId: String = config.BANNER_AD_UNIT_ID,
         adSize: AdSize? = null,
-        onAdFailedToLoad: ((LoadAdError) -> Unit)? = null,
+        onAdFailedToLoad: ((String) -> Unit)? = null,
     ) {
         if (adUnitId.isBlank()) {
             return
@@ -152,7 +152,7 @@ object AdmobMediation {
                                 request,
                                 object : AdLoadCallback<com.google.android.libraries.ads.mobile.sdk.banner.BannerAd> {
                                     override fun onAdFailedToLoad(adError: LoadAdError) {
-                                        onAdFailedToLoad?.invoke(adError)
+                                        onAdFailedToLoad?.invoke(adError.message)
                                     }
                                 },
                             )
@@ -166,7 +166,7 @@ object AdmobMediation {
                         val request = BannerAdRequest.Builder(adUnitId, resolvedAdSize).build()
                         adView.loadAd(request, object : AdLoadCallback<com.google.android.libraries.ads.mobile.sdk.banner.BannerAd> {
                             override fun onAdFailedToLoad(adError: LoadAdError) {
-                                onAdFailedToLoad?.invoke(adError)
+                                onAdFailedToLoad?.invoke(adError.message)
                             }
                         })
                         lastRequestKey.value = requestKey
@@ -187,7 +187,7 @@ object AdmobMediation {
     fun showMrec(
         modifier: Modifier = Modifier,
         adUnitId: String = config.MREC_AD_UNIT_ID,
-        onAdFailedToLoad: ((LoadAdError) -> Unit)? = null,
+        onAdFailedToLoad: ((String) -> Unit)? = null,
     ) {
         showBanner(
             modifier = modifier,
