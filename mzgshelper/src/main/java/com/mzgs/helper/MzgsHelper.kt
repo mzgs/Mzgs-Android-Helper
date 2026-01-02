@@ -53,17 +53,13 @@ object MzgsHelper {
     
     fun init(
         activity: Activity,
-        skipAdsInDebug: Boolean = false,
+
         remoteConfigUrl: String = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/nest.json"
     ) {
-        val appContext = activity.applicationContext
-        // Apply the requested debug skip-ads setting.
-        applyDebugNoAds(appContext, skipAdsInDebug)
+
+
     }
 
-    fun setDebugNoAds(context: Context, enabled: Boolean) {
-        applyDebugNoAds(context, enabled)
-    }
 
     fun showUmpConsent(
         activity: Activity,
