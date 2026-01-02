@@ -36,6 +36,7 @@ import com.mzgs.helper.MzgsHelper
 import com.mzgs.helper.Remote
 import com.mzgs.helper.SimpleSplashHelper
 import com.mzgs.helper.analytics.FirebaseAnalyticsManager
+import com.mzgs.helper.printLine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -56,11 +57,11 @@ class MainActivity : ComponentActivity() {
 
         lifecycleScope.launch {
             SimpleSplashHelper.showSplash(this@MainActivity)
-            val result = withContext(Dispatchers.IO) {
+            withContext(Dispatchers.IO) {
                 Remote.initSync(this@MainActivity)
             }
-            MzgsHelper.initAllowedCountry(this@MainActivity)
 
+            MzgsHelper.initAllowedCountry(this@MainActivity)
 
             MzgsHelper.showUmpConsent(this@MainActivity,forceDebugConsentInEea = true) {
 
@@ -68,9 +69,7 @@ class MainActivity : ComponentActivity() {
 
             }
 
-
-
-        }
+        } // end launch
 
 
 

@@ -34,9 +34,9 @@ fun p(obj: Any) {
 
 fun printLine(message: Any? = null) {
     val line = "-------------------------------------------------------"
-    Log.d("mzgslog", line)
-    message?.toString()?.takeIf { it.isNotEmpty() }?.let { Log.d("mzgslog", it) }
-    Log.d("mzgslog", line)
+    Log.d("mzgslog_line", line)
+    message?.toString()?.takeIf { it.isNotEmpty() }?.let { Log.d("mzgslog_line", it) }
+    Log.d("mzgslog_line", line)
 }
 
 object MzgsHelper {
