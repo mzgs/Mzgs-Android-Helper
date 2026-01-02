@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import com.example.mzgsandroidhelper.ui.theme.MzgsAndroidHelperTheme
 import com.google.android.libraries.ads.mobile.sdk.interstitial.InterstitialAdPreloader
+import com.mzgs.helper.AdmobConfig
 import com.mzgs.helper.AdmobMediation
 import com.mzgs.helper.MzgsHelper
 import com.mzgs.helper.Remote
@@ -69,7 +70,7 @@ class MainActivity : ComponentActivity() {
 
                 SimpleSplashHelper.startProgress(activity)
 
-                AdmobMediation.initialize(activity){
+                AdmobMediation.initialize(activity,   ) {
                     printLine("initialized AdMob Mediation")
                 }
 

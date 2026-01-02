@@ -3,13 +3,16 @@ package com.mzgs.helper
 import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Bundle
 import android.util.Log
 import com.google.android.libraries.ads.mobile.sdk.MobileAds
-import com.google.android.libraries.ads.mobile.sdk.common.AdActivity
 import com.google.android.libraries.ads.mobile.sdk.common.AdRequest
+import com.google.android.libraries.ads.mobile.sdk.common.FullScreenContentError
 import com.google.android.libraries.ads.mobile.sdk.common.PreloadConfiguration
 import com.google.android.libraries.ads.mobile.sdk.initialization.InitializationConfig
 import com.google.android.libraries.ads.mobile.sdk.interstitial.InterstitialAdPreloader
+import com.google.android.libraries.ads.mobile.sdk.interstitial.InterstitialAdEventCallback
+import com.mzgs.helper.analytics.FirebaseAnalyticsManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -51,16 +54,30 @@ object AdmobMediation {
         }
     }
 
-    fun ShowInterstitial(activity: Activity,  onAdClosed: () -> Unit = {}) {
-
+    fun showInterstitial(activity: Activity, onAdClosed: () -> Unit = {}) : Boolean {
         val ad = InterstitialAdPreloader.pollAd(config.INTERSTITIAL_AD_UNIT_ID)
         if (ad != null) {
+            ad.adEventCallback = object : InterstitialAdEventCallback {
+                override fun onAdDismissedFullScreenContent() {
+                    onAdClosed()
+                }
+
+                override fun onAdFailedToShowFullScreenContent(fullScreenContentError: FullScreenContentError) {
+                    onAdClosed()
+                    FirebaseAnalyticsManager.logEvent("interstitial_ad_failed_to_show",
+                        Bundle().apply {
+                            putString("ad_unit_id", config.INTERSTITIAL_AD_UNIT_ID)
+                            putString("error_message", fullScreenContentError.message)
+                        }
+                    )
+                }
+            }
             ad.show(activity)
-        } else {
-            Log.d(TAG, "The interstitial ad wasn't ready yet.")
-            onAdClosed()
+            return true
         }
 
+        onAdClosed()
+        return false
     }
 
     private fun getAdMobAppId(context: Context): String? {
