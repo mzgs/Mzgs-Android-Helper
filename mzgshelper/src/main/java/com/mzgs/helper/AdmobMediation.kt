@@ -22,7 +22,7 @@ object AdmobMediation {
     const val TAG = "AdmobMediation"
     private const val ADMOB_APP_ID_KEY = "com.google.android.gms.ads.APPLICATION_ID"
 
-    var config: AdmobConfig = AdmobConfig
+    var config: AdmobConfig = AdmobConfig()
 
     fun initialize(activity: Activity, config: AdmobConfig, onInitComplete: () -> Unit = {}) {
         this.config = config
@@ -95,12 +95,11 @@ object AdmobMediation {
 
 }
 
-object AdmobConfig{
-    var INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712"
-    var BANNER_AD_UNIT_ID = "ca-app-pub-3940256099942544/6300978111"
-    var REWARDED_AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917"
-    var NATIVE_AD_UNIT_ID = "ca-app-pub-3940256099942544/2247696110"
-    var APP_OPEN_AD_UNIT_ID = "ca-app-pub-3940256099942544/9257395921"
-    var MREC_AD_UNIT_ID = "ca-app-pub-3940256099942544/6300978111"
-
-}
+data class AdmobConfig(
+    var INTERSTITIAL_AD_UNIT_ID: String = "ca-app-pub-3940256099942544/1033173712",
+    var BANNER_AD_UNIT_ID: String = "ca-app-pub-3940256099942544/6300978111",
+    var REWARDED_AD_UNIT_ID: String = "ca-app-pub-3940256099942544/5224354917",
+    var NATIVE_AD_UNIT_ID: String = "ca-app-pub-3940256099942544/2247696110",
+    var APP_OPEN_AD_UNIT_ID: String = "ca-app-pub-3940256099942544/9257395921",
+    var MREC_AD_UNIT_ID: String = "ca-app-pub-3940256099942544/6300978111",
+)
