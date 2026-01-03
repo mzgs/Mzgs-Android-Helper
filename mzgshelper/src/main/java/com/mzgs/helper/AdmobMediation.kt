@@ -526,7 +526,6 @@ object AdmobMediation {
 
         contentLayout.addView(headerLayout)
         contentLayout.addView(mediaView)
-        contentLayout.addView(bodyView)
         contentLayout.addView(metaLayout)
         contentLayout.addView(callToActionView)
 
