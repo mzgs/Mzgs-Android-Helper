@@ -58,7 +58,7 @@ class MainActivity : ComponentActivity() {
         AdmobMediation.config = AdmobConfig(
             INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-8689213949805403/4964803980",
             DEBUG = AdmobDebug(
-                useTestAds = true
+                useTestAds = true,
             )
         )
 
@@ -69,20 +69,27 @@ class MainActivity : ComponentActivity() {
             withContext(Dispatchers.IO) {
                 Remote.initSync(activity)
             }
-
             MzgsHelper.initAllowedCountry(activity)
 
             MzgsHelper.showUmpConsent(activity,forceDebugConsentInEea = true) {
+                val splashDuration = if (MzgsHelper.isDebug(activity))  500 else Remote.getLong("splash_time", 11_000)
+
+
+                SimpleSplashHelper.setDuration(splashDuration)
                 SimpleSplashHelper.startProgress(activity)
+
                 AdmobMediation.initialize(activity) {
-                    printLine("initialized AdMob Mediation")
-                    runOnUiThread { AdmobMediation.enableAppOpen(activity) }
+                    if (Remote.getBool("enable_app_open_ad", true)) {
+                        runOnUiThread { AdmobMediation.enableAppOpen(activity) }
+                    }
                 }
 
             }
 
             SimpleSplashHelper.setOnComplete {
-                isSplashComplete.value = true
+                AdmobMediation.showInterstitial(activity){
+                    isSplashComplete.value = true
+                }
             }
 
         } // end launch
