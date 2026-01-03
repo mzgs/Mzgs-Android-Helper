@@ -51,10 +51,6 @@ android {
     }
 }
 
-configurations.configureEach {
-    // ads-mobile-sdk includes the Ads API classes, so drop legacy Play Services ads API to avoid duplicates.
-    exclude(group = "com.google.android.gms", module = "play-services-ads-api")
-}
 
 
 dependencies {
@@ -66,10 +62,7 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.runtime:runtime")
     
-    // Networking & Data
-    // ads-mobile-sdk expects OkHttp 4 internal classes at runtime.
-    // Use api so consuming apps always package OkHttp and avoid NoClassDefFoundError.
-    api("com.squareup.okhttp3:okhttp:4.12.0")
+
     
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
