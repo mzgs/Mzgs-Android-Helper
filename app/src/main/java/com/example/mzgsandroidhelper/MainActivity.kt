@@ -229,7 +229,7 @@ private fun MainExampleScreen(isSplashComplete: Boolean) {
                 AdmobMediation.showNativeAd(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(260.dp),
+                        .height(300.dp),
                 ) { errorMessage ->
                     printLine("Native ad failed: $errorMessage")
                 }
