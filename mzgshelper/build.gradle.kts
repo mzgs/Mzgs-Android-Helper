@@ -60,33 +60,21 @@ configurations.configureEach {
 dependencies {
     // AndroidX Core
     implementation("androidx.core:core-ktx:1.17.0")
-    implementation("androidx.appcompat:appcompat:1.7.1")
-    implementation("androidx.lifecycle:lifecycle-process:2.10.0")
-    
-    // Material Design
-    implementation("com.google.android.material:material:1.13.0")
     
     // Compose
     implementation(platform("androidx.compose:compose-bom:2025.12.01"))
     implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.ui:ui-graphics")
-    implementation("androidx.compose.ui:ui-tooling-preview")
-    implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.runtime:runtime")
     
     // Networking & Data
     // ads-mobile-sdk expects OkHttp 4 internal classes at runtime.
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("org.jsoup:jsoup:1.21.2")
-    implementation("com.google.code.gson:gson:2.13.2")
     
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     
     // Google Play Services
     implementation("com.google.android.play:review:2.0.2")
-    implementation("com.google.android.play:review-ktx:2.0.2")
     implementation("com.google.android.ump:user-messaging-platform:4.0.0")
     
     // Firebase
@@ -94,23 +82,21 @@ dependencies {
     implementation("com.google.firebase:firebase-analytics")
     
     // AdMob (exposed to consuming modules)
-//    api("com.google.android.gms:play-services-ads:24.9.0")
     api("com.google.android.libraries.ads.mobile.sdk:ads-mobile-sdk:0.22.0-beta04")
 //    implementation("com.google.ads.mediation:applovin:13.5.1.0")
-    implementation("com.google.ads.mediation:fyber:8.4.1.0")
-    implementation("com.google.ads.mediation:vungle:7.6.2.0")
-    implementation("com.unity3d.ads:unity-ads:4.16.2")
-    implementation("com.google.ads.mediation:unity:4.16.5.0")
-    
-    // AppLovin MAX (downgraded to 13.3.1 for Google adapter compatibility)
-    implementation("com.applovin:applovin-sdk:13.5.1")
+//    implementation("com.google.ads.mediation:fyber:8.4.1.0")
+//    implementation("com.google.ads.mediation:vungle:7.6.2.0")
+//    implementation("com.unity3d.ads:unity-ads:4.16.2")
+//    implementation("com.google.ads.mediation:unity:4.16.5.0")
 
-    
+
     // AppLovin MAX Mediation Adapters
-    implementation("com.applovin.mediation:google-adapter:24.9.0.0")
-    implementation("com.applovin.mediation:unityads-adapter:4.16.5.0")
-    implementation("com.applovin.mediation:fyber-adapter:8.4.2.0")
-    implementation("com.applovin.mediation:vungle-adapter:7.6.2.0")
+
+//    implementation("com.applovin:applovin-sdk:13.5.1")
+//    implementation("com.applovin.mediation:google-adapter:24.9.0.0")
+//    implementation("com.applovin.mediation:unityads-adapter:4.16.5.0")
+//    implementation("com.applovin.mediation:fyber-adapter:8.4.2.0")
+//    implementation("com.applovin.mediation:vungle-adapter:7.6.2.0")
     
     // AdMob Standalone - No mediation adapters (using as fallback only)
     
