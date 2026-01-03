@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -218,6 +219,20 @@ private fun MainExampleScreen(isSplashComplete: Boolean) {
                 AdmobMediation.showMrec(
                     modifier = Modifier.size(300.dp, 250.dp),
                 )
+            }
+
+            Text(
+                text = "Native",
+                style = MaterialTheme.typography.headlineSmall
+            )
+            if (isSplashComplete) {
+                AdmobMediation.showNativeAd(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(260.dp),
+                ) { errorMessage ->
+                    printLine("Native ad failed: $errorMessage")
+                }
             }
         }
     }
