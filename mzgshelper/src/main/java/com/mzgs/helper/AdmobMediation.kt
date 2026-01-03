@@ -14,6 +14,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import com.google.android.libraries.ads.mobile.sdk.MobileAds
 import com.google.android.libraries.ads.mobile.sdk.appopen.AppOpenAdEventCallback
 import com.google.android.libraries.ads.mobile.sdk.appopen.AppOpenAdPreloader
@@ -43,6 +45,9 @@ object AdmobMediation {
     private const val ADMOB_APP_ID_KEY = "com.google.android.gms.ads.APPLICATION_ID"
 
     var config: AdmobConfig = AdmobConfig()
+    @Volatile private var isAppOpenShowing = false
+    private var appOpenObserverRegistered = false
+    private var appWentToBackground = false
 
     fun initialize(activity: Activity, config: AdmobConfig, onInitComplete: () -> Unit = {}) {
         this.config = config
@@ -234,14 +239,67 @@ object AdmobMediation {
     }
 
     fun showAppOpenAd(activity: Activity, onAdClosed: () -> Unit = {}): Boolean {
+        return showAppOpenAdInternal(activity, onAdClosed, invokeOnAdClosedWhenNotShown = true)
+    }
+
+    fun enableAppOpen(
+        activity: Activity,
+        showOnColdStart: Boolean = false,
+        onAdClosed: () -> Unit = {},
+    ) {
+        val owner = activity as? LifecycleOwner
+        if (owner == null) {
+            Log.w(TAG, "Activity must implement LifecycleOwner to enable app-open ads.")
+            return
+        }
+        if (appOpenObserverRegistered) {
+            return
+        }
+        appOpenObserverRegistered = true
+        val observer = object : DefaultLifecycleObserver {
+            override fun onStart(owner: LifecycleOwner) {
+                if (showOnColdStart || appWentToBackground) {
+                    appWentToBackground = false
+                    showAppOpenAdInternal(activity, onAdClosed, invokeOnAdClosedWhenNotShown = false)
+                }
+            }
+
+            override fun onStop(owner: LifecycleOwner) {
+                if (!activity.isChangingConfigurations) {
+                    appWentToBackground = true
+                }
+            }
+
+            override fun onDestroy(owner: LifecycleOwner) {
+                owner.lifecycle.removeObserver(this)
+                appOpenObserverRegistered = false
+            }
+        }
+        owner.lifecycle.addObserver(observer)
+    }
+
+    private fun showAppOpenAdInternal(
+        activity: Activity,
+        onAdClosed: () -> Unit,
+        invokeOnAdClosedWhenNotShown: Boolean,
+    ): Boolean {
+        if (isAppOpenShowing || activity.isFinishing || activity.isDestroyed) {
+            if (invokeOnAdClosedWhenNotShown) {
+                onAdClosed()
+            }
+            return false
+        }
         val ad = AppOpenAdPreloader.pollAd(config.APP_OPEN_AD_UNIT_ID)
         if (ad != null) {
+            isAppOpenShowing = true
             ad.adEventCallback = object : AppOpenAdEventCallback {
                 override fun onAdDismissedFullScreenContent() {
+                    isAppOpenShowing = false
                     onAdClosed()
                 }
 
                 override fun onAdFailedToShowFullScreenContent(fullScreenContentError: FullScreenContentError) {
+                    isAppOpenShowing = false
                     onAdClosed()
                     FirebaseAnalyticsManager.logEvent(
                         "app_open_ad_failed_to_show",
@@ -256,7 +314,9 @@ object AdmobMediation {
             return true
         }
 
-        onAdClosed()
+        if (invokeOnAdClosedWhenNotShown) {
+            onAdClosed()
+        }
         return false
     }
 

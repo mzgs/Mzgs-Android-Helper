@@ -70,6 +70,7 @@ class MainActivity : ComponentActivity() {
                     INTERSTITIAL_AD_UNIT_ID = INTERSTITIAL_AD_UNIT_ID,
                 )) {
                     printLine("initialized AdMob Mediation")
+                    runOnUiThread { AdmobMediation.enableAppOpen(activity) }
                 }
 
             }
