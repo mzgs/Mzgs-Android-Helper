@@ -68,7 +68,8 @@ dependencies {
     
     // Networking & Data
     // ads-mobile-sdk expects OkHttp 4 internal classes at runtime.
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    // Use api so consuming apps always package OkHttp and avoid NoClassDefFoundError.
+    api("com.squareup.okhttp3:okhttp:4.12.0")
     
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
