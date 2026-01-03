@@ -33,6 +33,7 @@ import androidx.lifecycle.lifecycleScope
 import com.example.mzgsandroidhelper.ui.theme.MzgsAndroidHelperTheme
 import com.google.android.libraries.ads.mobile.sdk.banner.AdSize
 import com.mzgs.helper.AdmobConfig
+import com.mzgs.helper.AdmobDebug
 import com.mzgs.helper.AdmobMediation
 import com.mzgs.helper.MzgsHelper
 import com.mzgs.helper.Remote
@@ -54,6 +55,13 @@ class MainActivity : ComponentActivity() {
 
         FirebaseAnalyticsManager.initialize(this)
 
+        AdmobMediation.config = AdmobConfig(
+            INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-8689213949805403/4964803980",
+            DEBUG = AdmobDebug(
+                useTestAds = true
+            )
+        )
+
 
         lifecycleScope.launch {
             val activity = this@MainActivity
@@ -66,9 +74,7 @@ class MainActivity : ComponentActivity() {
 
             MzgsHelper.showUmpConsent(activity,forceDebugConsentInEea = true) {
                 SimpleSplashHelper.startProgress(activity)
-                AdmobMediation.initialize(activity, AdmobConfig(
-                    INTERSTITIAL_AD_UNIT_ID = INTERSTITIAL_AD_UNIT_ID,
-                )) {
+                AdmobMediation.initialize(activity) {
                     printLine("initialized AdMob Mediation")
                     runOnUiThread { AdmobMediation.enableAppOpen(activity) }
                 }
@@ -86,18 +92,17 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MzgsAndroidHelperTheme {
-                MainExampleScreen()
+                MainExampleScreen(isSplashComplete = isSplashComplete.value)
             }
         }
 
     }
 }
 
-private const val INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-8689213949805403/4964803980"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MainExampleScreen() {
+private fun MainExampleScreen(isSplashComplete: Boolean) {
     val context = LocalContext.current
     val activity = remember(context) { context.findActivity() }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -186,19 +191,23 @@ private fun MainExampleScreen() {
                 text = "Banner",
                 style = MaterialTheme.typography.headlineSmall
             )
-            AdmobMediation.showBanner(
-                modifier = Modifier.fillMaxWidth()
-            ) { errorMessage ->
-                printLine("Banner ad failed: $errorMessage")
+            if (isSplashComplete) {
+                AdmobMediation.showBanner(
+                    modifier = Modifier.fillMaxWidth()
+                ) { errorMessage ->
+                    printLine("Banner ad failed: $errorMessage")
+                }
             }
 
             Text(
                 text = "MREC",
                 style = MaterialTheme.typography.headlineSmall
             )
-            AdmobMediation.showMrec(
-                modifier = Modifier.size(300.dp, 250.dp),
-            )
+            if (isSplashComplete) {
+                AdmobMediation.showMrec(
+                    modifier = Modifier.size(300.dp, 250.dp),
+                )
+            }
         }
     }
 }

@@ -43,14 +43,41 @@ object AdmobMediation {
 
     const val TAG = "AdmobMediation"
     private const val ADMOB_APP_ID_KEY = "com.google.android.gms.ads.APPLICATION_ID"
+    private const val TEST_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712"
+    private const val TEST_BANNER_AD_UNIT_ID = "ca-app-pub-3940256099942544/6300978111"
+    private const val TEST_REWARDED_AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917"
+    private const val TEST_NATIVE_AD_UNIT_ID = "ca-app-pub-3940256099942544/2247696110"
+    private const val TEST_APP_OPEN_AD_UNIT_ID = "ca-app-pub-3940256099942544/9257395921"
+    private const val TEST_MREC_AD_UNIT_ID = "ca-app-pub-3940256099942544/6300978111"
 
     var config: AdmobConfig = AdmobConfig()
+
     @Volatile private var isAppOpenShowing = false
     private var appOpenObserverRegistered = false
     private var appWentToBackground = false
 
-    fun initialize(activity: Activity, config: AdmobConfig, onInitComplete: () -> Unit = {}) {
-        this.config = config
+    fun initialize(activity: Activity, onInitComplete: () -> Unit = {}) {
+
+        if (config.DEBUG.useTestAds && MzgsHelper.isDebug(activity)) {
+            Log.d(TAG, "Using test AdMob ad unit IDs.")
+            config.INTERSTITIAL_AD_UNIT_ID = TEST_INTERSTITIAL_AD_UNIT_ID
+            config.BANNER_AD_UNIT_ID = TEST_BANNER_AD_UNIT_ID
+            config.REWARDED_AD_UNIT_ID = TEST_REWARDED_AD_UNIT_ID
+            config.NATIVE_AD_UNIT_ID = TEST_NATIVE_AD_UNIT_ID
+            config.APP_OPEN_AD_UNIT_ID = TEST_APP_OPEN_AD_UNIT_ID
+            config.MREC_AD_UNIT_ID = TEST_MREC_AD_UNIT_ID
+        }
+
+        if (config.DEBUG.useEmptyIds && MzgsHelper.isDebug(activity)) {
+            Log.d(TAG, "Using empty AdMob ad unit IDs.")
+            config.INTERSTITIAL_AD_UNIT_ID = ""
+            config.BANNER_AD_UNIT_ID = ""
+            config.REWARDED_AD_UNIT_ID = ""
+            config.NATIVE_AD_UNIT_ID = ""
+            config.APP_OPEN_AD_UNIT_ID = ""
+            config.MREC_AD_UNIT_ID = ""
+        }
+
         CoroutineScope(Dispatchers.IO).launch {
             val resolvedAppId = getAdMobAppId(activity)
             if (resolvedAppId.isNullOrBlank()) {
@@ -85,6 +112,7 @@ object AdmobMediation {
 
             }
         }
+
     }
 
     fun showInterstitial(activity: Activity, onAdClosed: () -> Unit = {}) : Boolean {
@@ -116,11 +144,12 @@ object AdmobMediation {
     @Composable
     fun showBanner(
         modifier: Modifier = Modifier,
-        adUnitId: String = config.BANNER_AD_UNIT_ID,
+        adUnitId: String? = null,
         adSize: AdSize? = null,
         onAdFailedToLoad: ((String) -> Unit)? = null,
     ) {
-        if (adUnitId.isBlank()) {
+        val resolvedAdUnitId = adUnitId?.takeIf { it.isNotBlank() } ?: config.BANNER_AD_UNIT_ID
+        if (resolvedAdUnitId.isBlank()) {
             return
         }
         val context = LocalContext.current
@@ -134,7 +163,7 @@ object AdmobMediation {
                 )
         }
         val adViewState = remember { mutableStateOf<AdView?>(null) }
-        val requestKey = remember(adUnitId, resolvedAdSize) { "$adUnitId:$resolvedAdSize" }
+        val requestKey = remember(resolvedAdUnitId, resolvedAdSize) { "$resolvedAdUnitId:$resolvedAdSize" }
         val lastRequestKey = remember { mutableStateOf("") }
 
         LaunchedEffect(Unit) {
@@ -152,7 +181,7 @@ object AdmobMediation {
                         adViewState.value = adView
                         adView.resize(resolvedAdSize)
                         if (lastRequestKey.value != requestKey) {
-                            val request = BannerAdRequest.Builder(adUnitId, resolvedAdSize).build()
+                            val request = BannerAdRequest.Builder(resolvedAdUnitId, resolvedAdSize).build()
                             adView.loadAd(
                                 request,
                                 object : AdLoadCallback<com.google.android.libraries.ads.mobile.sdk.banner.BannerAd> {
@@ -168,7 +197,7 @@ object AdmobMediation {
                 update = { adView ->
                     adView.resize(resolvedAdSize)
                     if (lastRequestKey.value != requestKey) {
-                        val request = BannerAdRequest.Builder(adUnitId, resolvedAdSize).build()
+                        val request = BannerAdRequest.Builder(resolvedAdUnitId, resolvedAdSize).build()
                         adView.loadAd(request, object : AdLoadCallback<com.google.android.libraries.ads.mobile.sdk.banner.BannerAd> {
                             override fun onAdFailedToLoad(adError: LoadAdError) {
                                 onAdFailedToLoad?.invoke(adError.message)
@@ -191,12 +220,13 @@ object AdmobMediation {
     @Composable
     fun showMrec(
         modifier: Modifier = Modifier,
-        adUnitId: String = config.MREC_AD_UNIT_ID,
+        adUnitId: String? = null,
         onAdFailedToLoad: ((String) -> Unit)? = null,
     ) {
+        val resolvedAdUnitId = adUnitId?.takeIf { it.isNotBlank() } ?: config.MREC_AD_UNIT_ID
         showBanner(
             modifier = modifier,
-            adUnitId = adUnitId,
+            adUnitId = resolvedAdUnitId,
             adSize = AdSize.MEDIUM_RECTANGLE,
             onAdFailedToLoad = onAdFailedToLoad,
         )
@@ -336,10 +366,16 @@ object AdmobMediation {
 }
 
 data class AdmobConfig(
-    var INTERSTITIAL_AD_UNIT_ID: String = "ca-app-pub-3940256099942544/1033173712",
-    var BANNER_AD_UNIT_ID: String = "ca-app-pub-3940256099942544/6300978111",
-    var REWARDED_AD_UNIT_ID: String = "ca-app-pub-3940256099942544/5224354917",
-    var NATIVE_AD_UNIT_ID: String = "ca-app-pub-3940256099942544/2247696110",
-    var APP_OPEN_AD_UNIT_ID: String = "ca-app-pub-3940256099942544/9257395921",
-    var MREC_AD_UNIT_ID: String = "ca-app-pub-3940256099942544/6300978111",
+    var INTERSTITIAL_AD_UNIT_ID: String = "",
+    var BANNER_AD_UNIT_ID: String = "",
+    var REWARDED_AD_UNIT_ID: String = "",
+    var NATIVE_AD_UNIT_ID: String = "",
+    var APP_OPEN_AD_UNIT_ID: String = "",
+    var MREC_AD_UNIT_ID: String = "",
+    var DEBUG: AdmobDebug = AdmobDebug(),
+)
+
+data class AdmobDebug(
+    var useTestAds: Boolean = true,
+    var useEmptyIds : Boolean = false,
 )
