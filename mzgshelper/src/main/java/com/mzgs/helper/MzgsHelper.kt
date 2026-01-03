@@ -182,6 +182,39 @@ object MzgsHelper {
         Toast.makeText(context.applicationContext, message, duration).show()
     }
 
+    fun showInterstitialWithCycle(
+        activity: Activity,
+        name: String,
+        defaultValue: Int = 3,
+        onAdError: (() -> Unit)? = null,
+    ): Boolean {
+        val cycleValue = Remote.getInt(name, defaultValue)
+        val currentCounter = ActionCounter.increaseGet(name)
+
+        Log.d(TAG, "Interstitial cycle for '$name': counter=$currentCounter, cycle=$cycleValue")
+
+        if (currentCounter % cycleValue == 0) {
+            val shown = AdmobMediation.showInterstitial(activity)
+            if (!shown) {
+                Log.d(TAG, "Failed to show interstitial ad for cycle '$name' at counter $currentCounter")
+                onAdError?.invoke()
+            } else {
+                Log.d(
+                    TAG,
+                    "Showing interstitial ad for cycle '$name' at counter $currentCounter (every $cycleValue calls)",
+                )
+            }
+            return shown
+        }
+
+        Log.d(
+            TAG,
+            "Not showing interstitial for '$name', counter=$currentCounter (shows every $cycleValue calls)",
+        )
+        onAdError?.invoke()
+        return false
+    }
+
 
 
 
