@@ -2,8 +2,10 @@ package com.mzgs.helper
 
 import android.app.Activity
 import android.app.Application
+import android.content.ComponentCallbacks2
 import android.content.Context
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
@@ -76,23 +78,22 @@ object AdmobMediation {
     private var appOpenObserverRegistered = false
     private var appWentToBackground = false
     private var activityCallbacksRegistered = false
-    private var currentActivity: Activity? = null
+    private var componentCallbacksRegistered = false
     private var startedActivityCount = 0
-    private var isChangingConfig = false
     private var appOpenShowOnColdStart = false
     private var appOpenOnAdClosed: () -> Unit = {}
+    private var appOpenColdStartHandled = false
 
     private val appOpenActivityCallbacks = object : Application.ActivityLifecycleCallbacks {
-        override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
-            currentActivity = activity
-        }
+        override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
 
         override fun onActivityStarted(activity: Activity) {
-            currentActivity = activity
             startedActivityCount += 1
             if (startedActivityCount == 1) {
-                val shouldShow = !isChangingConfig && (appOpenShowOnColdStart || appWentToBackground)
-                isChangingConfig = false
+                val shouldShow = (appOpenShowOnColdStart && !appOpenColdStartHandled) || appWentToBackground
+                if (appOpenShowOnColdStart && !appOpenColdStartHandled) {
+                    appOpenColdStartHandled = true
+                }
                 appWentToBackground = false
                 if (shouldShow) {
                     showAppOpenAdInternal(
@@ -104,9 +105,7 @@ object AdmobMediation {
             }
         }
 
-        override fun onActivityResumed(activity: Activity) {
-            currentActivity = activity
-        }
+        override fun onActivityResumed(activity: Activity) {}
 
         override fun onActivityPaused(activity: Activity) {}
 
@@ -114,22 +113,23 @@ object AdmobMediation {
             if (startedActivityCount > 0) {
                 startedActivityCount -= 1
             }
-            if (startedActivityCount == 0) {
-                if (activity.isChangingConfigurations) {
-                    isChangingConfig = true
-                } else {
-                    appWentToBackground = true
-                }
-            }
         }
 
         override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
 
-        override fun onActivityDestroyed(activity: Activity) {
-            if (currentActivity === activity) {
-                currentActivity = null
+        override fun onActivityDestroyed(activity: Activity) {}
+    }
+
+    private val appOpenComponentCallbacks = object : ComponentCallbacks2 {
+        override fun onTrimMemory(level: Int) {
+            if (level >= ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
+                appWentToBackground = true
             }
         }
+
+        override fun onConfigurationChanged(newConfig: Configuration) {}
+
+        override fun onLowMemory() {}
     }
 
     fun initialize(activity: Activity, onInitComplete: () -> Unit = {}) {
@@ -744,7 +744,10 @@ object AdmobMediation {
             activity.application.registerActivityLifecycleCallbacks(appOpenActivityCallbacks)
             activityCallbacksRegistered = true
         }
-        currentActivity = activity
+        if (!componentCallbacksRegistered) {
+            activity.application.registerComponentCallbacks(appOpenComponentCallbacks)
+            componentCallbacksRegistered = true
+        }
         if (appOpenObserverRegistered) {
             return
         }
@@ -787,6 +790,7 @@ object AdmobMediation {
             return true
         }
 
+        FirebaseAnalyticsManager.logEvent("app_open_not_ready")
         if (invokeOnAdClosedWhenNotShown) {
             onAdClosed()
         }

@@ -38,6 +38,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".ExampleActivity"
+            android:exported="false"
+            android:label="Example Activity"
+            android:theme="@style/Theme.MzgsAndroidHelper" />
 
         <meta-data
             android:name="applovin.sdk.key"

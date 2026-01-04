@@ -3,6 +3,7 @@ package com.example.mzgsandroidhelper
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -132,6 +133,24 @@ private fun MainExampleScreen(isSplashComplete: Boolean) {
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Button(
+                onClick = {
+                    val currentActivity = activity
+                    if (currentActivity == null) {
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("Activity not available")
+                        }
+                        return@Button
+                    }
+                    currentActivity.startActivity(
+                        Intent(currentActivity, ExampleActivity::class.java)
+                    )
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Open example activity")
+            }
+
             Text(
                 text = "Interstitial Demo",
                 style = MaterialTheme.typography.headlineSmall
