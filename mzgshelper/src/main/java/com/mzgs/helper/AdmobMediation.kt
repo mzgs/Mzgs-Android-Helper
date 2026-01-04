@@ -28,9 +28,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.doOnLayout
-import androidx.lifecycle.DefaultLifecycleObserver
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.ProcessLifecycleOwner
 import com.google.android.libraries.ads.mobile.sdk.MobileAds
 import com.google.android.libraries.ads.mobile.sdk.appopen.AppOpenAdEventCallback
 import com.google.android.libraries.ads.mobile.sdk.appopen.AppOpenAdPreloader
@@ -80,6 +77,10 @@ object AdmobMediation {
     private var appWentToBackground = false
     private var activityCallbacksRegistered = false
     private var currentActivity: Activity? = null
+    private var startedActivityCount = 0
+    private var isChangingConfig = false
+    private var appOpenShowOnColdStart = false
+    private var appOpenOnAdClosed: () -> Unit = {}
 
     private val appOpenActivityCallbacks = object : Application.ActivityLifecycleCallbacks {
         override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
@@ -88,6 +89,19 @@ object AdmobMediation {
 
         override fun onActivityStarted(activity: Activity) {
             currentActivity = activity
+            startedActivityCount += 1
+            if (startedActivityCount == 1) {
+                val shouldShow = !isChangingConfig && (appOpenShowOnColdStart || appWentToBackground)
+                isChangingConfig = false
+                appWentToBackground = false
+                if (shouldShow) {
+                    showAppOpenAdInternal(
+                        activity,
+                        appOpenOnAdClosed,
+                        invokeOnAdClosedWhenNotShown = false,
+                    )
+                }
+            }
         }
 
         override fun onActivityResumed(activity: Activity) {
@@ -97,8 +111,15 @@ object AdmobMediation {
         override fun onActivityPaused(activity: Activity) {}
 
         override fun onActivityStopped(activity: Activity) {
-            if (currentActivity === activity && activity.isFinishing) {
-                currentActivity = null
+            if (startedActivityCount > 0) {
+                startedActivityCount -= 1
+            }
+            if (startedActivityCount == 0) {
+                if (activity.isChangingConfigurations) {
+                    isChangingConfig = true
+                } else {
+                    appWentToBackground = true
+                }
             }
         }
 
@@ -322,9 +343,9 @@ object AdmobMediation {
             NativeAdLoader.load(
                 request,
                 object : NativeAdLoaderCallback {
-                    override fun onNativeAdLoaded(ad: NativeAd) {
+                    override fun onNativeAdLoaded(nativeAd: NativeAd) {
                         nativeAdState.value?.destroy()
-                        nativeAdState.value = ad
+                        nativeAdState.value = nativeAd
                         isLoading.value = false
                     }
 
@@ -653,21 +674,19 @@ object AdmobMediation {
         }
 
         val mediaContent = nativeAd.mediaContent
-        if (mediaContent != null) {
-            holder.mediaView.mediaContent = mediaContent
-            holder.mediaView.doOnLayout { view ->
-                val minHeightPx = (120f * view.resources.displayMetrics.density).roundToInt()
-                if (view.height > 0) {
-                    return@doOnLayout
-                }
-                val aspectRatio = mediaContent.aspectRatio
-                if (aspectRatio > 0f && view.width > 0) {
-                    val targetHeight = (view.width / aspectRatio).roundToInt().coerceAtLeast(minHeightPx)
-                    val params = view.layoutParams as? LinearLayout.LayoutParams ?: return@doOnLayout
-                    params.height = targetHeight
-                    params.weight = 0f
-                    view.layoutParams = params
-                }
+        holder.mediaView.mediaContent = mediaContent
+        holder.mediaView.doOnLayout { view ->
+            val minHeightPx = (120f * view.resources.displayMetrics.density).roundToInt()
+            if (view.height > 0) {
+                return@doOnLayout
+            }
+            val aspectRatio = mediaContent.aspectRatio
+            if (aspectRatio > 0f && view.width > 0) {
+                val targetHeight = (view.width / aspectRatio).roundToInt().coerceAtLeast(minHeightPx)
+                val params = view.layoutParams as? LinearLayout.LayoutParams ?: return@doOnLayout
+                params.height = targetHeight
+                params.weight = 0f
+                view.layoutParams = params
             }
         }
 
@@ -719,6 +738,8 @@ object AdmobMediation {
         showOnColdStart: Boolean = false,
         onAdClosed: () -> Unit = {},
     ) {
+        appOpenShowOnColdStart = showOnColdStart
+        appOpenOnAdClosed = onAdClosed
         if (!activityCallbacksRegistered) {
             activity.application.registerActivityLifecycleCallbacks(appOpenActivityCallbacks)
             activityCallbacksRegistered = true
@@ -728,29 +749,6 @@ object AdmobMediation {
             return
         }
         appOpenObserverRegistered = true
-        val observer = object : DefaultLifecycleObserver {
-            override fun onStart(owner: LifecycleOwner) {
-                if (showOnColdStart || appWentToBackground) {
-                    appWentToBackground = false
-                    val foregroundActivity = currentActivity ?: activity
-                    showAppOpenAdInternal(
-                        foregroundActivity,
-                        onAdClosed,
-                        invokeOnAdClosedWhenNotShown = false,
-                    )
-                }
-            }
-
-            override fun onStop(owner: LifecycleOwner) {
-                appWentToBackground = true
-            }
-
-            override fun onDestroy(owner: LifecycleOwner) {
-                owner.lifecycle.removeObserver(this)
-                appOpenObserverRegistered = false
-            }
-        }
-        ProcessLifecycleOwner.get().lifecycle.addObserver(observer)
     }
 
     private fun showAppOpenAdInternal(
