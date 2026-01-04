@@ -1,6 +1,7 @@
 package com.mzgs.helper
 
 import android.app.Activity
+import android.app.Application
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Color
@@ -29,6 +30,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.doOnLayout
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
 import com.google.android.libraries.ads.mobile.sdk.MobileAds
 import com.google.android.libraries.ads.mobile.sdk.appopen.AppOpenAdEventCallback
 import com.google.android.libraries.ads.mobile.sdk.appopen.AppOpenAdPreloader
@@ -76,6 +78,38 @@ object AdmobMediation {
     @Volatile private var isAppOpenShowing = false
     private var appOpenObserverRegistered = false
     private var appWentToBackground = false
+    private var activityCallbacksRegistered = false
+    private var currentActivity: Activity? = null
+
+    private val appOpenActivityCallbacks = object : Application.ActivityLifecycleCallbacks {
+        override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
+            currentActivity = activity
+        }
+
+        override fun onActivityStarted(activity: Activity) {
+            currentActivity = activity
+        }
+
+        override fun onActivityResumed(activity: Activity) {
+            currentActivity = activity
+        }
+
+        override fun onActivityPaused(activity: Activity) {}
+
+        override fun onActivityStopped(activity: Activity) {
+            if (currentActivity === activity && activity.isFinishing) {
+                currentActivity = null
+            }
+        }
+
+        override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
+
+        override fun onActivityDestroyed(activity: Activity) {
+            if (currentActivity === activity) {
+                currentActivity = null
+            }
+        }
+    }
 
     fun initialize(activity: Activity, onInitComplete: () -> Unit = {}) {
 
@@ -685,11 +719,11 @@ object AdmobMediation {
         showOnColdStart: Boolean = false,
         onAdClosed: () -> Unit = {},
     ) {
-        val owner = activity as? LifecycleOwner
-        if (owner == null) {
-            Log.w(TAG, "Activity must implement LifecycleOwner to enable app-open ads.")
-            return
+        if (!activityCallbacksRegistered) {
+            activity.application.registerActivityLifecycleCallbacks(appOpenActivityCallbacks)
+            activityCallbacksRegistered = true
         }
+        currentActivity = activity
         if (appOpenObserverRegistered) {
             return
         }
@@ -698,14 +732,17 @@ object AdmobMediation {
             override fun onStart(owner: LifecycleOwner) {
                 if (showOnColdStart || appWentToBackground) {
                     appWentToBackground = false
-                    showAppOpenAdInternal(activity, onAdClosed, invokeOnAdClosedWhenNotShown = false)
+                    val foregroundActivity = currentActivity ?: activity
+                    showAppOpenAdInternal(
+                        foregroundActivity,
+                        onAdClosed,
+                        invokeOnAdClosedWhenNotShown = false,
+                    )
                 }
             }
 
             override fun onStop(owner: LifecycleOwner) {
-                if (!activity.isChangingConfigurations) {
-                    appWentToBackground = true
-                }
+                appWentToBackground = true
             }
 
             override fun onDestroy(owner: LifecycleOwner) {
@@ -713,7 +750,7 @@ object AdmobMediation {
                 appOpenObserverRegistered = false
             }
         }
-        owner.lifecycle.addObserver(observer)
+        ProcessLifecycleOwner.get().lifecycle.addObserver(observer)
     }
 
     private fun showAppOpenAdInternal(

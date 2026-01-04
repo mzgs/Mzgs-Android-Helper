@@ -6,11 +6,7 @@ plugins {
     id("maven-publish")
 }
 
-configurations.configureEach {
-    exclude(group = "com.google.android.gms", module = "play-services-ads")
-    exclude(group = "com.google.android.gms", module = "play-services-ads-lite")
-}
-
+ 
 android {
     namespace = "com.mzgs.helper"
     compileSdk = 36
