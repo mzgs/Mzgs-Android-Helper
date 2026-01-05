@@ -113,17 +113,23 @@ object AdmobMediation {
                 }
 
                 // autoload interstitial
-                val adRequest = AdRequest.Builder(config.INTERSTITIAL_AD_UNIT_ID).build()
-                val preloadConfig = PreloadConfiguration(adRequest)
-                InterstitialAdPreloader.start(config.INTERSTITIAL_AD_UNIT_ID, preloadConfig)
+                if (config.INTERSTITIAL_AD_UNIT_ID.isNotBlank()) {
+                    val adRequest = AdRequest.Builder(config.INTERSTITIAL_AD_UNIT_ID).build()
+                    val preloadConfig = PreloadConfiguration(adRequest)
+                    InterstitialAdPreloader.start(config.INTERSTITIAL_AD_UNIT_ID, preloadConfig)
+                }
 
-                val rewardedRequest = AdRequest.Builder(config.REWARDED_AD_UNIT_ID).build()
-                val rewardedPreloadConfig = PreloadConfiguration(rewardedRequest)
-                RewardedAdPreloader.start(config.REWARDED_AD_UNIT_ID, rewardedPreloadConfig)
+                if (config.REWARDED_AD_UNIT_ID.isNotBlank()) {
+                    val rewardedRequest = AdRequest.Builder(config.REWARDED_AD_UNIT_ID).build()
+                    val rewardedPreloadConfig = PreloadConfiguration(rewardedRequest)
+                    RewardedAdPreloader.start(config.REWARDED_AD_UNIT_ID, rewardedPreloadConfig)
+                }
 
-                val appOpenRequest = AdRequest.Builder(config.APP_OPEN_AD_UNIT_ID).build()
-                val appOpenPreloadConfig = PreloadConfiguration(appOpenRequest)
-                AppOpenAdPreloader.start(config.APP_OPEN_AD_UNIT_ID, appOpenPreloadConfig)
+                if (config.APP_OPEN_AD_UNIT_ID.isNotBlank()) {
+                    val appOpenRequest = AdRequest.Builder(config.APP_OPEN_AD_UNIT_ID).build()
+                    val appOpenPreloadConfig = PreloadConfiguration(appOpenRequest)
+                    AppOpenAdPreloader.start(config.APP_OPEN_AD_UNIT_ID, appOpenPreloadConfig)
+                }
 
                 onInitComplete()
 

@@ -110,9 +110,15 @@ object ApplovinMaxMediation {
         AppLovinSdk.getInstance(activity).initialize(initConfig) {
             isInitialized = true
             isInitializing = false
-            createInterstitialAd(activity.applicationContext)
-            createRewardedAd()
-            createAppOpenAd()
+            if (config.INTERSTITIAL_AD_UNIT_ID.isNotBlank()) {
+                createInterstitialAd(activity.applicationContext)
+            }
+            if (config.REWARDED_AD_UNIT_ID.isNotBlank()) {
+                createRewardedAd()
+            }
+            if (config.APP_OPEN_AD_UNIT_ID.isNotBlank()) {
+                createAppOpenAd()
+            }
             val callbacks = pendingInitCallbacks.toList()
             pendingInitCallbacks.clear()
             callbacks.forEach { it() }
