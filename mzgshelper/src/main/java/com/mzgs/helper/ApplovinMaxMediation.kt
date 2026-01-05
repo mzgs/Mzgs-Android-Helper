@@ -8,8 +8,6 @@ import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -43,7 +41,6 @@ import com.applovin.sdk.AppLovinSdkInitializationConfiguration
 import com.google.android.libraries.ads.mobile.sdk.banner.AdSize
 import com.mzgs.helper.analytics.FirebaseAnalyticsManager
 import kotlinx.coroutines.delay
-import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
 
 object ApplovinMaxMediation {
@@ -71,10 +68,6 @@ object ApplovinMaxMediation {
     private var interstitialAd: MaxInterstitialAd? = null
     private var rewardedAd: MaxRewardedAd? = null
     private var appOpenAd: MaxAppOpenAd? = null
-
-    private var interstitialRetryAttempt = 0.0
-    private var rewardedRetryAttempt = 0.0
-    private var appOpenRetryAttempt = 0.0
 
     private var interstitialOnAdClosed: () -> Unit = {}
     private var rewardedOnAdClosed: () -> Unit = {}
@@ -547,7 +540,6 @@ object ApplovinMaxMediation {
         interstitialAd = MaxInterstitialAd(config.INTERSTITIAL_AD_UNIT_ID).also { interstitial ->
             interstitial.setListener(object : MaxAdListener {
                 override fun onAdLoaded(ad: MaxAd) {
-                    interstitialRetryAttempt = 0.0
                     FirebaseAnalyticsManager.logAdLoad(
                         adType = "interstitial",
                         adUnitId = config.INTERSTITIAL_AD_UNIT_ID,
@@ -557,11 +549,6 @@ object ApplovinMaxMediation {
                 }
 
                 override fun onAdLoadFailed(adUnitId: String, error: MaxError) {
-                    interstitialRetryAttempt += 1.0
-                    val delayMillis = TimeUnit.SECONDS.toMillis(
-                        Math.pow(2.0, Math.min(6.0, interstitialRetryAttempt)).toLong(),
-                    )
-                    Handler(Looper.getMainLooper()).postDelayed({ interstitial.loadAd() }, delayMillis)
                     FirebaseAnalyticsManager.logAdLoad(
                         adType = "interstitial",
                         adUnitId = config.INTERSTITIAL_AD_UNIT_ID,
@@ -569,7 +556,6 @@ object ApplovinMaxMediation {
                         success = false,
                         errorMessage = error.message,
                         errorCode = error.code,
-                        retryAttempt = interstitialRetryAttempt.toInt(),
                     )
                 }
 
@@ -618,7 +604,6 @@ object ApplovinMaxMediation {
         rewardedAd = MaxRewardedAd.getInstance(config.REWARDED_AD_UNIT_ID).also { rewarded ->
             rewarded.setListener(object : MaxRewardedAdListener {
                 override fun onAdLoaded(ad: MaxAd) {
-                    rewardedRetryAttempt = 0.0
                     FirebaseAnalyticsManager.logAdLoad(
                         adType = "rewarded",
                         adUnitId = config.REWARDED_AD_UNIT_ID,
@@ -628,11 +613,6 @@ object ApplovinMaxMediation {
                 }
 
                 override fun onAdLoadFailed(adUnitId: String, error: MaxError) {
-                    rewardedRetryAttempt += 1.0
-                    val delayMillis = TimeUnit.SECONDS.toMillis(
-                        Math.pow(2.0, Math.min(6.0, rewardedRetryAttempt)).toLong(),
-                    )
-                    Handler(Looper.getMainLooper()).postDelayed({ rewarded.loadAd() }, delayMillis)
                     FirebaseAnalyticsManager.logAdLoad(
                         adType = "rewarded",
                         adUnitId = config.REWARDED_AD_UNIT_ID,
@@ -640,7 +620,6 @@ object ApplovinMaxMediation {
                         success = false,
                         errorMessage = error.message,
                         errorCode = error.code,
-                        retryAttempt = rewardedRetryAttempt.toInt(),
                     )
                 }
 
@@ -693,7 +672,6 @@ object ApplovinMaxMediation {
         appOpenAd = MaxAppOpenAd(config.APP_OPEN_AD_UNIT_ID).also { appOpen ->
             appOpen.setListener(object : MaxAdListener {
                 override fun onAdLoaded(ad: MaxAd) {
-                    appOpenRetryAttempt = 0.0
                     FirebaseAnalyticsManager.logAdLoad(
                         adType = "app_open",
                         adUnitId = config.APP_OPEN_AD_UNIT_ID,
@@ -703,11 +681,6 @@ object ApplovinMaxMediation {
                 }
 
                 override fun onAdLoadFailed(adUnitId: String, error: MaxError) {
-                    appOpenRetryAttempt += 1.0
-                    val delayMillis = TimeUnit.SECONDS.toMillis(
-                        Math.pow(2.0, Math.min(6.0, appOpenRetryAttempt)).toLong(),
-                    )
-                    Handler(Looper.getMainLooper()).postDelayed({ appOpen.loadAd() }, delayMillis)
                     FirebaseAnalyticsManager.logAdLoad(
                         adType = "app_open",
                         adUnitId = config.APP_OPEN_AD_UNIT_ID,
@@ -715,7 +688,6 @@ object ApplovinMaxMediation {
                         success = false,
                         errorMessage = error.message,
                         errorCode = error.code,
-                        retryAttempt = appOpenRetryAttempt.toInt(),
                     )
                 }
 

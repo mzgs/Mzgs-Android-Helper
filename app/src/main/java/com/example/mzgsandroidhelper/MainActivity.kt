@@ -240,6 +240,21 @@ private fun MainExampleScreen(isSplashComplete: Boolean) {
             ) {
                 Text("Open MAX Debugger")
             }
+            Button(
+                onClick = {
+                    val currentActivity = activity
+                    if (currentActivity == null) {
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("Activity not available")
+                        }
+                        return@Button
+                    }
+                    ApplovinMaxMediation.showInterstitial(currentActivity)
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Show MAX Interstitial")
+            }
 
             Text(
                 text = "Banner",
