@@ -35,7 +35,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import com.example.mzgsandroidhelper.ui.theme.MzgsAndroidHelperTheme
-import com.google.android.libraries.ads.mobile.sdk.banner.AdSize
+import com.google.android.gms.ads.AdSize
 import com.mzgs.helper.AdmobConfig
 import com.mzgs.helper.AdmobDebug
 import com.mzgs.helper.AdmobMediation
@@ -74,7 +74,8 @@ class MainActivity : ComponentActivity() {
             INTERSTITIAL_AD_UNIT_ID = "b5d9132de55740f2",
             APP_OPEN_AD_UNIT_ID = "efacaf217df0d0c4",
             BANNER_AD_UNIT_ID = "2a850e4955fcac79",
-            MREC_AD_UNIT_ID = "499681b3d7a48fbc"
+            MREC_AD_UNIT_ID = "499681b3d7a48fbc",
+            NATIVE_AD_UNIT_ID = "b93d53f11cb44097"
         )
 
          Ads.initialize(

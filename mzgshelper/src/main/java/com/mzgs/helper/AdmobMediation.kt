@@ -20,6 +20,7 @@ import android.widget.TextView
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -27,35 +28,28 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.doOnLayout
-import com.google.android.libraries.ads.mobile.sdk.MobileAds
-import com.google.android.libraries.ads.mobile.sdk.appopen.AppOpenAdEventCallback
-import com.google.android.libraries.ads.mobile.sdk.appopen.AppOpenAdPreloader
-import com.google.android.libraries.ads.mobile.sdk.banner.AdSize
-import com.google.android.libraries.ads.mobile.sdk.banner.AdView
-import com.google.android.libraries.ads.mobile.sdk.banner.BannerAdRequest
-import com.google.android.libraries.ads.mobile.sdk.common.AdChoicesView
-import com.google.android.libraries.ads.mobile.sdk.common.AdRequest
-import com.google.android.libraries.ads.mobile.sdk.common.AdLoadCallback
-import com.google.android.libraries.ads.mobile.sdk.common.FullScreenContentError
-import com.google.android.libraries.ads.mobile.sdk.common.LoadAdError
-import com.google.android.libraries.ads.mobile.sdk.common.PreloadConfiguration
-import com.google.android.libraries.ads.mobile.sdk.initialization.InitializationConfig
-import com.google.android.libraries.ads.mobile.sdk.interstitial.InterstitialAdPreloader
-import com.google.android.libraries.ads.mobile.sdk.interstitial.InterstitialAdEventCallback
-import com.google.android.libraries.ads.mobile.sdk.rewarded.OnUserEarnedRewardListener
-import com.google.android.libraries.ads.mobile.sdk.rewarded.RewardedAdEventCallback
-import com.google.android.libraries.ads.mobile.sdk.rewarded.RewardedAdPreloader
-import com.google.android.libraries.ads.mobile.sdk.nativead.MediaView
-import com.google.android.libraries.ads.mobile.sdk.nativead.NativeAd
-import com.google.android.libraries.ads.mobile.sdk.nativead.NativeAdLoader
-import com.google.android.libraries.ads.mobile.sdk.nativead.NativeAdLoaderCallback
-import com.google.android.libraries.ads.mobile.sdk.nativead.NativeAdRequest
-import com.google.android.libraries.ads.mobile.sdk.nativead.NativeAdView
-import com.mzgs.helper.FirebaseAnalyticsManager
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import com.google.android.gms.ads.AdError
+import com.google.android.gms.ads.AdListener
+import com.google.android.gms.ads.AdLoader
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.AdSize
+import com.google.android.gms.ads.AdView
+import com.google.android.gms.ads.FullScreenContentCallback
+import com.google.android.gms.ads.LoadAdError
+import com.google.android.gms.ads.MobileAds
+import com.google.android.gms.ads.appopen.AppOpenAd
+import com.google.android.gms.ads.interstitial.InterstitialAd
+import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
+import com.google.android.gms.ads.nativead.AdChoicesView
+import com.google.android.gms.ads.nativead.MediaView
+import com.google.android.gms.ads.nativead.NativeAd
+import com.google.android.gms.ads.nativead.NativeAdOptions
+import com.google.android.gms.ads.nativead.NativeAdView
+import com.google.android.gms.ads.OnUserEarnedRewardListener
+import com.google.android.gms.ads.rewarded.RewardedAd
+import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
+import com.google.android.gms.ads.rewarded.RewardItem
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 object AdmobMediation {
@@ -72,9 +66,18 @@ object AdmobMediation {
     var config: AdmobConfig = AdmobConfig()
 
     @Volatile private var isAppOpenShowing = false
+    @Volatile private var isInitialized = false
+    @Volatile private var isInitializing = false
+    private val pendingInitCallbacks = mutableListOf<() -> Unit>()
+
+    @Volatile private var interstitialAd: InterstitialAd? = null
+    @Volatile private var rewardedAd: RewardedAd? = null
+    @Volatile private var appOpenAd: AppOpenAd? = null
+    @Volatile private var isInterstitialLoading = false
+    @Volatile private var isRewardedLoading = false
+    @Volatile private var isAppOpenLoading = false
 
     fun initialize(activity: Activity, onInitComplete: () -> Unit = {}) {
-
         if (config.DEBUG.useTestAds && MzgsHelper.isDebug(activity)) {
             Log.d(TAG, "Using test AdMob ad unit IDs.")
             config.INTERSTITIAL_AD_UNIT_ID = TEST_INTERSTITIAL_AD_UNIT_ID
@@ -95,78 +98,164 @@ object AdmobMediation {
             config.MREC_AD_UNIT_ID = ""
         }
 
-        CoroutineScope(Dispatchers.IO).launch {
-            val resolvedAppId = getAdMobAppId(activity)
-            if (resolvedAppId.isNullOrBlank()) {
-                Log.w(TAG, "AdMob app ID not found; set $ADMOB_APP_ID_KEY in the manifest or pass appId.")
-                onInitComplete()
-                return@launch
-            }
-            // Initialize the Google Mobile Ads SDK on a background thread.
-            val initConfig = InitializationConfig.Builder(resolvedAppId).build()
-            MobileAds.initialize(activity, initConfig) { initializationStatus ->
-                for ((adapterClass, status) in initializationStatus.adapterStatusMap) {
-                    Log.d(
-                        TAG,
-                        "Adapter: $adapterClass, Status: ${status.description}, Latency: ${status.latency}ms",
-                    )
-                }
+        if (isInitialized) {
+            onInitComplete()
+            return
+        }
+        pendingInitCallbacks.add(onInitComplete)
+        if (isInitializing) {
+            return
+        }
+        isInitializing = true
 
-                // autoload interstitial
-                if (config.INTERSTITIAL_AD_UNIT_ID.isNotBlank()) {
-                    val adRequest = AdRequest.Builder(config.INTERSTITIAL_AD_UNIT_ID).build()
-                    val preloadConfig = PreloadConfiguration(adRequest)
-                    InterstitialAdPreloader.start(config.INTERSTITIAL_AD_UNIT_ID, preloadConfig)
-                }
-
-                if (config.REWARDED_AD_UNIT_ID.isNotBlank()) {
-                    val rewardedRequest = AdRequest.Builder(config.REWARDED_AD_UNIT_ID).build()
-                    val rewardedPreloadConfig = PreloadConfiguration(rewardedRequest)
-                    RewardedAdPreloader.start(config.REWARDED_AD_UNIT_ID, rewardedPreloadConfig)
-                }
-
-                if (config.APP_OPEN_AD_UNIT_ID.isNotBlank()) {
-                    val appOpenRequest = AdRequest.Builder(config.APP_OPEN_AD_UNIT_ID).build()
-                    val appOpenPreloadConfig = PreloadConfiguration(appOpenRequest)
-                    AppOpenAdPreloader.start(config.APP_OPEN_AD_UNIT_ID, appOpenPreloadConfig)
-                }
-
-                onInitComplete()
-
-            }
+        val resolvedAppId = getAdMobAppId(activity)
+        if (resolvedAppId.isNullOrBlank()) {
+            Log.w(TAG, "AdMob app ID not found; set $ADMOB_APP_ID_KEY in the manifest or pass appId.")
+            isInitializing = false
+            isInitialized = false
+            drainInitCallbacks()
+            return
         }
 
+        MobileAds.initialize(activity) { initializationStatus ->
+            for ((adapterClass, status) in initializationStatus.adapterStatusMap) {
+                Log.d(
+                    TAG,
+                    "Adapter: $adapterClass, Status: ${status.description}, Latency: ${status.latency}ms",
+                )
+            }
+            isInitialized = true
+            isInitializing = false
+            loadInterstitial(activity)
+            loadRewarded(activity)
+            loadAppOpenAd(activity)
+            drainInitCallbacks()
+        }
     }
 
-    fun showInterstitial(activity: Activity, onAdClosed: () -> Unit = {}) : Boolean {
-        if (!MobileAds.isInitialized) {
+    private fun drainInitCallbacks() {
+        val callbacks = pendingInitCallbacks.toList()
+        pendingInitCallbacks.clear()
+        callbacks.forEach { it() }
+    }
+
+    private fun loadInterstitial(context: Context) {
+        if (!isInitialized || config.INTERSTITIAL_AD_UNIT_ID.isBlank()) {
+            return
+        }
+        if (isInterstitialLoading || interstitialAd != null) {
+            return
+        }
+        isInterstitialLoading = true
+        val request = AdRequest.Builder().build()
+        InterstitialAd.load(
+            context,
+            config.INTERSTITIAL_AD_UNIT_ID,
+            request,
+            object : InterstitialAdLoadCallback() {
+                override fun onAdLoaded(ad: InterstitialAd) {
+                    interstitialAd = ad
+                    isInterstitialLoading = false
+                }
+
+                override fun onAdFailedToLoad(loadAdError: LoadAdError) {
+                    interstitialAd = null
+                    isInterstitialLoading = false
+                    Log.w(TAG, "Interstitial failed to load: ${loadAdError.message}")
+                }
+            },
+        )
+    }
+
+    private fun loadRewarded(context: Context) {
+        if (!isInitialized || config.REWARDED_AD_UNIT_ID.isBlank()) {
+            return
+        }
+        if (isRewardedLoading || rewardedAd != null) {
+            return
+        }
+        isRewardedLoading = true
+        val request = AdRequest.Builder().build()
+        RewardedAd.load(
+            context,
+            config.REWARDED_AD_UNIT_ID,
+            request,
+            object : RewardedAdLoadCallback() {
+                override fun onAdLoaded(ad: RewardedAd) {
+                    rewardedAd = ad
+                    isRewardedLoading = false
+                }
+
+                override fun onAdFailedToLoad(loadAdError: LoadAdError) {
+                    rewardedAd = null
+                    isRewardedLoading = false
+                    Log.w(TAG, "Rewarded failed to load: ${loadAdError.message}")
+                }
+            },
+        )
+    }
+
+    private fun loadAppOpenAd(context: Context) {
+        if (!isInitialized || config.APP_OPEN_AD_UNIT_ID.isBlank()) {
+            return
+        }
+        if (isAppOpenLoading || appOpenAd != null) {
+            return
+        }
+        isAppOpenLoading = true
+        val request = AdRequest.Builder().build()
+        AppOpenAd.load(
+            context,
+            config.APP_OPEN_AD_UNIT_ID,
+            request,
+            object : AppOpenAd.AppOpenAdLoadCallback() {
+                override fun onAdLoaded(ad: AppOpenAd) {
+                    appOpenAd = ad
+                    isAppOpenLoading = false
+                }
+
+                override fun onAdFailedToLoad(loadAdError: LoadAdError) {
+                    appOpenAd = null
+                    isAppOpenLoading = false
+                    Log.w(TAG, "App open failed to load: ${loadAdError.message}")
+                }
+            },
+        )
+    }
+
+    fun showInterstitial(activity: Activity, onAdClosed: () -> Unit = {}): Boolean {
+        if (!isInitialized) {
             Log.w(TAG, "MobileAds not initialized; skipping interstitial.")
             onAdClosed()
             return false
         }
-        val ad = InterstitialAdPreloader.pollAd(config.INTERSTITIAL_AD_UNIT_ID)
-        if (ad != null) {
-            ad.adEventCallback = object : InterstitialAdEventCallback {
-                override fun onAdDismissedFullScreenContent() {
-                    onAdClosed()
-                }
-
-                override fun onAdFailedToShowFullScreenContent(fullScreenContentError: FullScreenContentError) {
-                    onAdClosed()
-                    FirebaseAnalyticsManager.logEvent("interstitial_ad_failed_to_show",
-                        Bundle().apply {
-                            putString("ad_unit_id", config.INTERSTITIAL_AD_UNIT_ID)
-                            putString("error_message", fullScreenContentError.message)
-                        }
-                    )
-                }
-            }
-            ad.show(activity)
-            return true
+        val ad = interstitialAd
+        if (ad == null) {
+            loadInterstitial(activity)
+            onAdClosed()
+            return false
         }
+        interstitialAd = null
+        ad.fullScreenContentCallback = object : FullScreenContentCallback() {
+            override fun onAdDismissedFullScreenContent() {
+                onAdClosed()
+                loadInterstitial(activity)
+            }
 
-        onAdClosed()
-        return false
+            override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+                onAdClosed()
+                FirebaseAnalyticsManager.logEvent(
+                    "interstitial_ad_failed_to_show",
+                    Bundle().apply {
+                        putString("ad_unit_id", config.INTERSTITIAL_AD_UNIT_ID)
+                        putString("error_message", adError.message)
+                    },
+                )
+                loadInterstitial(activity)
+            }
+        }
+        ad.show(activity)
+        return true
     }
 
     @Composable
@@ -181,7 +270,7 @@ object AdmobMediation {
             return
         }
         val context = LocalContext.current
-        val isInitialized = remember { mutableStateOf(MobileAds.isInitialized) }
+        val isInitializedState = remember { mutableStateOf(isInitialized) }
         val configuration = LocalConfiguration.current
         val resolvedAdSize = remember(adSize, configuration) {
             adSize
@@ -192,55 +281,49 @@ object AdmobMediation {
         }
         val adViewState = remember { mutableStateOf<AdView?>(null) }
         val requestKey = remember(resolvedAdUnitId, resolvedAdSize) { "$resolvedAdUnitId:$resolvedAdSize" }
-        val lastRequestKey = remember { mutableStateOf("") }
+        val hasLoaded = remember(requestKey) { mutableStateOf(false) }
 
         LaunchedEffect(Unit) {
-            while (!MobileAds.isInitialized) {
+            while (!isInitialized) {
                 delay(1000)
             }
-            isInitialized.value = true
+            isInitializedState.value = true
         }
 
-        if (isInitialized.value) {
-            AndroidView(
-                modifier = modifier,
-                factory = { viewContext ->
-                    AdView(viewContext, null, 0, 0).also { adView ->
-                        adViewState.value = adView
-                        adView.resize(resolvedAdSize)
-                        if (lastRequestKey.value != requestKey) {
-                            val request = BannerAdRequest.Builder(resolvedAdUnitId, resolvedAdSize).build()
-                            adView.loadAd(
-                                request,
-                                object : AdLoadCallback<com.google.android.libraries.ads.mobile.sdk.banner.BannerAd> {
-                                    override fun onAdFailedToLoad(adError: LoadAdError) {
-                                        onAdFailedToLoad?.invoke(adError.message)
-                                    }
-                                },
-                            )
-                            lastRequestKey.value = requestKey
-                        }
-                    }
-                },
-                update = { adView ->
-                    adView.resize(resolvedAdSize)
-                    if (lastRequestKey.value != requestKey) {
-                        val request = BannerAdRequest.Builder(resolvedAdUnitId, resolvedAdSize).build()
-                        adView.loadAd(request, object : AdLoadCallback<com.google.android.libraries.ads.mobile.sdk.banner.BannerAd> {
-                            override fun onAdFailedToLoad(adError: LoadAdError) {
-                                onAdFailedToLoad?.invoke(adError.message)
+        if (isInitializedState.value) {
+            key(requestKey) {
+                AndroidView(
+                    modifier = modifier,
+                    factory = { viewContext ->
+                        AdView(viewContext).also { adView ->
+                            adViewState.value = adView
+                            adView.adUnitId = resolvedAdUnitId
+                            adView.setAdSize(resolvedAdSize)
+                            adView.adListener = object : AdListener() {
+                                override fun onAdFailedToLoad(adError: LoadAdError) {
+                                    onAdFailedToLoad?.invoke(adError.message)
+                                }
                             }
-                        })
-                        lastRequestKey.value = requestKey
-                    }
-                },
-            )
+                            if (!hasLoaded.value) {
+                                adView.loadAd(AdRequest.Builder().build())
+                                hasLoaded.value = true
+                            }
+                        }
+                    },
+                    update = { adView ->
+                        if (!hasLoaded.value) {
+                            adView.loadAd(AdRequest.Builder().build())
+                            hasLoaded.value = true
+                        }
+                    },
+                )
+            }
         }
 
-        DisposableEffect(Unit) {
+        DisposableEffect(adViewState.value) {
+            val adView = adViewState.value
             onDispose {
-                adViewState.value?.destroy()
-                adViewState.value = null
+                adView?.destroy()
             }
         }
     }
@@ -271,36 +354,30 @@ object AdmobMediation {
             return
         }
         val context = LocalContext.current
-        val isInitialized = remember { mutableStateOf(MobileAds.isInitialized) }
+        val isInitializedState = remember { mutableStateOf(isInitialized) }
         val nativeAdState = remember(resolvedAdUnitId) { mutableStateOf<NativeAd?>(null) }
-        val nativeAdViewState = remember { mutableStateOf<NativeAdView?>(null) }
         val isLoading = remember(resolvedAdUnitId) { mutableStateOf(false) }
 
         LaunchedEffect(Unit) {
-            while (!MobileAds.isInitialized) {
+            while (!isInitialized) {
                 delay(1000)
             }
-            isInitialized.value = true
+            isInitializedState.value = true
         }
 
-        LaunchedEffect(resolvedAdUnitId, isInitialized.value) {
-            if (!isInitialized.value || isLoading.value || nativeAdState.value != null) {
+        LaunchedEffect(resolvedAdUnitId, isInitializedState.value) {
+            if (!isInitializedState.value || isLoading.value || nativeAdState.value != null) {
                 return@LaunchedEffect
             }
             isLoading.value = true
-            val request = NativeAdRequest.Builder(
-                resolvedAdUnitId,
-                listOf(NativeAd.NativeAdType.NATIVE),
-            ).build()
-            NativeAdLoader.load(
-                request,
-                object : NativeAdLoaderCallback {
-                    override fun onNativeAdLoaded(nativeAd: NativeAd) {
-                        nativeAdState.value?.destroy()
-                        nativeAdState.value = nativeAd
-                        isLoading.value = false
-                    }
-
+            val adLoader = AdLoader.Builder(context, resolvedAdUnitId)
+                .forNativeAd { nativeAd ->
+                    nativeAdState.value?.destroy()
+                    nativeAdState.value = nativeAd
+                    isLoading.value = false
+                }
+                .withNativeAdOptions(NativeAdOptions.Builder().build())
+                .withAdListener(object : AdListener() {
                     override fun onAdFailedToLoad(adError: LoadAdError) {
                         isLoading.value = false
                         onAdFailedToLoad?.invoke(adError.message)
@@ -312,15 +389,12 @@ object AdmobMediation {
                             },
                         )
                     }
-
-                    override fun onAdLoadingCompleted() {
-                        isLoading.value = false
-                    }
-                },
-            )
+                })
+                .build()
+            adLoader.loadAd(AdRequest.Builder().build())
         }
 
-        if (isInitialized.value) {
+        if (isInitializedState.value) {
             AndroidView(
                 modifier = modifier,
                 factory = { viewContext ->
@@ -328,7 +402,6 @@ object AdmobMediation {
                     val adView = holder.nativeAdView
                     adView.tag = holder
                     adView.visibility = View.GONE
-                    nativeAdViewState.value = adView
                     adView
                 },
                 update = { adView ->
@@ -348,13 +421,6 @@ object AdmobMediation {
             val activeAd = nativeAdState.value
             onDispose {
                 activeAd?.destroy()
-            }
-        }
-
-        DisposableEffect(Unit) {
-            onDispose {
-                nativeAdViewState.value?.destroy()
-                nativeAdViewState.value = null
             }
         }
     }
@@ -471,7 +537,7 @@ object AdmobMediation {
                 weight = 1f
                 topMargin = dpToPx(8)
             }
-            imageScaleType = ImageView.ScaleType.CENTER_CROP
+            setImageScaleType(ImageView.ScaleType.CENTER_CROP)
             minimumHeight = dpToPx(120)
         }
 
@@ -547,6 +613,7 @@ object AdmobMediation {
         nativeAdView.addView(contentLayout)
         nativeAdView.addView(adChoicesView, adChoicesParams)
 
+        nativeAdView.mediaView = mediaView
         nativeAdView.headlineView = headlineView
         nativeAdView.bodyView = bodyView
         nativeAdView.callToActionView = callToActionView
@@ -626,23 +693,25 @@ object AdmobMediation {
         }
 
         val mediaContent = nativeAd.mediaContent
-        holder.mediaView.mediaContent = mediaContent
-        holder.mediaView.doOnLayout { view ->
-            val minHeightPx = (120f * view.resources.displayMetrics.density).roundToInt()
-            if (view.height > 0) {
-                return@doOnLayout
-            }
-            val aspectRatio = mediaContent.aspectRatio
-            if (aspectRatio > 0f && view.width > 0) {
-                val targetHeight = (view.width / aspectRatio).roundToInt().coerceAtLeast(minHeightPx)
-                val params = view.layoutParams as? LinearLayout.LayoutParams ?: return@doOnLayout
-                params.height = targetHeight
-                params.weight = 0f
-                view.layoutParams = params
+        if (mediaContent != null) {
+            holder.mediaView.mediaContent = mediaContent
+            holder.mediaView.doOnLayout { view ->
+                val minHeightPx = (120f * view.resources.displayMetrics.density).roundToInt()
+                if (view.height > 0) {
+                    return@doOnLayout
+                }
+                val aspectRatio = mediaContent.aspectRatio
+                if (aspectRatio > 0f && view.width > 0) {
+                    val targetHeight = (view.width / aspectRatio).roundToInt().coerceAtLeast(minHeightPx)
+                    val params = view.layoutParams as? LinearLayout.LayoutParams ?: return@doOnLayout
+                    params.height = targetHeight
+                    params.weight = 0f
+                    view.layoutParams = params
+                }
             }
         }
 
-        holder.nativeAdView.registerNativeAd(nativeAd, holder.mediaView)
+        holder.nativeAdView.setNativeAd(nativeAd)
     }
 
     fun showReward(
@@ -650,44 +719,47 @@ object AdmobMediation {
         onRewarded: (type: String, amount: Int) -> Unit = { _, _ -> },
         onAdClosed: () -> Unit = {},
     ): Boolean {
-        if (!MobileAds.isInitialized) {
+        if (!isInitialized) {
             Log.w(TAG, "MobileAds not initialized; skipping rewarded.")
             onAdClosed()
             return false
         }
-        val ad = RewardedAdPreloader.pollAd(config.REWARDED_AD_UNIT_ID)
-        if (ad != null) {
-            ad.adEventCallback = object : RewardedAdEventCallback {
-                override fun onAdDismissedFullScreenContent() {
-                    onAdClosed()
-                }
-
-                override fun onAdFailedToShowFullScreenContent(fullScreenContentError: FullScreenContentError) {
-                    onAdClosed()
-                    FirebaseAnalyticsManager.logEvent(
-                        "rewarded_ad_failed_to_show",
-                        Bundle().apply {
-                            putString("ad_unit_id", config.REWARDED_AD_UNIT_ID)
-                            putString("error_message", fullScreenContentError.message)
-                        },
-                    )
-                }
-            }
-            ad.show(
-                activity,
-                OnUserEarnedRewardListener { rewardItem ->
-                    onRewarded(rewardItem.type, rewardItem.amount)
-                },
-            )
-            return true
+        val ad = rewardedAd
+        if (ad == null) {
+            loadRewarded(activity)
+            onAdClosed()
+            return false
         }
+        rewardedAd = null
+        ad.fullScreenContentCallback = object : FullScreenContentCallback() {
+            override fun onAdDismissedFullScreenContent() {
+                onAdClosed()
+                loadRewarded(activity)
+            }
 
-        onAdClosed()
-        return false
+            override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+                onAdClosed()
+                FirebaseAnalyticsManager.logEvent(
+                    "rewarded_ad_failed_to_show",
+                    Bundle().apply {
+                        putString("ad_unit_id", config.REWARDED_AD_UNIT_ID)
+                        putString("error_message", adError.message)
+                    },
+                )
+                loadRewarded(activity)
+            }
+        }
+        ad.show(
+            activity,
+            OnUserEarnedRewardListener { rewardItem: RewardItem ->
+                onRewarded(rewardItem.type, rewardItem.amount)
+            },
+        )
+        return true
     }
 
     fun showAppOpenAd(activity: Activity, onAdClosed: () -> Unit = {}): Boolean {
-        if (!MobileAds.isInitialized) {
+        if (!isInitialized) {
             Log.w(TAG, "MobileAds not initialized; skipping app open.")
             onAdClosed()
             return false
@@ -696,34 +768,37 @@ object AdmobMediation {
             onAdClosed()
             return false
         }
-        val ad = AppOpenAdPreloader.pollAd(config.APP_OPEN_AD_UNIT_ID)
-        if (ad != null) {
-            isAppOpenShowing = true
-            ad.adEventCallback = object : AppOpenAdEventCallback {
-                override fun onAdDismissedFullScreenContent() {
-                    isAppOpenShowing = false
-                    onAdClosed()
-                }
-
-                override fun onAdFailedToShowFullScreenContent(fullScreenContentError: FullScreenContentError) {
-                    isAppOpenShowing = false
-                    onAdClosed()
-                    FirebaseAnalyticsManager.logEvent(
-                        "app_open_ad_failed_to_show",
-                        Bundle().apply {
-                            putString("ad_unit_id", config.APP_OPEN_AD_UNIT_ID)
-                            putString("error_message", fullScreenContentError.message)
-                        },
-                    )
-                }
-            }
-            ad.show(activity)
-            return true
+        val ad = appOpenAd
+        if (ad == null) {
+            loadAppOpenAd(activity)
+            FirebaseAnalyticsManager.logEvent("app_open_not_ready")
+            onAdClosed()
+            return false
         }
+        appOpenAd = null
+        isAppOpenShowing = true
+        ad.fullScreenContentCallback = object : FullScreenContentCallback() {
+            override fun onAdDismissedFullScreenContent() {
+                isAppOpenShowing = false
+                onAdClosed()
+                loadAppOpenAd(activity)
+            }
 
-        FirebaseAnalyticsManager.logEvent("app_open_not_ready")
-        onAdClosed()
-        return false
+            override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+                isAppOpenShowing = false
+                onAdClosed()
+                FirebaseAnalyticsManager.logEvent(
+                    "app_open_ad_failed_to_show",
+                    Bundle().apply {
+                        putString("ad_unit_id", config.APP_OPEN_AD_UNIT_ID)
+                        putString("error_message", adError.message)
+                    },
+                )
+                loadAppOpenAd(activity)
+            }
+        }
+        ad.show(activity)
+        return true
     }
 
     private fun getAdMobAppId(context: Context): String? {
@@ -753,5 +828,5 @@ data class AdmobConfig(
 
 data class AdmobDebug(
     var useTestAds: Boolean = true,
-    var useEmptyIds : Boolean = false,
+    var useEmptyIds: Boolean = false,
 )
