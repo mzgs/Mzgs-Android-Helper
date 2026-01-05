@@ -12,8 +12,6 @@ object Ads {
     private var appWentToBackground = false
     private var activityCallbacksRegistered = false
     private var componentCallbacksRegistered = false
-    private var triggerOnColdStart = false
-    private var coldStartHandled = false
     private var onGoBackground: (Activity) -> Unit = {}
     private var onGoForeground: (Activity) -> Unit = {}
     private var lastStartedActivityRef: WeakReference<Activity>? = null
@@ -25,10 +23,7 @@ object Ads {
             startedActivityCount += 1
             lastStartedActivityRef = WeakReference(activity)
             if (startedActivityCount == 1) {
-                val shouldNotify = appWentToBackground || (triggerOnColdStart && !coldStartHandled)
-                if (triggerOnColdStart && !coldStartHandled) {
-                    coldStartHandled = true
-                }
+                val shouldNotify = appWentToBackground
                 if (appWentToBackground) {
                     appWentToBackground = false
                 }
@@ -70,11 +65,9 @@ object Ads {
         activity: Activity,
         onGoBackground: (Activity) -> Unit = {},
         onGoForeground: (Activity) -> Unit = {},
-        triggerOnColdStart: Boolean = false,
     ) {
         this.onGoBackground = onGoBackground
         this.onGoForeground = onGoForeground
-        this.triggerOnColdStart = triggerOnColdStart
         if (!activityCallbacksRegistered) {
             activity.application.registerActivityLifecycleCallbacks(activityCallbacks)
             activityCallbacksRegistered = true

@@ -81,8 +81,12 @@ class MainActivity : ComponentActivity() {
          Ads.initialize(
             this,
             onGoForeground = {
-//                 AdmobMediation.showAppOpenAd(this)
-                ApplovinMaxMediation.showAppOpenAd(this)
+
+                if (!ApplovinMaxMediation.isFullscreenAdShowing){
+                    ApplovinMaxMediation.showAppOpenAd(this)
+                    return@initialize
+                }
+                AdmobMediation.showAppOpenAd(this)
             }
 
         )
