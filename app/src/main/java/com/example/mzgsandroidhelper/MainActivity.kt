@@ -41,6 +41,7 @@ import com.mzgs.helper.AdmobDebug
 import com.mzgs.helper.AdmobMediation
 import com.mzgs.helper.Ads
 import com.mzgs.helper.ApplovinMaxConfig
+import com.mzgs.helper.ApplovinMaxDebug
 import com.mzgs.helper.ApplovinMaxMediation
 import com.mzgs.helper.MzgsHelper
 import com.mzgs.helper.Pref
@@ -75,7 +76,11 @@ class MainActivity : ComponentActivity() {
             APP_OPEN_AD_UNIT_ID = "efacaf217df0d0c4",
             BANNER_AD_UNIT_ID = "2a850e4955fcac79",
             MREC_AD_UNIT_ID = "499681b3d7a48fbc",
-            NATIVE_AD_UNIT_ID = "b93d53f11cb44097"
+            NATIVE_AD_UNIT_ID = "b93d53f11cb44097",
+            DEBUG = ApplovinMaxDebug(
+                useEmptyIds = true,
+            )
+
         )
 
          Ads.initialize(
@@ -101,7 +106,7 @@ class MainActivity : ComponentActivity() {
             MzgsHelper.initAllowedCountry(activity)
 
             MzgsHelper.showUmpConsent(activity,forceDebugConsentInEea = true) {
-                val splashDuration = if (MzgsHelper.isDebug(activity))  500 else Remote.getLong("splash_time", 11_000)
+                val splashDuration = if (MzgsHelper.isDebug(activity))  9000 else Remote.getLong("splash_time", 11_000)
 
 
                 SimpleSplashHelper.setDuration(splashDuration)
@@ -114,9 +119,12 @@ class MainActivity : ComponentActivity() {
             }
 
             SimpleSplashHelper.setOnComplete {
-                AdmobMediation.showInterstitial(activity){
+
+                Ads.showInterstitial(activity){
                     isSplashComplete.value = true
                 }
+
+
             }
 
         } // end launch

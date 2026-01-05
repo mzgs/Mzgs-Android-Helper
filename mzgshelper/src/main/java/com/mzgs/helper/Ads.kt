@@ -77,4 +77,44 @@ object Ads {
             componentCallbacksRegistered = true
         }
     }
+
+//    order : netowrks by comma : applovin,admob
+    fun showInterstitial(
+        activity: Activity,
+        networks: String = "applovin,admob",
+        onAdClosed: () -> Unit = {},
+    ) {
+        val requestedNetworks = networks
+            .split(",")
+            .map { it.trim().lowercase() }
+            .filter { it.isNotBlank() }
+        val networks = requestedNetworks
+            .filter { it == "applovin" || it == "admob" }
+            .ifEmpty { listOf("applovin", "admob") }
+
+        var activeNetwork: String? = null
+        var closedNotified = false
+
+        fun networkClosed(network: String) {
+            if (activeNetwork == network && !closedNotified) {
+                closedNotified = true
+                onAdClosed()
+            }
+        }
+
+        for (network in networks) {
+            activeNetwork = network
+            val shown = when (network) {
+                "applovin" -> ApplovinMaxMediation.showInterstitial(activity) { networkClosed(network) }
+                "admob" -> AdmobMediation.showInterstitial(activity) { networkClosed(network) }
+                else -> false
+            }
+            if (shown) {
+                return
+            }
+        }
+        if (!closedNotified) {
+            onAdClosed()
+        }
+    }
 }
