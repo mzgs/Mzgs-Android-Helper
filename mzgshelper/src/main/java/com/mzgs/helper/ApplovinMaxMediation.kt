@@ -51,6 +51,7 @@ object ApplovinMaxMediation {
     var config: ApplovinMaxConfig = ApplovinMaxConfig()
 
     @Volatile private var isAppOpenShowing = false
+    @Volatile var isFullscreenAdShowing = false
     private var appOpenObserverRegistered = false
     private var appWentToBackground = false
     private var activityCallbacksRegistered = false
@@ -185,6 +186,7 @@ object ApplovinMaxMediation {
         }
         val ad = interstitialAd
         if (ad != null && ad.isReady) {
+            isFullscreenAdShowing = true
             interstitialOnAdClosed = onAdClosed
             ad.showAd(activity)
             return true
@@ -459,6 +461,7 @@ object ApplovinMaxMediation {
         }
         val ad = rewardedAd
         if (ad != null && ad.isReady) {
+            isFullscreenAdShowing = true
             rewardedOnAdClosed = onAdClosed
             rewardedOnUserRewarded = onRewarded
             ad.showAd(activity)
@@ -518,6 +521,7 @@ object ApplovinMaxMediation {
         val ad = appOpenAd
         if (ad != null && ad.isReady) {
             isAppOpenShowing = true
+            isFullscreenAdShowing = true
             appOpenOnAdClosedInternal = onAdClosed
             if (config.APP_OPEN_PLACEMENT.isNotBlank()) {
                 ad.showAd(config.APP_OPEN_PLACEMENT)
@@ -560,6 +564,7 @@ object ApplovinMaxMediation {
                 }
 
                 override fun onAdDisplayFailed(ad: MaxAd, error: MaxError) {
+                    isFullscreenAdShowing = false
                     interstitialOnAdClosed()
                     interstitialOnAdClosed = {}
                     interstitial.loadAd()
@@ -572,6 +577,7 @@ object ApplovinMaxMediation {
                 }
 
                 override fun onAdHidden(ad: MaxAd) {
+                    isFullscreenAdShowing = false
                     interstitialOnAdClosed()
                     interstitialOnAdClosed = {}
                     interstitial.loadAd()
@@ -624,6 +630,7 @@ object ApplovinMaxMediation {
                 }
 
                 override fun onAdDisplayFailed(ad: MaxAd, error: MaxError) {
+                    isFullscreenAdShowing = false
                     rewardedOnAdClosed()
                     rewardedOnAdClosed = {}
                     rewarded.loadAd()
@@ -636,6 +643,7 @@ object ApplovinMaxMediation {
                 }
 
                 override fun onAdHidden(ad: MaxAd) {
+                    isFullscreenAdShowing = false
                     rewardedOnAdClosed()
                     rewardedOnAdClosed = {}
                     rewarded.loadAd()
@@ -693,6 +701,7 @@ object ApplovinMaxMediation {
 
                 override fun onAdDisplayFailed(ad: MaxAd, error: MaxError) {
                     isAppOpenShowing = false
+                    isFullscreenAdShowing = false
                     appOpenOnAdClosedInternal()
                     appOpenOnAdClosedInternal = {}
                     appOpen.loadAd()
@@ -706,6 +715,7 @@ object ApplovinMaxMediation {
 
                 override fun onAdHidden(ad: MaxAd) {
                     isAppOpenShowing = false
+                    isFullscreenAdShowing = false
                     appOpenOnAdClosedInternal()
                     appOpenOnAdClosedInternal = {}
                     appOpen.loadAd()
