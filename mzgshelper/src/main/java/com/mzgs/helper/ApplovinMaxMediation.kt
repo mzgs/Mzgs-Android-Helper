@@ -39,7 +39,7 @@ import com.applovin.sdk.AppLovinMediationProvider
 import com.applovin.sdk.AppLovinSdk
 import com.applovin.sdk.AppLovinSdkInitializationConfiguration
 import com.google.android.libraries.ads.mobile.sdk.banner.AdSize
-import com.mzgs.helper.analytics.FirebaseAnalyticsManager
+import com.mzgs.helper.FirebaseAnalyticsManager
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 

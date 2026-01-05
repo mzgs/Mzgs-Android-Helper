@@ -45,7 +45,7 @@ import com.mzgs.helper.MzgsHelper
 import com.mzgs.helper.Pref
 import com.mzgs.helper.Remote
 import com.mzgs.helper.SimpleSplashHelper
-import com.mzgs.helper.analytics.FirebaseAnalyticsManager
+import com.mzgs.helper.FirebaseAnalyticsManager
 import com.mzgs.helper.printLine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
