@@ -1,11 +1,8 @@
 package com.mzgs.helper
 
 import android.app.Activity
-import android.app.Application
-import android.content.ComponentCallbacks2
 import android.content.Context
 import android.content.pm.PackageManager
-import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Bundle
 import android.util.Log
@@ -52,15 +49,6 @@ object ApplovinMaxMediation {
 
     @Volatile private var isAppOpenShowing = false
     @Volatile var isFullscreenAdShowing = false
-    private var appOpenObserverRegistered = false
-    private var appWentToBackground = false
-    private var activityCallbacksRegistered = false
-    private var componentCallbacksRegistered = false
-    private var startedActivityCount = 0
-    private var appOpenShowOnColdStart = false
-    private var appOpenDefaultOnAdClosed: () -> Unit = {}
-    private var appOpenColdStartHandled = false
-    private var appOpenOnAdClosedInternal: () -> Unit = {}
 
     private var isInitialized = false
     private var isInitializing = false
@@ -73,55 +61,7 @@ object ApplovinMaxMediation {
     private var interstitialOnAdClosed: () -> Unit = {}
     private var rewardedOnAdClosed: () -> Unit = {}
     private var rewardedOnUserRewarded: (String, Int) -> Unit = { _, _ -> }
-
-    private val appOpenActivityCallbacks = object : Application.ActivityLifecycleCallbacks {
-        override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
-
-        override fun onActivityStarted(activity: Activity) {
-            startedActivityCount += 1
-            if (startedActivityCount == 1) {
-                val shouldShow = (appOpenShowOnColdStart && !appOpenColdStartHandled) || appWentToBackground
-                if (appOpenShowOnColdStart && !appOpenColdStartHandled) {
-                    appOpenColdStartHandled = true
-                }
-                appWentToBackground = false
-                if (shouldShow) {
-                    showAppOpenAdInternal(
-                        activity,
-                        appOpenDefaultOnAdClosed,
-                        invokeOnAdClosedWhenNotShown = false,
-                    )
-                }
-            }
-        }
-
-        override fun onActivityResumed(activity: Activity) {}
-
-        override fun onActivityPaused(activity: Activity) {}
-
-        override fun onActivityStopped(activity: Activity) {
-            if (startedActivityCount > 0) {
-                startedActivityCount -= 1
-            }
-        }
-
-        override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
-
-        override fun onActivityDestroyed(activity: Activity) {}
-    }
-
-    private val appOpenComponentCallbacks = object : ComponentCallbacks2 {
-        override fun onTrimMemory(level: Int) {
-            if (level >= ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
-                appWentToBackground = true
-            }
-        }
-
-        override fun onConfigurationChanged(newConfig: Configuration) {}
-
-        @Deprecated("Deprecated in ComponentCallbacks2")
-        override fun onLowMemory() {}
-    }
+    private var appOpenOnAdClosedInternal: () -> Unit = {}
 
     fun initialize(activity: Activity, onInitComplete: () -> Unit = {}) {
         if (config.DEBUG.useEmptyIds && MzgsHelper.isDebug(activity)) {
@@ -472,50 +412,17 @@ object ApplovinMaxMediation {
         return false
     }
 
-    fun showAppOpenAd(activity: Activity, onAdClosed: () -> Unit = {}): Boolean {
-        return showAppOpenAdInternal(activity, onAdClosed, invokeOnAdClosedWhenNotShown = true)
-    }
-
     fun showMediationDebugger(context: Context) {
         AppLovinSdk.getInstance(context).showMediationDebugger()
     }
 
-    fun enableAppOpen(
-        activity: Activity,
-        showOnColdStart: Boolean = false,
-        onAdClosed: () -> Unit = {},
-    ) {
-        appOpenShowOnColdStart = showOnColdStart
-        appOpenDefaultOnAdClosed = onAdClosed
-        if (!activityCallbacksRegistered) {
-            activity.application.registerActivityLifecycleCallbacks(appOpenActivityCallbacks)
-            activityCallbacksRegistered = true
-        }
-        if (!componentCallbacksRegistered) {
-            activity.application.registerComponentCallbacks(appOpenComponentCallbacks)
-            componentCallbacksRegistered = true
-        }
-        if (appOpenObserverRegistered) {
-            return
-        }
-        appOpenObserverRegistered = true
-    }
-
-    private fun showAppOpenAdInternal(
-        activity: Activity,
-        onAdClosed: () -> Unit,
-        invokeOnAdClosedWhenNotShown: Boolean,
-    ): Boolean {
+    fun showAppOpenAd(activity: Activity, onAdClosed: () -> Unit = {}): Boolean {
         if (isAppOpenShowing || activity.isFinishing || activity.isDestroyed) {
-            if (invokeOnAdClosedWhenNotShown) {
-                onAdClosed()
-            }
+            onAdClosed()
             return false
         }
         if (!AppLovinSdk.getInstance(activity).isInitialized) {
-            if (invokeOnAdClosedWhenNotShown) {
-                onAdClosed()
-            }
+            onAdClosed()
             return false
         }
         val ad = appOpenAd
@@ -523,17 +430,11 @@ object ApplovinMaxMediation {
             isAppOpenShowing = true
             isFullscreenAdShowing = true
             appOpenOnAdClosedInternal = onAdClosed
-            if (config.APP_OPEN_PLACEMENT.isNotBlank()) {
-                ad.showAd(config.APP_OPEN_PLACEMENT)
-            } else {
-                ad.showAd()
-            }
+            ad.showAd()
             return true
         }
         appOpenAd?.loadAd()
-        if (invokeOnAdClosedWhenNotShown) {
-            onAdClosed()
-        }
+        onAdClosed()
         return false
     }
 
@@ -781,7 +682,6 @@ data class ApplovinMaxConfig(
     var NATIVE_AD_UNIT_ID: String = "",
     var APP_OPEN_AD_UNIT_ID: String = "",
     var MREC_AD_UNIT_ID: String = "",
-    var APP_OPEN_PLACEMENT: String = "",
     var DEBUG: ApplovinMaxDebug = ApplovinMaxDebug(),
 )
 

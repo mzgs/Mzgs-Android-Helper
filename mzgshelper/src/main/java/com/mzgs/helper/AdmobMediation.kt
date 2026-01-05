@@ -644,6 +644,11 @@ object AdmobMediation {
         onRewarded: (type: String, amount: Int) -> Unit = { _, _ -> },
         onAdClosed: () -> Unit = {},
     ): Boolean {
+        if (!MobileAds.isInitialized) {
+            Log.w(TAG, "MobileAds not initialized; skipping rewarded.")
+            onAdClosed()
+            return false
+        }
         val ad = RewardedAdPreloader.pollAd(config.REWARDED_AD_UNIT_ID)
         if (ad != null) {
             ad.adEventCallback = object : RewardedAdEventCallback {
@@ -676,36 +681,13 @@ object AdmobMediation {
     }
 
     fun showAppOpenAd(activity: Activity, onAdClosed: () -> Unit = {}): Boolean {
-        return showAppOpenAdInternal(activity, onAdClosed, invokeOnAdClosedWhenNotShown = true)
-    }
-
-    fun enableAppOpen(
-        activity: Activity,
-        showOnColdStart: Boolean = false,
-        onAdClosed: () -> Unit = {},
-    ) {
-        Ads.initialize(
-            activity,
-            onGoForeground = { currentActivity ->
-                showAppOpenAdInternal(
-                    currentActivity,
-                    onAdClosed,
-                    invokeOnAdClosedWhenNotShown = false,
-                )
-            },
-            triggerOnColdStart = showOnColdStart,
-        )
-    }
-
-    private fun showAppOpenAdInternal(
-        activity: Activity,
-        onAdClosed: () -> Unit,
-        invokeOnAdClosedWhenNotShown: Boolean,
-    ): Boolean {
+        if (!MobileAds.isInitialized) {
+            Log.w(TAG, "MobileAds not initialized; skipping app open.")
+            onAdClosed()
+            return false
+        }
         if (isAppOpenShowing || activity.isFinishing || activity.isDestroyed) {
-            if (invokeOnAdClosedWhenNotShown) {
-                onAdClosed()
-            }
+            onAdClosed()
             return false
         }
         val ad = AppOpenAdPreloader.pollAd(config.APP_OPEN_AD_UNIT_ID)
@@ -734,9 +716,7 @@ object AdmobMediation {
         }
 
         FirebaseAnalyticsManager.logEvent("app_open_not_ready")
-        if (invokeOnAdClosedWhenNotShown) {
-            onAdClosed()
-        }
+        onAdClosed()
         return false
     }
 

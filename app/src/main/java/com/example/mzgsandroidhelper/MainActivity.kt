@@ -39,6 +39,7 @@ import com.google.android.libraries.ads.mobile.sdk.banner.AdSize
 import com.mzgs.helper.AdmobConfig
 import com.mzgs.helper.AdmobDebug
 import com.mzgs.helper.AdmobMediation
+import com.mzgs.helper.Ads
 import com.mzgs.helper.ApplovinMaxConfig
 import com.mzgs.helper.ApplovinMaxMediation
 import com.mzgs.helper.MzgsHelper
@@ -70,7 +71,17 @@ class MainActivity : ComponentActivity() {
         )
 
         ApplovinMaxMediation.config = ApplovinMaxConfig(
-            INTERSTITIAL_AD_UNIT_ID = "b5d9132de55740f2"
+            INTERSTITIAL_AD_UNIT_ID = "b5d9132de55740f2",
+            APP_OPEN_AD_UNIT_ID = "efacaf217df0d0c4"
+        )
+
+         Ads.initialize(
+            this,
+            onGoForeground = {
+//                 AdmobMediation.showAppOpenAd(this)
+                ApplovinMaxMediation.showAppOpenAd(this)
+            }
+
         )
 
 
@@ -89,15 +100,9 @@ class MainActivity : ComponentActivity() {
                 SimpleSplashHelper.setDuration(splashDuration)
                 SimpleSplashHelper.startProgress(activity)
 
-                AdmobMediation.initialize(activity) {
-                    if (Remote.getBool("enable_app_open_ad", true)) {
-                        runOnUiThread { AdmobMediation.enableAppOpen(activity) }
-                    }
-                }
+                AdmobMediation.initialize(activity)
 
-                ApplovinMaxMediation.initialize(activity){
-
-                }
+                ApplovinMaxMediation.initialize(activity)
 
             }
 
