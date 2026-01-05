@@ -72,7 +72,9 @@ class MainActivity : ComponentActivity() {
 
         ApplovinMaxMediation.config = ApplovinMaxConfig(
             INTERSTITIAL_AD_UNIT_ID = "b5d9132de55740f2",
-            APP_OPEN_AD_UNIT_ID = "efacaf217df0d0c4"
+            APP_OPEN_AD_UNIT_ID = "efacaf217df0d0c4",
+            BANNER_AD_UNIT_ID = "2a850e4955fcac79",
+            MREC_AD_UNIT_ID = "499681b3d7a48fbc"
         )
 
          Ads.initialize(
@@ -167,6 +169,11 @@ private fun MainExampleScreen(isSplashComplete: Boolean) {
             }
 
             Text(
+                text = "AdMob",
+                style = MaterialTheme.typography.headlineMedium
+            )
+
+            Text(
                 text = "Interstitial Demo",
                 style = MaterialTheme.typography.headlineSmall
             )
@@ -234,8 +241,44 @@ private fun MainExampleScreen(isSplashComplete: Boolean) {
             }
 
             Text(
-                text = "AppLovin MAX",
+                text = "AdMob Banner",
                 style = MaterialTheme.typography.headlineSmall
+            )
+            if (isSplashComplete) {
+                AdmobMediation.showBanner(
+                    modifier = Modifier.fillMaxWidth()
+                ) { errorMessage ->
+                    printLine("AdMob banner ad failed: $errorMessage")
+                }
+            }
+
+            Text(
+                text = "AdMob MREC",
+                style = MaterialTheme.typography.headlineSmall
+            )
+            if (isSplashComplete) {
+                AdmobMediation.showMrec(
+                    modifier = Modifier.size(300.dp, 250.dp),
+                )
+            }
+
+            Text(
+                text = "AdMob Native",
+                style = MaterialTheme.typography.headlineSmall
+            )
+            if (isSplashComplete) {
+                AdmobMediation.showNativeAd(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(300.dp),
+                ) { errorMessage ->
+                    printLine("AdMob native ad failed: $errorMessage")
+                }
+            }
+
+            Text(
+                text = "AppLovin MAX",
+                style = MaterialTheme.typography.headlineMedium
             )
             Button(
                 onClick = {
@@ -262,38 +305,40 @@ private fun MainExampleScreen(isSplashComplete: Boolean) {
             }
 
             Text(
-                text = "Banner",
+                text = "MAX Banner",
                 style = MaterialTheme.typography.headlineSmall
             )
             if (isSplashComplete) {
-                AdmobMediation.showBanner(
+                ApplovinMaxMediation.showBanner(
                     modifier = Modifier.fillMaxWidth()
                 ) { errorMessage ->
-                    printLine("Banner ad failed: $errorMessage")
+                    printLine("MAX banner ad failed: $errorMessage")
                 }
             }
 
             Text(
-                text = "MREC",
+                text = "MAX MREC",
                 style = MaterialTheme.typography.headlineSmall
             )
             if (isSplashComplete) {
-                AdmobMediation.showMrec(
+                ApplovinMaxMediation.showMrec(
                     modifier = Modifier.size(300.dp, 250.dp),
-                )
+                ) { errorMessage ->
+                    printLine("MAX MREC ad failed: $errorMessage")
+                }
             }
 
             Text(
-                text = "Native",
+                text = "MAX Native",
                 style = MaterialTheme.typography.headlineSmall
             )
             if (isSplashComplete) {
-                AdmobMediation.showNativeAd(
+                ApplovinMaxMediation.showNativeAd(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(300.dp),
                 ) { errorMessage ->
-                    printLine("Native ad failed: $errorMessage")
+                    printLine("MAX native ad failed: $errorMessage")
                 }
             }
         }
