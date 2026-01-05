@@ -133,6 +133,11 @@ object AdmobMediation {
     }
 
     fun showInterstitial(activity: Activity, onAdClosed: () -> Unit = {}) : Boolean {
+        if (!MobileAds.isInitialized) {
+            Log.w(TAG, "MobileAds not initialized; skipping interstitial.")
+            onAdClosed()
+            return false
+        }
         val ad = InterstitialAdPreloader.pollAd(config.INTERSTITIAL_AD_UNIT_ID)
         if (ad != null) {
             ad.adEventCallback = object : InterstitialAdEventCallback {
