@@ -1,4 +1,5 @@
 package com.mzgs.helper
 
-class Ads {
+object Ads {
+
 }
