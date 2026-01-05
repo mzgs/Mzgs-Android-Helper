@@ -39,6 +39,8 @@ import com.google.android.libraries.ads.mobile.sdk.banner.AdSize
 import com.mzgs.helper.AdmobConfig
 import com.mzgs.helper.AdmobDebug
 import com.mzgs.helper.AdmobMediation
+import com.mzgs.helper.ApplovinMaxConfig
+import com.mzgs.helper.ApplovinMaxMediation
 import com.mzgs.helper.MzgsHelper
 import com.mzgs.helper.Pref
 import com.mzgs.helper.Remote
@@ -67,6 +69,10 @@ class MainActivity : ComponentActivity() {
             )
         )
 
+        ApplovinMaxMediation.config = ApplovinMaxConfig(
+            INTERSTITIAL_AD_UNIT_ID = "b5d9132de55740f2"
+        )
+
 
         lifecycleScope.launch {
             val activity = this@MainActivity
@@ -87,6 +93,10 @@ class MainActivity : ComponentActivity() {
                     if (Remote.getBool("enable_app_open_ad", true)) {
                         runOnUiThread { AdmobMediation.enableAppOpen(activity) }
                     }
+                }
+
+                ApplovinMaxMediation.initialize(activity){
+
                 }
 
             }
@@ -216,6 +226,19 @@ private fun MainExampleScreen(isSplashComplete: Boolean) {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Show App Open")
+            }
+
+            Text(
+                text = "AppLovin MAX",
+                style = MaterialTheme.typography.headlineSmall
+            )
+            Button(
+                onClick = {
+                    ApplovinMaxMediation.showMediationDebugger(context)
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Open MAX Debugger")
             }
 
             Text(

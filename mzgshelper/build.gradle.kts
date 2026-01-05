@@ -87,7 +87,7 @@ dependencies {
 
     // AppLovin MAX Mediation Adapters
 
-//    implementation("com.applovin:applovin-sdk:13.5.1")
+    implementation("com.applovin:applovin-sdk:13.5.1")
 //    implementation("com.applovin.mediation:google-adapter:24.9.0.0")
 //    implementation("com.applovin.mediation:unityads-adapter:4.16.5.0")
 //    implementation("com.applovin.mediation:fyber-adapter:8.4.2.0")
