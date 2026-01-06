@@ -77,8 +77,9 @@ object AdmobMediation {
     @Volatile private var isRewardedLoading = false
     @Volatile private var isAppOpenLoading = false
 
-    fun initialize(activity: Activity, onInitComplete: () -> Unit = {}) {
-        if (config.DEBUG.useTestAds && MzgsHelper.isDebug(activity)) {
+    fun initialize(context: Context, onInitComplete: () -> Unit = {}) {
+        val appContext = context.applicationContext
+        if (config.DEBUG.useTestAds && MzgsHelper.isDebug(appContext)) {
             Log.d(TAG, "Using test AdMob ad unit IDs.")
             config.INTERSTITIAL_AD_UNIT_ID = TEST_INTERSTITIAL_AD_UNIT_ID
             config.BANNER_AD_UNIT_ID = TEST_BANNER_AD_UNIT_ID
@@ -88,7 +89,7 @@ object AdmobMediation {
             config.MREC_AD_UNIT_ID = TEST_MREC_AD_UNIT_ID
         }
 
-        if (config.DEBUG.useEmptyIds && MzgsHelper.isDebug(activity)) {
+        if (config.DEBUG.useEmptyIds && MzgsHelper.isDebug(appContext)) {
             Log.d(TAG, "Using empty AdMob ad unit IDs.")
             config.INTERSTITIAL_AD_UNIT_ID = ""
             config.BANNER_AD_UNIT_ID = ""
@@ -108,7 +109,7 @@ object AdmobMediation {
         }
         isInitializing = true
 
-        val resolvedAppId = getAdMobAppId(activity)
+        val resolvedAppId = getAdMobAppId(appContext)
         if (resolvedAppId.isNullOrBlank()) {
             Log.w(TAG, "AdMob app ID not found; set $ADMOB_APP_ID_KEY in the manifest or pass appId.")
             isInitializing = false
@@ -117,7 +118,7 @@ object AdmobMediation {
             return
         }
 
-        MobileAds.initialize(activity) { initializationStatus ->
+        MobileAds.initialize(appContext) { initializationStatus ->
             for ((adapterClass, status) in initializationStatus.adapterStatusMap) {
                 Log.d(
                     TAG,
@@ -126,9 +127,9 @@ object AdmobMediation {
             }
             isInitialized = true
             isInitializing = false
-            loadInterstitial(activity)
-            loadRewarded(activity)
-            loadAppOpenAd(activity)
+            loadInterstitial(appContext)
+            loadRewarded(appContext)
+            loadAppOpenAd(appContext)
             drainInitCallbacks()
         }
     }

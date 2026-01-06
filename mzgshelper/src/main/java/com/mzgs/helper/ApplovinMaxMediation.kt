@@ -63,8 +63,9 @@ object ApplovinMaxMediation {
     private var rewardedOnUserRewarded: (String, Int) -> Unit = { _, _ -> }
     private var appOpenOnAdClosedInternal: () -> Unit = {}
 
-    fun initialize(activity: Activity, onInitComplete: () -> Unit = {}) {
-        if (config.DEBUG.useEmptyIds && MzgsHelper.isDebug(activity)) {
+    fun initialize(context: Context, onInitComplete: () -> Unit = {}) {
+        val appContext = context.applicationContext
+        if (config.DEBUG.useEmptyIds && MzgsHelper.isDebug(appContext)) {
             Log.d(TAG, "Using empty AppLovin MAX ad unit IDs.")
             config.INTERSTITIAL_AD_UNIT_ID = ""
             config.BANNER_AD_UNIT_ID = ""
@@ -84,7 +85,7 @@ object ApplovinMaxMediation {
         }
         isInitializing = true
 
-        val sdkKey = config.SDK_KEY.ifBlank { getAppLovinSdkKey(activity) }.orEmpty()
+        val sdkKey = config.SDK_KEY.ifBlank { getAppLovinSdkKey(appContext) }.orEmpty()
         if (sdkKey.isBlank()) {
             Log.w(TAG, "AppLovin SDK key not found; set $APPLOVIN_SDK_KEY_META in the manifest or pass SDK_KEY.")
             isInitializing = false
@@ -98,7 +99,7 @@ object ApplovinMaxMediation {
         val initConfigBuilder = AppLovinSdkInitializationConfiguration.builder(sdkKey)
             .setMediationProvider(AppLovinMediationProvider.MAX)
 
-        if (config.DEBUG.useTestAds && MzgsHelper.isDebug(activity)) {
+        if (config.DEBUG.useTestAds && MzgsHelper.isDebug(appContext)) {
             if (config.DEBUG.testDeviceAdvertisingIds.isNotEmpty()) {
                 initConfigBuilder.setTestDeviceAdvertisingIds(config.DEBUG.testDeviceAdvertisingIds)
             } else {
@@ -107,11 +108,11 @@ object ApplovinMaxMediation {
         }
 
         val initConfig = initConfigBuilder.build()
-        AppLovinSdk.getInstance(activity).initialize(initConfig) {
+        AppLovinSdk.getInstance(appContext).initialize(initConfig) {
             isInitialized = true
             isInitializing = false
             if (config.INTERSTITIAL_AD_UNIT_ID.isNotBlank()) {
-                createInterstitialAd(activity.applicationContext)
+                createInterstitialAd(appContext)
             }
             if (config.REWARDED_AD_UNIT_ID.isNotBlank()) {
                 createRewardedAd()
