@@ -693,8 +693,13 @@ object Remote {
 
 
 object Pref {
+    private var applicationContext: Context? = null
     private val sharedPreferences by lazy {
-        Remote.getApplicationContext()?.getSharedPreferences("AppPreferences", Context.MODE_PRIVATE)
+        applicationContext?.getSharedPreferences("AppPreferences", Context.MODE_PRIVATE)
+    }
+
+    fun init(context: Context) {
+        applicationContext = context.applicationContext
     }
 
     fun <T> get(key: String, defaultValue: T): T {
