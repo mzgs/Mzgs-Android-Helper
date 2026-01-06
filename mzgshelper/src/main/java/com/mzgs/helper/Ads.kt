@@ -92,32 +92,11 @@ object Ads {
         networks: String = "applovin,admob",
         onAdClosed: () -> Unit = {},
     ) {
-        val networks = normalizedNetworks(networks)
-
-        var activeNetwork: String? = null
-        var closedNotified = false
-
-        fun networkClosed(network: String) {
-            if (activeNetwork == network && !closedNotified) {
-                closedNotified = true
-                onAdClosed()
-            }
-        }
-
-        for (network in networks) {
-            activeNetwork = network
-            val shown = when (network) {
-                "applovin" -> ApplovinMaxMediation.showInterstitial(activity) { networkClosed(network) }
-                "admob" -> AdmobMediation.showInterstitial(activity) { networkClosed(network) }
-                else -> false
-            }
-            if (shown) {
-                return
-            }
-        }
-        if (!closedNotified) {
-            onAdClosed()
-        }
+        showInterstitialInternal(
+            activity = activity,
+            networks = networks,
+            onAdClosed = onAdClosed,
+        )
     }
 
     fun showInterstitialWithCycle(
@@ -136,7 +115,7 @@ object Ads {
         }
 
         if (currentCounter % cycleValue == 0) {
-            return showInterstitial(
+            return showInterstitialInternal(
                 activity = activity,
                 networks = networks,
                 onAdClosed = onAdClosed,
@@ -194,6 +173,40 @@ object Ads {
         if (!closedNotified) {
             onAdClosed()
         }
+    }
+
+    private fun showInterstitialInternal(
+        activity: Activity,
+        networks: String,
+        onAdClosed: () -> Unit,
+    ): Boolean {
+        val networks = normalizedNetworks(networks)
+
+        var activeNetwork: String? = null
+        var closedNotified = false
+
+        fun networkClosed(network: String) {
+            if (activeNetwork == network && !closedNotified) {
+                closedNotified = true
+                onAdClosed()
+            }
+        }
+
+        for (network in networks) {
+            activeNetwork = network
+            val shown = when (network) {
+                "applovin" -> ApplovinMaxMediation.showInterstitial(activity) { networkClosed(network) }
+                "admob" -> AdmobMediation.showInterstitial(activity) { networkClosed(network) }
+                else -> false
+            }
+            if (shown) {
+                return true
+            }
+        }
+        if (!closedNotified) {
+            onAdClosed()
+        }
+        return false
     }
 
     fun showAppOpenAd(

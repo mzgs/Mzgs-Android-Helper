@@ -79,6 +79,7 @@ class MainActivity : ComponentActivity() {
             SimpleSplashHelper.startProgress(activity)
 
 
+
         } // end launch
 
 
