@@ -120,6 +120,55 @@ object Ads {
         }
     }
 
+    fun showRewarded(
+        activity: Activity,
+        networks: String = "applovin,admob",
+        onRewarded: (type: String, amount: Int) -> Unit = { _, _ -> },
+        onAdClosed: () -> Unit = {},
+    ) {
+        val networks = normalizedNetworks(networks)
+
+        var activeNetwork: String? = null
+        var closedNotified = false
+
+        fun networkClosed(network: String) {
+            if (activeNetwork == network && !closedNotified) {
+                closedNotified = true
+                onAdClosed()
+            }
+        }
+
+        fun networkRewarded(network: String, type: String, amount: Int) {
+            if (activeNetwork == network) {
+                onRewarded(type, amount)
+            }
+        }
+
+        for (network in networks) {
+            activeNetwork = network
+            val shown = when (network) {
+                "applovin" -> ApplovinMaxMediation.showReward(
+                    activity = activity,
+                    onRewarded = { type, amount -> networkRewarded(network, type, amount) },
+                    onAdClosed = { networkClosed(network) },
+                )
+                "admob" -> AdmobMediation.showReward(
+                    activity = activity,
+                    onRewarded = { type, amount -> networkRewarded(network, type, amount) },
+                    onAdClosed = { networkClosed(network) },
+                )
+                else -> false
+            }
+            if (shown) {
+                return
+            }
+        }
+
+        if (!closedNotified) {
+            onAdClosed()
+        }
+    }
+
     @Composable
     fun showBanner(
         modifier: Modifier = Modifier,
