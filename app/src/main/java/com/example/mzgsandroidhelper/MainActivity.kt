@@ -48,9 +48,7 @@ import com.mzgs.helper.Pref
 import com.mzgs.helper.Remote
 import com.mzgs.helper.SimpleSplashHelper
 import com.mzgs.helper.printLine
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
 
@@ -80,9 +78,7 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             val activity = this@MainActivity
             SimpleSplashHelper.showSplash(activity)
-            withContext(Dispatchers.IO) {
-                Remote.initSync(activity)
-            }
+            App.waitForRemoteInit()
             MzgsHelper.initAllowedCountry(activity)
 
             MzgsHelper.showUmpConsent(activity,forceDebugConsentInEea = true) {
@@ -92,9 +88,7 @@ class MainActivity : ComponentActivity() {
                 SimpleSplashHelper.setDuration(splashDuration)
                 SimpleSplashHelper.startProgress(activity)
 
-                AdmobMediation.initialize(activity)
-
-                ApplovinMaxMediation.initialize(activity)
+           
 
             }
 

@@ -522,11 +522,7 @@ object Remote {
         app = JSONObject()
 
         url?.takeIf { it.isNotEmpty() }?.let { configUrl ->
-            if (MzgsHelper.isNetworkAvailable(appContext)) {
-                fetchRemoteConfig(configUrl)
-            } else {
-                Log.w("Remote", "Network not available, using default values")
-            }
+            fetchRemoteConfig(configUrl)
         }
     }
 

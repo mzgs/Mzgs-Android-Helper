@@ -9,12 +9,24 @@ import com.mzgs.helper.ApplovinMaxDebug
 import com.mzgs.helper.ApplovinMaxMediation
 import com.mzgs.helper.FirebaseAnalyticsManager
 import com.mzgs.helper.Pref
+import com.mzgs.helper.Remote
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
-class MzgsAndroidHelperApp : Application() {
+class App : Application() {
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     override fun onCreate() {
         super.onCreate()
         FirebaseAnalyticsManager.initialize(this)
         Pref.init(this)
+
+        remoteInitJob = applicationScope.launch {
+            Remote.initSync(this@App)
+        }
 
 
         AdmobMediation.config = AdmobConfig(
@@ -36,6 +48,18 @@ class MzgsAndroidHelperApp : Application() {
 
         )
 
+        AdmobMediation.initialize(this)
+        ApplovinMaxMediation.initialize(this)
 
+
+    }
+
+    companion object {
+        @Volatile
+        private var remoteInitJob: Job? = null
+
+        suspend fun waitForRemoteInit() {
+            remoteInitJob?.join()
+        }
     }
 }
