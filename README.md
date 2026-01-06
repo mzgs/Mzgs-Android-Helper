@@ -268,3 +268,23 @@ Remote.init(application)
 val splashTime = Remote.getLong("splash_time", 11_000)
 val isFeatureEnabled = Remote.getBool("new_feature", false)
 ```
+
+## Mediation adapters
+- AdMob Mediation adapers
+
+ ```kotlin
+    implementation("com.google.ads.mediation:applovin:13.5.1.0")
+    implementation("com.google.ads.mediation:fyber:8.4.2.0")
+    implementation("com.google.ads.mediation:vungle:7.6.2.0")
+    implementation("com.unity3d.ads:unity-ads:4.16.5")
+    implementation("com.google.ads.mediation:unity:4.16.5.0")
+ ```
+
+- AppLovin MAX Mediation adapters
+
+ ```kotlin
+    implementation("com.applovin.mediation:google-adapter:24.9.0.0")
+    implementation("com.applovin.mediation:unityads-adapter:4.16.5.0")
+    implementation("com.applovin.mediation:fyber-adapter:8.4.2.0")
+    implementation("com.applovin.mediation:vungle-adapter:7.6.2.0")
+ ```
