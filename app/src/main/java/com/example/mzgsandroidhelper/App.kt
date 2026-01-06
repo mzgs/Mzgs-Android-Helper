@@ -6,6 +6,7 @@ import android.os.Bundle
 import com.mzgs.helper.AdmobConfig
 import com.mzgs.helper.AdmobDebug
 import com.mzgs.helper.AdmobMediation
+import com.mzgs.helper.Ads
 import com.mzgs.helper.ApplovinMaxConfig
 import com.mzgs.helper.ApplovinMaxDebug
 import com.mzgs.helper.ApplovinMaxMediation
@@ -77,6 +78,18 @@ class App : Application() {
                         ApplovinMaxMediation.initialize(this@App)
 
                     }
+
+                    Ads.initialize(
+                        activity,
+                        onGoForeground = {
+                            if (!ApplovinMaxMediation.isFullscreenAdShowing){
+                                ApplovinMaxMediation.showAppOpenAd(activity)
+                                return@initialize
+                            }
+                            AdmobMediation.showAppOpenAd(activity)
+                        }
+
+                    )
 
                 }
             }
