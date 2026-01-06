@@ -101,8 +101,7 @@ class App : Application() {
                     ApplovinMaxMediation.initialize(this@App)
                 }
 
-                Ads.initialize(
-                    activity,
+                Ads.initialize(activity,
                     onGoForeground = {
                         if (!ApplovinMaxMediation.isFullscreenAdShowing) {
                             Ads.showAppOpenAd(activity)
