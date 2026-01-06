@@ -4,6 +4,13 @@ import android.app.Activity
 import android.app.Application
 import android.content.ComponentCallbacks2
 import android.content.res.Configuration
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import com.google.android.gms.ads.AdSize
 import java.lang.ref.WeakReference
 
 object Ads {
@@ -115,6 +122,73 @@ object Ads {
         }
         if (!closedNotified) {
             onAdClosed()
+        }
+    }
+
+    @Composable
+    fun showBanner(
+        modifier: Modifier = Modifier,
+        networks: String = "applovin,admob",
+        adUnitId: String? = null,
+        adSize: AdSize? = null,
+        onAdFailedToLoad: ((String) -> Unit)? = null,
+    ) {
+        val requestedNetworks = networks
+            .split(",")
+            .map { it.trim().lowercase() }
+            .filter { it.isNotBlank() }
+        val orderedNetworks = requestedNetworks
+            .filter { it == "applovin" || it == "admob" }
+            .ifEmpty { listOf("applovin", "admob") }
+
+        var activeIndex by remember(networks, adUnitId, adSize?.toString()) { mutableStateOf(0) }
+        var failedNetworks by remember(networks, adUnitId, adSize?.toString()) { mutableStateOf(setOf<String>()) }
+
+        fun handleFailure(network: String, message: String) {
+            val currentNetwork = orderedNetworks.getOrNull(activeIndex)
+            if (network != currentNetwork || failedNetworks.contains(network)) {
+                return
+            }
+            failedNetworks = failedNetworks + network
+            val nextIndex = orderedNetworks.indexOfFirst { it !in failedNetworks }
+            if (nextIndex == -1) {
+                onAdFailedToLoad?.invoke(message)
+            } else {
+                activeIndex = nextIndex
+            }
+        }
+
+        when (orderedNetworks.getOrNull(activeIndex)) {
+            "applovin" -> {
+                val resolvedAdUnitId = adUnitId?.takeIf { it.isNotBlank() }
+                    ?: ApplovinMaxMediation.config.BANNER_AD_UNIT_ID
+                if (resolvedAdUnitId.isBlank()) {
+                    handleFailure("applovin", "AppLovin banner ad unit id is blank.")
+                } else {
+                    ApplovinMaxMediation.showBanner(
+                        modifier = modifier,
+                        adUnitId = resolvedAdUnitId,
+                        adSize = adSize,
+                    ) { errorMessage ->
+                        handleFailure("applovin", errorMessage)
+                    }
+                }
+            }
+            "admob" -> {
+                val resolvedAdUnitId = adUnitId?.takeIf { it.isNotBlank() }
+                    ?: AdmobMediation.config.BANNER_AD_UNIT_ID
+                if (resolvedAdUnitId.isBlank()) {
+                    handleFailure("admob", "AdMob banner ad unit id is blank.")
+                } else {
+                    AdmobMediation.showBanner(
+                        modifier = modifier,
+                        adUnitId = resolvedAdUnitId,
+                        adSize = adSize,
+                    ) { errorMessage ->
+                        handleFailure("admob", errorMessage)
+                    }
+                }
+            }
         }
     }
 }
