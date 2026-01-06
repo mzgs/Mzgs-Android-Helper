@@ -152,13 +152,13 @@ class App : Application() {
     }
     
     companion object {
-    @Volatile
-    private var remoteInitJob: Job? = null
+        @Volatile
+        private var remoteInitJob: Job? = null
 
-    suspend fun waitForRemoteInit() {
-        remoteInitJob?.join()
+        suspend fun waitForRemoteInit() {
+            remoteInitJob?.join()
+        }
     }
-}
 }
 ```
 
