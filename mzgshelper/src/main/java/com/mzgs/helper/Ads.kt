@@ -22,6 +22,7 @@ object Ads {
     private var onGoBackground: (Activity) -> Unit = {}
     private var onGoForeground: (Activity) -> Unit = {}
     private var lastStartedActivityRef: WeakReference<Activity>? = null
+    private val validNetworks = setOf("applovin", "admob")
 
     private val activityCallbacks = object : Application.ActivityLifecycleCallbacks {
         override fun onActivityCreated(activity: Activity, savedInstanceState: android.os.Bundle?) {}
@@ -91,13 +92,7 @@ object Ads {
         networks: String = "applovin,admob",
         onAdClosed: () -> Unit = {},
     ) {
-        val requestedNetworks = networks
-            .split(",")
-            .map { it.trim().lowercase() }
-            .filter { it.isNotBlank() }
-        val networks = requestedNetworks
-            .filter { it == "applovin" || it == "admob" }
-            .ifEmpty { listOf("applovin", "admob") }
+        val networks = normalizedNetworks(networks)
 
         var activeNetwork: String? = null
         var closedNotified = false
@@ -133,13 +128,7 @@ object Ads {
         adSize: AdSize? = null,
         onAdFailedToLoad: ((String) -> Unit)? = null,
     ) {
-        val requestedNetworks = networks
-            .split(",")
-            .map { it.trim().lowercase() }
-            .filter { it.isNotBlank() }
-        val orderedNetworks = requestedNetworks
-            .filter { it == "applovin" || it == "admob" }
-            .ifEmpty { listOf("applovin", "admob") }
+        val orderedNetworks = normalizedNetworks(networks)
 
         var activeIndex by remember(networks, adUnitId, adSize?.toString()) { mutableStateOf(0) }
         var failedNetworks by remember(networks, adUnitId, adSize?.toString()) { mutableStateOf(setOf<String>()) }
@@ -190,5 +179,15 @@ object Ads {
                 }
             }
         }
+    }
+
+    private fun normalizedNetworks(networks: String): List<String> {
+        val requested = networks
+            .split(",")
+            .map { it.trim().lowercase() }
+            .filter { it.isNotBlank() }
+        return requested
+            .filter { it in validNetworks }
+            .ifEmpty { validNetworks.toList() }
     }
 }

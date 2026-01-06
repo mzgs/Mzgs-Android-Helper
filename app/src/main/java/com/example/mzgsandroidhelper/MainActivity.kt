@@ -106,7 +106,7 @@ class MainActivity : ComponentActivity() {
             MzgsHelper.initAllowedCountry(activity)
 
             MzgsHelper.showUmpConsent(activity,forceDebugConsentInEea = true) {
-                val splashDuration = if (MzgsHelper.isDebug(activity))  9000 else Remote.getLong("splash_time", 11_000)
+                val splashDuration = if (MzgsHelper.isDebug(activity))  500 else Remote.getLong("splash_time", 11_000)
 
 
                 SimpleSplashHelper.setDuration(splashDuration)
