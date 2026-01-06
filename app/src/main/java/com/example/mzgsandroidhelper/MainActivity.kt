@@ -67,9 +67,6 @@ class MainActivity : ComponentActivity() {
             App.waitForRemoteInit()
             MzgsHelper.initAllowedCountry(activity)
 
-            val splashDuration = if (MzgsHelper.isDebug(activity))  500 else Remote.getLong("splash_time", 11_000)
-            SimpleSplashHelper.setDuration(splashDuration)
-            SimpleSplashHelper.startProgress(activity)
             SimpleSplashHelper.setOnComplete {
 
                 Ads.showInterstitial(activity){
@@ -77,6 +74,10 @@ class MainActivity : ComponentActivity() {
                 }
 
             }
+            val splashDuration = if (MzgsHelper.isDebug(activity))  500 else Remote.getLong("splash_time", 11_000)
+            SimpleSplashHelper.setDuration(splashDuration)
+            SimpleSplashHelper.startProgress(activity)
+
 
         } // end launch
 

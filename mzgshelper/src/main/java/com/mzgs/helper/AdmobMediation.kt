@@ -266,10 +266,6 @@ object AdmobMediation {
         adSize: AdSize? = null,
         onAdFailedToLoad: ((String) -> Unit)? = null,
     ) {
-        val resolvedAdUnitId = adUnitId?.takeIf { it.isNotBlank() } ?: config.BANNER_AD_UNIT_ID
-        if (resolvedAdUnitId.isBlank()) {
-            return
-        }
         val context = LocalContext.current
         val isInitializedState = remember { mutableStateOf(isInitialized) }
         val configuration = LocalConfiguration.current
@@ -281,8 +277,6 @@ object AdmobMediation {
                 )
         }
         val adViewState = remember { mutableStateOf<AdView?>(null) }
-        val requestKey = remember(resolvedAdUnitId, resolvedAdSize) { "$resolvedAdUnitId:$resolvedAdSize" }
-        val hasLoaded = remember(requestKey) { mutableStateOf(false) }
 
         LaunchedEffect(Unit) {
             while (!isInitialized) {
@@ -292,32 +286,41 @@ object AdmobMediation {
         }
 
         if (isInitializedState.value) {
-            key(requestKey) {
-                AndroidView(
-                    modifier = modifier,
-                    factory = { viewContext ->
-                        AdView(viewContext).also { adView ->
-                            adViewState.value = adView
-                            adView.adUnitId = resolvedAdUnitId
-                            adView.setAdSize(resolvedAdSize)
-                            adView.adListener = object : AdListener() {
-                                override fun onAdFailedToLoad(adError: LoadAdError) {
-                                    onAdFailedToLoad?.invoke(adError.message)
+            val resolvedAdUnitId = adUnitId?.takeIf { it.isNotBlank() } ?: config.BANNER_AD_UNIT_ID
+            if (resolvedAdUnitId.isBlank()) {
+                onAdFailedToLoad?.invoke("AdMob banner ad unit id is blank.")
+            } else {
+                val requestKey = remember(resolvedAdUnitId, resolvedAdSize) {
+                    "$resolvedAdUnitId:$resolvedAdSize"
+                }
+                val hasLoaded = remember(requestKey) { mutableStateOf(false) }
+                key(requestKey) {
+                    AndroidView(
+                        modifier = modifier,
+                        factory = { viewContext ->
+                            AdView(viewContext).also { adView ->
+                                adViewState.value = adView
+                                adView.adUnitId = resolvedAdUnitId
+                                adView.setAdSize(resolvedAdSize)
+                                adView.adListener = object : AdListener() {
+                                    override fun onAdFailedToLoad(adError: LoadAdError) {
+                                        onAdFailedToLoad?.invoke(adError.message)
+                                    }
+                                }
+                                if (!hasLoaded.value) {
+                                    adView.loadAd(AdRequest.Builder().build())
+                                    hasLoaded.value = true
                                 }
                             }
+                        },
+                        update = { adView ->
                             if (!hasLoaded.value) {
                                 adView.loadAd(AdRequest.Builder().build())
                                 hasLoaded.value = true
                             }
-                        }
-                    },
-                    update = { adView ->
-                        if (!hasLoaded.value) {
-                            adView.loadAd(AdRequest.Builder().build())
-                            hasLoaded.value = true
-                        }
-                    },
-                )
+                        },
+                    )
+                }
             }
         }
 
@@ -350,14 +353,8 @@ object AdmobMediation {
         adUnitId: String? = null,
         onAdFailedToLoad: ((String) -> Unit)? = null,
     ) {
-        val resolvedAdUnitId = adUnitId?.takeIf { it.isNotBlank() } ?: config.NATIVE_AD_UNIT_ID
-        if (resolvedAdUnitId.isBlank()) {
-            return
-        }
         val context = LocalContext.current
         val isInitializedState = remember { mutableStateOf(isInitialized) }
-        val nativeAdState = remember(resolvedAdUnitId) { mutableStateOf<NativeAd?>(null) }
-        val isLoading = remember(resolvedAdUnitId) { mutableStateOf(false) }
 
         LaunchedEffect(Unit) {
             while (!isInitialized) {
@@ -366,62 +363,70 @@ object AdmobMediation {
             isInitializedState.value = true
         }
 
-        LaunchedEffect(resolvedAdUnitId, isInitializedState.value) {
-            if (!isInitializedState.value || isLoading.value || nativeAdState.value != null) {
-                return@LaunchedEffect
-            }
-            isLoading.value = true
-            val adLoader = AdLoader.Builder(context, resolvedAdUnitId)
-                .forNativeAd { nativeAd ->
-                    nativeAdState.value?.destroy()
-                    nativeAdState.value = nativeAd
-                    isLoading.value = false
-                }
-                .withNativeAdOptions(NativeAdOptions.Builder().build())
-                .withAdListener(object : AdListener() {
-                    override fun onAdFailedToLoad(adError: LoadAdError) {
-                        isLoading.value = false
-                        onAdFailedToLoad?.invoke(adError.message)
-                        FirebaseAnalyticsManager.logEvent(
-                            "native_ad_failed_to_load",
-                            Bundle().apply {
-                                putString("ad_unit_id", resolvedAdUnitId)
-                                putString("error_message", adError.message)
-                            },
-                        )
-                    }
-                })
-                .build()
-            adLoader.loadAd(AdRequest.Builder().build())
-        }
-
         if (isInitializedState.value) {
-            AndroidView(
-                modifier = modifier,
-                factory = { viewContext ->
-                    val holder = createNativeAdViewHolder(viewContext)
-                    val adView = holder.nativeAdView
-                    adView.tag = holder
-                    adView.visibility = View.GONE
-                    adView
-                },
-                update = { adView ->
-                    val holder = adView.tag as? NativeAdViewHolder ?: return@AndroidView
-                    val nativeAd = nativeAdState.value
-                    if (nativeAd == null) {
-                        adView.visibility = View.GONE
-                        return@AndroidView
-                    }
-                    adView.visibility = View.VISIBLE
-                    bindNativeAd(holder, nativeAd)
-                },
-            )
-        }
+            val resolvedAdUnitId = adUnitId?.takeIf { it.isNotBlank() } ?: config.NATIVE_AD_UNIT_ID
+            if (resolvedAdUnitId.isBlank()) {
+                onAdFailedToLoad?.invoke("AdMob native ad unit id is blank.")
+            } else {
+                val nativeAdState = remember(resolvedAdUnitId) { mutableStateOf<NativeAd?>(null) }
+                val isLoading = remember(resolvedAdUnitId) { mutableStateOf(false) }
 
-        DisposableEffect(nativeAdState.value) {
-            val activeAd = nativeAdState.value
-            onDispose {
-                activeAd?.destroy()
+                LaunchedEffect(resolvedAdUnitId) {
+                    if (isLoading.value || nativeAdState.value != null) {
+                        return@LaunchedEffect
+                    }
+                    isLoading.value = true
+                    val adLoader = AdLoader.Builder(context, resolvedAdUnitId)
+                        .forNativeAd { nativeAd ->
+                            nativeAdState.value?.destroy()
+                            nativeAdState.value = nativeAd
+                            isLoading.value = false
+                        }
+                        .withNativeAdOptions(NativeAdOptions.Builder().build())
+                        .withAdListener(object : AdListener() {
+                            override fun onAdFailedToLoad(adError: LoadAdError) {
+                                isLoading.value = false
+                                onAdFailedToLoad?.invoke(adError.message)
+                                FirebaseAnalyticsManager.logEvent(
+                                    "native_ad_failed_to_load",
+                                    Bundle().apply {
+                                        putString("ad_unit_id", resolvedAdUnitId)
+                                        putString("error_message", adError.message)
+                                    },
+                                )
+                            }
+                        })
+                        .build()
+                    adLoader.loadAd(AdRequest.Builder().build())
+                }
+
+                AndroidView(
+                    modifier = modifier,
+                    factory = { viewContext ->
+                        val holder = createNativeAdViewHolder(viewContext)
+                        val adView = holder.nativeAdView
+                        adView.tag = holder
+                        adView.visibility = View.GONE
+                        adView
+                    },
+                    update = { adView ->
+                        val holder = adView.tag as? NativeAdViewHolder ?: return@AndroidView
+                        val nativeAd = nativeAdState.value
+                        if (nativeAd == null) {
+                            adView.visibility = View.GONE
+                            return@AndroidView
+                        }
+                        adView.visibility = View.VISIBLE
+                        bindNativeAd(holder, nativeAd)
+                    },
+                )
+
+                DisposableEffect(nativeAdState.value) {
+                    val activeAd = nativeAdState.value
+                    onDispose {
+                        activeAd?.destroy()
+                    }
+                }
             }
         }
     }

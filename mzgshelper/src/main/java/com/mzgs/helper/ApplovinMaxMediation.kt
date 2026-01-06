@@ -150,17 +150,12 @@ object ApplovinMaxMediation {
         adSize: AdSize? = null,
         onAdFailedToLoad: ((String) -> Unit)? = null,
     ) {
-        val resolvedAdUnitId = adUnitId?.takeIf { it.isNotBlank() } ?: config.BANNER_AD_UNIT_ID
-        if (resolvedAdUnitId.isBlank()) {
-            return
-        }
         val context = LocalContext.current
         val configuration = LocalConfiguration.current
         val isInitialized = remember { mutableStateOf(AppLovinSdk.getInstance(context).isInitialized) }
         val isMrec = remember(adSize) { adSize == AdSize.MEDIUM_RECTANGLE }
         val adViewState = remember { mutableStateOf<MaxAdView?>(null) }
         val adContainerState = remember { mutableStateOf<FrameLayout?>(null) }
-        val requestKey = remember(resolvedAdUnitId, isMrec) { "$resolvedAdUnitId:$isMrec" }
         val heightPx = remember(configuration, isMrec) {
             val heightDp = if (isMrec) 250 else if (configuration.smallestScreenWidthDp >= 600) 90 else 50
             dpToPx(context, heightDp)
@@ -176,88 +171,92 @@ object ApplovinMaxMediation {
             isInitialized.value = true
         }
 
-        LaunchedEffect(requestKey, isInitialized.value, adContainerState.value, heightPx, widthPx) {
-            val container = adContainerState.value ?: return@LaunchedEffect
-            if (!isInitialized.value) {
-                return@LaunchedEffect
-            }
-
-            val existing = adViewState.value
-            if (existing == null || existing.tag != requestKey) {
-                existing?.destroy()
-                val adFormat = if (isMrec) MaxAdFormat.MREC else MaxAdFormat.BANNER
-                val newAdView = MaxAdView(resolvedAdUnitId, adFormat).also { adView ->
-                    adView.tag = requestKey
-                    adView.layoutParams = FrameLayout.LayoutParams(widthPx, heightPx)
-                    adView.setBackgroundColor(Color.TRANSPARENT)
-                    adView.setListener(object : MaxAdViewAdListener {
-                        override fun onAdLoaded(ad: MaxAd) {
-                            FirebaseAnalyticsManager.logAdLoad(
-                                adType = if (isMrec) "mrec" else "banner",
-                                adUnitId = resolvedAdUnitId,
-                                adNetwork = "applovin",
-                                success = true,
-                            )
-                        }
-
-                        override fun onAdLoadFailed(adUnitId: String, error: MaxError) {
-                            onAdFailedToLoad?.invoke(error.message)
-                            FirebaseAnalyticsManager.logAdLoad(
-                                adType = if (isMrec) "mrec" else "banner",
-                                adUnitId = resolvedAdUnitId,
-                                adNetwork = "applovin",
-                                success = false,
-                                errorMessage = error.message,
-                                errorCode = error.code,
-                            )
-                        }
-
-                        override fun onAdDisplayFailed(ad: MaxAd, error: MaxError) {}
-                        override fun onAdClicked(ad: MaxAd) {
-                            FirebaseAnalyticsManager.logAdClicked(
-                                adType = if (isMrec) "mrec" else "banner",
-                                adUnitId = resolvedAdUnitId,
-                                adNetwork = "applovin",
-                            )
-                        }
-                        override fun onAdExpanded(ad: MaxAd) {}
-                        override fun onAdCollapsed(ad: MaxAd) {}
-                        override fun onAdDisplayed(ad: MaxAd) {}
-                        override fun onAdHidden(ad: MaxAd) {}
-                    })
-                    adView.loadAd()
-                }
-                container.removeAllViews()
-                container.addView(newAdView)
-                adViewState.value = newAdView
-            } else {
-                val params = existing.layoutParams as? FrameLayout.LayoutParams
-                if (params == null || params.width != widthPx || params.height != heightPx) {
-                    existing.layoutParams = FrameLayout.LayoutParams(widthPx, heightPx)
-                }
-                val parent = existing.parent as? ViewGroup
-                if (parent != container) {
-                    parent?.removeView(existing)
-                    container.removeAllViews()
-                    container.addView(existing)
-                }
-            }
-        }
-
         if (isInitialized.value) {
-            AndroidView(
-                modifier = modifier,
-                factory = { viewContext ->
-                    FrameLayout(viewContext).also { container ->
-                        adContainerState.value = container
+            val resolvedAdUnitId = adUnitId?.takeIf { it.isNotBlank() } ?: config.BANNER_AD_UNIT_ID
+            if (resolvedAdUnitId.isBlank()) {
+                onAdFailedToLoad?.invoke("AppLovin banner ad unit id is blank.")
+            } else {
+                val requestKey = remember(resolvedAdUnitId, isMrec) { "$resolvedAdUnitId:$isMrec" }
+
+                LaunchedEffect(requestKey, adContainerState.value, heightPx, widthPx) {
+                    val container = adContainerState.value ?: return@LaunchedEffect
+
+                    val existing = adViewState.value
+                    if (existing == null || existing.tag != requestKey) {
+                        existing?.destroy()
+                        val adFormat = if (isMrec) MaxAdFormat.MREC else MaxAdFormat.BANNER
+                        val newAdView = MaxAdView(resolvedAdUnitId, adFormat).also { adView ->
+                            adView.tag = requestKey
+                            adView.layoutParams = FrameLayout.LayoutParams(widthPx, heightPx)
+                            adView.setBackgroundColor(Color.TRANSPARENT)
+                            adView.setListener(object : MaxAdViewAdListener {
+                                override fun onAdLoaded(ad: MaxAd) {
+                                    FirebaseAnalyticsManager.logAdLoad(
+                                        adType = if (isMrec) "mrec" else "banner",
+                                        adUnitId = resolvedAdUnitId,
+                                        adNetwork = "applovin",
+                                        success = true,
+                                    )
+                                }
+
+                                override fun onAdLoadFailed(adUnitId: String, error: MaxError) {
+                                    onAdFailedToLoad?.invoke(error.message)
+                                    FirebaseAnalyticsManager.logAdLoad(
+                                        adType = if (isMrec) "mrec" else "banner",
+                                        adUnitId = resolvedAdUnitId,
+                                        adNetwork = "applovin",
+                                        success = false,
+                                        errorMessage = error.message,
+                                        errorCode = error.code,
+                                    )
+                                }
+
+                                override fun onAdDisplayFailed(ad: MaxAd, error: MaxError) {}
+                                override fun onAdClicked(ad: MaxAd) {
+                                    FirebaseAnalyticsManager.logAdClicked(
+                                        adType = if (isMrec) "mrec" else "banner",
+                                        adUnitId = resolvedAdUnitId,
+                                        adNetwork = "applovin",
+                                    )
+                                }
+                                override fun onAdExpanded(ad: MaxAd) {}
+                                override fun onAdCollapsed(ad: MaxAd) {}
+                                override fun onAdDisplayed(ad: MaxAd) {}
+                                override fun onAdHidden(ad: MaxAd) {}
+                            })
+                            adView.loadAd()
+                        }
+                        container.removeAllViews()
+                        container.addView(newAdView)
+                        adViewState.value = newAdView
+                    } else {
+                        val params = existing.layoutParams as? FrameLayout.LayoutParams
+                        if (params == null || params.width != widthPx || params.height != heightPx) {
+                            existing.layoutParams = FrameLayout.LayoutParams(widthPx, heightPx)
+                        }
+                        val parent = existing.parent as? ViewGroup
+                        if (parent != container) {
+                            parent?.removeView(existing)
+                            container.removeAllViews()
+                            container.addView(existing)
+                        }
                     }
-                },
-                update = { container ->
-                    if (adContainerState.value !== container) {
-                        adContainerState.value = container
-                    }
-                },
-            )
+                }
+
+                AndroidView(
+                    modifier = modifier,
+                    factory = { viewContext ->
+                        FrameLayout(viewContext).also { container ->
+                            adContainerState.value = container
+                        }
+                    },
+                    update = { container ->
+                        if (adContainerState.value !== container) {
+                            adContainerState.value = container
+                        }
+                    },
+                )
+            }
         }
 
         DisposableEffect(Unit) {
@@ -289,17 +288,8 @@ object ApplovinMaxMediation {
         adUnitId: String? = null,
         onAdFailedToLoad: ((String) -> Unit)? = null,
     ) {
-        val resolvedAdUnitId = adUnitId?.takeIf { it.isNotBlank() } ?: config.NATIVE_AD_UNIT_ID
-        if (resolvedAdUnitId.isBlank()) {
-            return
-        }
         val context = LocalContext.current
         val isInitialized = remember { mutableStateOf(AppLovinSdk.getInstance(context).isInitialized) }
-        val nativeAdLoader = remember(resolvedAdUnitId) { MaxNativeAdLoader(resolvedAdUnitId) }
-        val nativeAdContainerState = remember { mutableStateOf<FrameLayout?>(null) }
-        val nativeAdViewState = remember(resolvedAdUnitId) { mutableStateOf<MaxNativeAdView?>(null) }
-        val loadedNativeAdState = remember(resolvedAdUnitId) { mutableStateOf<MaxAd?>(null) }
-        val isLoading = remember(resolvedAdUnitId) { mutableStateOf(false) }
 
         LaunchedEffect(Unit) {
             while (!AppLovinSdk.getInstance(context).isInitialized) {
@@ -308,92 +298,102 @@ object ApplovinMaxMediation {
             isInitialized.value = true
         }
 
-        DisposableEffect(resolvedAdUnitId) {
-            nativeAdLoader.setNativeAdListener(object : MaxNativeAdListener() {
-                override fun onNativeAdLoaded(nativeAdView: MaxNativeAdView?, nativeAd: MaxAd) {
-                    val container = nativeAdContainerState.value
-                    if (container != null && nativeAdView != null) {
-                        loadedNativeAdState.value?.let { nativeAdLoader.destroy(it) }
-                        loadedNativeAdState.value = nativeAd
-                        nativeAdViewState.value = nativeAdView
-                        container.removeAllViews()
-                        container.addView(nativeAdView)
-                        FirebaseAnalyticsManager.logAdLoad(
-                            adType = "native",
-                            adUnitId = resolvedAdUnitId,
-                            adNetwork = "applovin",
-                            success = true,
-                        )
-                    }
-                    isLoading.value = false
-                }
-
-                override fun onNativeAdLoadFailed(adUnitId: String, error: MaxError) {
-                    isLoading.value = false
-                    onAdFailedToLoad?.invoke(error.message)
-                    FirebaseAnalyticsManager.logAdLoad(
-                        adType = "native",
-                        adUnitId = resolvedAdUnitId,
-                        adNetwork = "applovin",
-                        success = false,
-                        errorMessage = error.message,
-                        errorCode = error.code,
-                    )
-                }
-
-                override fun onNativeAdClicked(nativeAd: MaxAd) {
-                    FirebaseAnalyticsManager.logAdClicked(
-                        adType = "native",
-                        adUnitId = resolvedAdUnitId,
-                        adNetwork = "applovin",
-                    )
-                }
-            })
-            onDispose {
-                loadedNativeAdState.value?.let { nativeAdLoader.destroy(it) }
-                nativeAdViewState.value = null
-                nativeAdLoader.destroy()
-            }
-        }
-
-        LaunchedEffect(
-            resolvedAdUnitId,
-            isInitialized.value,
-            nativeAdContainerState.value,
-            nativeAdViewState.value,
-        ) {
-            val container = nativeAdContainerState.value ?: return@LaunchedEffect
-            val nativeAdView = nativeAdViewState.value
-            if (nativeAdView != null) {
-                val parent = nativeAdView.parent as? ViewGroup
-                if (parent != container) {
-                    parent?.removeView(nativeAdView)
-                    container.removeAllViews()
-                    container.addView(nativeAdView)
-                }
-                return@LaunchedEffect
-            }
-            if (!isInitialized.value || isLoading.value || loadedNativeAdState.value != null) {
-                return@LaunchedEffect
-            }
-            isLoading.value = true
-            nativeAdLoader.loadAd(createNativeAdView(context))
-        }
-
         if (isInitialized.value) {
-            AndroidView(
-                modifier = modifier,
-                factory = { viewContext ->
-                    FrameLayout(viewContext).also { container ->
-                        nativeAdContainerState.value = container
+            val resolvedAdUnitId = adUnitId?.takeIf { it.isNotBlank() } ?: config.NATIVE_AD_UNIT_ID
+            if (resolvedAdUnitId.isBlank()) {
+                onAdFailedToLoad?.invoke("AppLovin native ad unit id is blank.")
+            } else {
+                val nativeAdLoader = remember(resolvedAdUnitId) { MaxNativeAdLoader(resolvedAdUnitId) }
+                val nativeAdContainerState = remember { mutableStateOf<FrameLayout?>(null) }
+                val nativeAdViewState = remember(resolvedAdUnitId) { mutableStateOf<MaxNativeAdView?>(null) }
+                val loadedNativeAdState = remember(resolvedAdUnitId) { mutableStateOf<MaxAd?>(null) }
+                val isLoading = remember(resolvedAdUnitId) { mutableStateOf(false) }
+
+                DisposableEffect(resolvedAdUnitId) {
+                    nativeAdLoader.setNativeAdListener(object : MaxNativeAdListener() {
+                        override fun onNativeAdLoaded(nativeAdView: MaxNativeAdView?, nativeAd: MaxAd) {
+                            val container = nativeAdContainerState.value
+                            if (container != null && nativeAdView != null) {
+                                loadedNativeAdState.value?.let { nativeAdLoader.destroy(it) }
+                                loadedNativeAdState.value = nativeAd
+                                nativeAdViewState.value = nativeAdView
+                                container.removeAllViews()
+                                container.addView(nativeAdView)
+                                FirebaseAnalyticsManager.logAdLoad(
+                                    adType = "native",
+                                    adUnitId = resolvedAdUnitId,
+                                    adNetwork = "applovin",
+                                    success = true,
+                                )
+                            }
+                            isLoading.value = false
+                        }
+
+                        override fun onNativeAdLoadFailed(adUnitId: String, error: MaxError) {
+                            isLoading.value = false
+                            onAdFailedToLoad?.invoke(error.message)
+                            FirebaseAnalyticsManager.logAdLoad(
+                                adType = "native",
+                                adUnitId = resolvedAdUnitId,
+                                adNetwork = "applovin",
+                                success = false,
+                                errorMessage = error.message,
+                                errorCode = error.code,
+                            )
+                        }
+
+                        override fun onNativeAdClicked(nativeAd: MaxAd) {
+                            FirebaseAnalyticsManager.logAdClicked(
+                                adType = "native",
+                                adUnitId = resolvedAdUnitId,
+                                adNetwork = "applovin",
+                            )
+                        }
+                    })
+                    onDispose {
+                        loadedNativeAdState.value?.let { nativeAdLoader.destroy(it) }
+                        nativeAdViewState.value = null
+                        nativeAdLoader.destroy()
                     }
-                },
-                update = { container ->
-                    if (nativeAdContainerState.value !== container) {
-                        nativeAdContainerState.value = container
+                }
+
+                LaunchedEffect(
+                    resolvedAdUnitId,
+                    nativeAdContainerState.value,
+                    nativeAdViewState.value,
+                ) {
+                    val container = nativeAdContainerState.value ?: return@LaunchedEffect
+                    val nativeAdView = nativeAdViewState.value
+                    if (nativeAdView != null) {
+                        val parent = nativeAdView.parent as? ViewGroup
+                        if (parent != container) {
+                            parent?.removeView(nativeAdView)
+                            container.removeAllViews()
+                            container.addView(nativeAdView)
+                        }
+                        return@LaunchedEffect
                     }
-                },
-            )
+                    if (isLoading.value || loadedNativeAdState.value != null) {
+                        return@LaunchedEffect
+                    }
+                    isLoading.value = true
+                    nativeAdLoader.loadAd(createNativeAdView(context))
+                }
+
+                AndroidView(
+                    modifier = modifier,
+                    factory = { viewContext ->
+                        FrameLayout(viewContext).also { container ->
+                            nativeAdContainerState.value = container
+                        }
+                    },
+                    update = { container ->
+                        if (nativeAdContainerState.value !== container) {
+                            nativeAdContainerState.value = container
+                        }
+                    },
+                )
+            }
         }
     }
 
