@@ -181,6 +181,64 @@ object Ads {
         }
     }
 
+    @Composable
+    fun showMrec(
+        modifier: Modifier = Modifier,
+        networks: String = "applovin,admob",
+        adUnitId: String? = null,
+        onAdFailedToLoad: ((String) -> Unit)? = null,
+    ) {
+        val orderedNetworks = normalizedNetworks(networks)
+
+        var activeIndex by remember(networks, adUnitId) { mutableStateOf(0) }
+        var failedNetworks by remember(networks, adUnitId) { mutableStateOf(setOf<String>()) }
+
+        fun handleFailure(network: String, message: String) {
+            val currentNetwork = orderedNetworks.getOrNull(activeIndex)
+            if (network != currentNetwork || failedNetworks.contains(network)) {
+                return
+            }
+            failedNetworks = failedNetworks + network
+            val nextIndex = orderedNetworks.indexOfFirst { it !in failedNetworks }
+            if (nextIndex == -1) {
+                onAdFailedToLoad?.invoke(message)
+            } else {
+                activeIndex = nextIndex
+            }
+        }
+
+        when (orderedNetworks.getOrNull(activeIndex)) {
+            "applovin" -> {
+                val resolvedAdUnitId = adUnitId?.takeIf { it.isNotBlank() }
+                    ?: ApplovinMaxMediation.config.MREC_AD_UNIT_ID
+                if (resolvedAdUnitId.isBlank()) {
+                    handleFailure("applovin", "AppLovin MREC ad unit id is blank.")
+                } else {
+                    ApplovinMaxMediation.showMrec(
+                        modifier = modifier,
+                        adUnitId = resolvedAdUnitId,
+                    ) { errorMessage ->
+                        handleFailure("applovin", errorMessage)
+                    }
+                }
+            }
+            "admob" -> {
+                val resolvedAdUnitId = adUnitId?.takeIf { it.isNotBlank() }
+                    ?: AdmobMediation.config.MREC_AD_UNIT_ID
+                if (resolvedAdUnitId.isBlank()) {
+                    handleFailure("admob", "AdMob MREC ad unit id is blank.")
+                } else {
+                    AdmobMediation.showMrec(
+                        modifier = modifier,
+                        adUnitId = resolvedAdUnitId,
+                    ) { errorMessage ->
+                        handleFailure("admob", errorMessage)
+                    }
+                }
+            }
+        }
+    }
+
     private fun normalizedNetworks(networks: String): List<String> {
         val requested = networks
             .split(",")
