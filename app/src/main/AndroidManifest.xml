@@ -43,6 +43,11 @@
             android:exported="false"
             android:label="Example Activity"
             android:theme="@style/Theme.MzgsAndroidHelper" />
+        <activity
+            android:name=".AdsExample"
+            android:exported="false"
+            android:label="Ads Example"
+            android:theme="@style/Theme.MzgsAndroidHelper" />
 
         <meta-data
             android:name="applovin.sdk.key"

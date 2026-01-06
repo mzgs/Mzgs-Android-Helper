@@ -78,7 +78,7 @@ class MainActivity : ComponentActivity() {
             MREC_AD_UNIT_ID = "499681b3d7a48fbc",
             NATIVE_AD_UNIT_ID = "b93d53f11cb44097",
             DEBUG = ApplovinMaxDebug(
-                useEmptyIds = true,
+                useEmptyIds = false,
             )
 
         )
@@ -179,6 +179,23 @@ private fun MainExampleScreen(isSplashComplete: Boolean) {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Open example activity")
+            }
+            Button(
+                onClick = {
+                    val currentActivity = activity
+                    if (currentActivity == null) {
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("Activity not available")
+                        }
+                        return@Button
+                    }
+                    currentActivity.startActivity(
+                        Intent(currentActivity, AdsExample::class.java)
+                    )
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Open ads example")
             }
 
             Text(
