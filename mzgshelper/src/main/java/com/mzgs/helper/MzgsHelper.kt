@@ -2,12 +2,14 @@ package com.mzgs.helper
 
 import android.Manifest
 import android.app.Activity
+import android.app.Application
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
+import android.os.Bundle
 import android.telephony.TelephonyManager
 import android.util.Log
 
@@ -26,6 +28,7 @@ import org.json.JSONObject
 import com.google.android.play.core.review.ReviewManagerFactory
 import java.net.URL
 import java.util.*
+import java.util.concurrent.atomic.AtomicBoolean
 
 fun p(obj: Any) {
     Log.d("mzgslog", obj.toString())
@@ -42,6 +45,13 @@ fun printLine(message: Any? = null) {
 object MzgsHelper {
     
     private const val TAG = "MzgsHelper"
+    private val firstActivityCreatedHandled = AtomicBoolean(false)
+    private val firstActivityResumedHandled = AtomicBoolean(false)
+    private var activityDetectRegistered = false
+    private var onFirstActivityCreated: (Activity) -> Unit = {}
+    private var onFirstActivityResumed: (Activity) -> Unit = {}
+    @Volatile
+    var onFirstActivityCreatedListener: ((Activity) -> Unit)? = null
     var restrictedCountries: List<String> = listOf(
         "UK", "US", "GB", "CN", "MX", "JP", "KR", "AR", "HK", "IN",
         "PK", "TR", "VN", "RU", "SG", "MO", "TW", "PY"
@@ -49,6 +59,45 @@ object MzgsHelper {
 
     var isAllowedCountry = true
     var IPCountry: String? = null
+
+    private val activityDetectCallbacks = object : Application.ActivityLifecycleCallbacks {
+        override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
+            if (firstActivityCreatedHandled.compareAndSet(false, true)) {
+                onFirstActivityCreated(activity)
+                onFirstActivityCreatedListener?.invoke(activity)
+            }
+        }
+
+        override fun onActivityStarted(activity: Activity) = Unit
+
+        override fun onActivityResumed(activity: Activity) {
+            if (firstActivityResumedHandled.compareAndSet(false, true)) {
+                onFirstActivityResumed(activity)
+            }
+        }
+
+        override fun onActivityPaused(activity: Activity) = Unit
+
+        override fun onActivityStopped(activity: Activity) = Unit
+
+        override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
+
+        override fun onActivityDestroyed(activity: Activity) = Unit
+    }
+
+    fun registerFirstActivityCallbacks(
+        application: Application,
+        onActivityCreated: (Activity) -> Unit = {},
+        onActivityResumed: (Activity) -> Unit = {},
+    ) {
+        onFirstActivityCreated = onActivityCreated
+        onFirstActivityResumed = onActivityResumed
+        if (!activityDetectRegistered) {
+            application.registerActivityLifecycleCallbacks(activityDetectCallbacks)
+            activityDetectRegistered = true
+        }
+    }
+
 
     
     fun init(
