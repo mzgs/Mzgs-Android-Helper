@@ -26,7 +26,12 @@ class App : Application() {
 
 
         AdmobMediation.config = AdmobConfig(
-            INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-8689213949805403/4964803980",
+            INTERSTITIAL_AD_UNIT_ID = "",
+            BANNER_AD_UNIT_ID = "",
+            MREC_AD_UNIT_ID = "",
+            APP_OPEN_AD_UNIT_ID = "",
+            REWARDED_AD_UNIT_ID = "",
+            NATIVE_AD_UNIT_ID = "",
             DEBUG = AdmobDebug(
                 useTestAds = true,
             )
@@ -38,6 +43,7 @@ class App : Application() {
             BANNER_AD_UNIT_ID = "2a850e4955fcac79",
             MREC_AD_UNIT_ID = "499681b3d7a48fbc",
             NATIVE_AD_UNIT_ID = "b93d53f11cb44097",
+            REWARDED_AD_UNIT_ID = "",
             DEBUG = ApplovinMaxDebug(
                 useEmptyIds = false,
             )

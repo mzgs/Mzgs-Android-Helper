@@ -75,15 +75,21 @@ class App : Application() {
 
         AdmobMediation.config = AdmobConfig(
             INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX",
+            BANNER_AD_UNIT_ID = "",
+            MREC_AD_UNIT_ID = "",
+            APP_OPEN_AD_UNIT_ID = "",
+            REWARDED_AD_UNIT_ID = "",
+            NATIVE_AD_UNIT_ID = "",
             DEBUG = AdmobDebug(useTestAds = true),
         )
 
         ApplovinMaxMediation.config = ApplovinMaxConfig(
-            INTERSTITIAL_AD_UNIT_ID = "YOUR_INTERSTITIAL_ID",
-            APP_OPEN_AD_UNIT_ID = "YOUR_APP_OPEN_ID",
-            BANNER_AD_UNIT_ID = "YOUR_BANNER_ID",
-            MREC_AD_UNIT_ID = "YOUR_MREC_ID",
-            NATIVE_AD_UNIT_ID = "YOUR_NATIVE_ID",
+            INTERSTITIAL_AD_UNIT_ID = "",
+            APP_OPEN_AD_UNIT_ID = "",
+            BANNER_AD_UNIT_ID = "",
+            MREC_AD_UNIT_ID = "",
+            NATIVE_AD_UNIT_ID = "",
+            REWARDED_AD_UNIT_ID = "",
             DEBUG = ApplovinMaxDebug(useEmptyIds = false),
         )
 
