@@ -149,6 +149,15 @@ class App : Application() {
             Remote.initSync(this@App)
         }
     }
+    
+    companion object {
+    @Volatile
+    private var remoteInitJob: Job? = null
+
+    suspend fun waitForRemoteInit() {
+        remoteInitJob?.join()
+    }
+}
 }
 ```
 
