@@ -169,6 +169,40 @@ object Ads {
         }
     }
 
+    fun showAppOpenAd(
+        activity: Activity,
+        networks: String = "applovin,admob",
+        onAdClosed: () -> Unit = {},
+    ) {
+        val networks = normalizedNetworks(networks)
+
+        var activeNetwork: String? = null
+        var closedNotified = false
+
+        fun networkClosed(network: String) {
+            if (activeNetwork == network && !closedNotified) {
+                closedNotified = true
+                onAdClosed()
+            }
+        }
+
+        for (network in networks) {
+            activeNetwork = network
+            val shown = when (network) {
+                "applovin" -> ApplovinMaxMediation.showAppOpenAd(activity) { networkClosed(network) }
+                "admob" -> AdmobMediation.showAppOpenAd(activity) { networkClosed(network) }
+                else -> false
+            }
+            if (shown) {
+                return
+            }
+        }
+
+        if (!closedNotified) {
+            onAdClosed()
+        }
+    }
+
     @Composable
     fun showBanner(
         modifier: Modifier = Modifier,

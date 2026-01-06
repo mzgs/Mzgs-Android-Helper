@@ -105,7 +105,7 @@ class App : Application() {
                     activity,
                     onGoForeground = {
                         if (!ApplovinMaxMediation.isFullscreenAdShowing) {
-                            ApplovinMaxMediation.showAppOpenAd(activity)
+                            Ads.showAppOpenAd(activity)
                         } else {
                             AdmobMediation.showAppOpenAd(activity)
                         }
