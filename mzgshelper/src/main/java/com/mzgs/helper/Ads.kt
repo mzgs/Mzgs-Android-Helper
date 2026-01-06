@@ -120,6 +120,33 @@ object Ads {
         }
     }
 
+    fun showInterstitialWithCycle(
+        activity: Activity,
+        name: String,
+        defaultValue: Int = 3,
+        networks: String = "applovin,admob",
+        onAdClosed: () -> Unit = {},
+    ): Boolean {
+        val cycleValue = Remote.getInt(name, defaultValue)
+        val currentCounter = ActionCounter.increaseGet(name)
+
+        if (cycleValue <= 0) {
+            onAdClosed()
+            return false
+        }
+
+        if (currentCounter % cycleValue == 0) {
+            return showInterstitial(
+                activity = activity,
+                networks = networks,
+                onAdClosed = onAdClosed,
+            )
+        }
+
+        onAdClosed()
+        return false
+    }
+
     fun showRewarded(
         activity: Activity,
         networks: String = "applovin,admob",

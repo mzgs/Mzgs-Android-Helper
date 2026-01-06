@@ -183,6 +183,19 @@ Ads.showRewarded(
 )
 ```
 
+### Interstitial with cycle (remote-configurable)
+
+```kotlin
+Ads.showInterstitialWithCycle(
+    activity = activity,
+    name = "interstitial_cycle_home",
+    defaultValue = 3,
+    networks = "applovin,admob",
+) {
+    // Called when an ad closes or when the cycle skips showing.
+}
+```
+
 ### Compose banners, MREC, and native ads
 
 ```kotlin
