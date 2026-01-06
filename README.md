@@ -62,4 +62,87 @@ Add to your `AndroidManifest.xml`:
 </application>
 ```
 
+## 🧩 Example Usage
 
+### Application class (App.kt)
+
+```kotlin
+class App : Application() {
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    override fun onCreate() {
+        super.onCreate()
+
+        AdmobMediation.config = AdmobConfig(
+            INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX",
+            DEBUG = AdmobDebug(useTestAds = true),
+        )
+
+        ApplovinMaxMediation.config = ApplovinMaxConfig(
+            INTERSTITIAL_AD_UNIT_ID = "YOUR_INTERSTITIAL_ID",
+            APP_OPEN_AD_UNIT_ID = "YOUR_APP_OPEN_ID",
+            BANNER_AD_UNIT_ID = "YOUR_BANNER_ID",
+            MREC_AD_UNIT_ID = "YOUR_MREC_ID",
+            NATIVE_AD_UNIT_ID = "YOUR_NATIVE_ID",
+            DEBUG = ApplovinMaxDebug(useEmptyIds = false),
+        )
+
+        MzgsHelper.registerFirstActivityCallbacks(
+            application = this,
+            onActivityResumed = { activity ->
+                MzgsHelper.showUmpConsent(activity, forceDebugConsentInEea = true) {
+                    AdmobMediation.initialize(this@App)
+                    ApplovinMaxMediation.initialize(this@App)
+                }
+
+                Ads.initialize(
+                    activity,
+                    onGoForeground = {
+                        if (!ApplovinMaxMediation.isFullscreenAdShowing) {
+                            ApplovinMaxMediation.showAppOpenAd(activity)
+                        } else {
+                            AdmobMediation.showAppOpenAd(activity)
+                        }
+                    },
+                )
+            },
+        )
+
+        FirebaseAnalyticsManager.initialize(this)
+        Pref.init(this)
+
+        applicationScope.launch {
+            Remote.initSync(this@App)
+        }
+    }
+}
+```
+
+### MainActivity onStart
+
+```kotlin
+override fun onStart() {
+    super.onStart()
+
+    lifecycleScope.launch {
+        val activity = this@MainActivity
+        SimpleSplashHelper.showSplash(activity)
+        App.waitForRemoteInit()
+        MzgsHelper.initAllowedCountry(activity)
+
+        SimpleSplashHelper.setOnComplete {
+            Ads.showInterstitial(activity) {
+                isSplashComplete.value = true
+            }
+        }
+
+        val splashDuration = if (MzgsHelper.isDebug(activity)) {
+            500
+        } else {
+            Remote.getLong("splash_time", 11_000)
+        }
+        SimpleSplashHelper.setDuration(splashDuration)
+        SimpleSplashHelper.startProgress(activity)
+    }
+}
+```
