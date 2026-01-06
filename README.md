@@ -78,6 +78,23 @@ Add to your `AndroidManifest.xml`:
 ### Application class (App.kt)
 
 ```kotlin
+import android.app.Application
+import com.mzgs.helper.AdmobConfig
+import com.mzgs.helper.AdmobDebug
+import com.mzgs.helper.AdmobMediation
+import com.mzgs.helper.Ads
+import com.mzgs.helper.ApplovinMaxConfig
+import com.mzgs.helper.ApplovinMaxDebug
+import com.mzgs.helper.ApplovinMaxMediation
+import com.mzgs.helper.FirebaseAnalyticsManager
+import com.mzgs.helper.MzgsHelper
+import com.mzgs.helper.Pref
+import com.mzgs.helper.Remote
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+
 class App : Application() {
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
