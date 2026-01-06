@@ -76,7 +76,6 @@ class MainActivity : ComponentActivity() {
                     isSplashComplete.value = true
                 }
 
-
             }
 
         } // end launch
