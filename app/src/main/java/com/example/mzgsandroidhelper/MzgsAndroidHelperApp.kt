@@ -1,0 +1,41 @@
+package com.example.mzgsandroidhelper
+
+import android.app.Application
+import com.mzgs.helper.AdmobConfig
+import com.mzgs.helper.AdmobDebug
+import com.mzgs.helper.AdmobMediation
+import com.mzgs.helper.ApplovinMaxConfig
+import com.mzgs.helper.ApplovinMaxDebug
+import com.mzgs.helper.ApplovinMaxMediation
+import com.mzgs.helper.FirebaseAnalyticsManager
+import com.mzgs.helper.Pref
+
+class MzgsAndroidHelperApp : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        FirebaseAnalyticsManager.initialize(this)
+        Pref.init(this)
+
+
+        AdmobMediation.config = AdmobConfig(
+            INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-8689213949805403/4964803980",
+            DEBUG = AdmobDebug(
+                useTestAds = true,
+            )
+        )
+
+        ApplovinMaxMediation.config = ApplovinMaxConfig(
+            INTERSTITIAL_AD_UNIT_ID = "b5d9132de55740f2",
+            APP_OPEN_AD_UNIT_ID = "efacaf217df0d0c4",
+            BANNER_AD_UNIT_ID = "2a850e4955fcac79",
+            MREC_AD_UNIT_ID = "499681b3d7a48fbc",
+            NATIVE_AD_UNIT_ID = "b93d53f11cb44097",
+            DEBUG = ApplovinMaxDebug(
+                useEmptyIds = false,
+            )
+
+        )
+
+
+    }
+}

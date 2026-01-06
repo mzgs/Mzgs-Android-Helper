@@ -47,7 +47,6 @@ import com.mzgs.helper.MzgsHelper
 import com.mzgs.helper.Pref
 import com.mzgs.helper.Remote
 import com.mzgs.helper.SimpleSplashHelper
-import com.mzgs.helper.FirebaseAnalyticsManager
 import com.mzgs.helper.printLine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -62,26 +61,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        FirebaseAnalyticsManager.initialize(this)
 
-        AdmobMediation.config = AdmobConfig(
-            INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-8689213949805403/4964803980",
-            DEBUG = AdmobDebug(
-                useTestAds = true,
-            )
-        )
-
-        ApplovinMaxMediation.config = ApplovinMaxConfig(
-            INTERSTITIAL_AD_UNIT_ID = "b5d9132de55740f2",
-            APP_OPEN_AD_UNIT_ID = "efacaf217df0d0c4",
-            BANNER_AD_UNIT_ID = "2a850e4955fcac79",
-            MREC_AD_UNIT_ID = "499681b3d7a48fbc",
-            NATIVE_AD_UNIT_ID = "b93d53f11cb44097",
-            DEBUG = ApplovinMaxDebug(
-                useEmptyIds = false,
-            )
-
-        )
 
          Ads.initialize(
             this,
