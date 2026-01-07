@@ -342,6 +342,76 @@ object Ads {
         )
     }
 
+    @Composable
+    fun showNativeAd(
+        modifier: Modifier = Modifier,
+        networks: String = "applovin,admob",
+        adUnitId: String? = null,
+        onAdFailedToLoad: ((String) -> Unit)? = null,
+    ) {
+        val orderedNetworks = normalizedNetworks(networks)
+
+        var activeIndex by remember(networks, adUnitId) { mutableStateOf(0) }
+        var failedNetworks by remember(networks, adUnitId) { mutableStateOf(setOf<String>()) }
+        var pendingIndex by remember(networks, adUnitId) { mutableStateOf<Int?>(null) }
+
+        LaunchedEffect(pendingIndex) {
+            val nextIndex = pendingIndex ?: return@LaunchedEffect
+            activeIndex = nextIndex
+            pendingIndex = null
+        }
+
+        fun handleFailure(network: String, message: String) {
+            val currentNetwork = orderedNetworks.getOrNull(activeIndex)
+            if (network != currentNetwork || failedNetworks.contains(network)) {
+                return
+            }
+            failedNetworks = failedNetworks + network
+            val nextIndex = orderedNetworks.indexOfFirst { it !in failedNetworks }
+            if (nextIndex == -1) {
+                activeIndex = -1
+                pendingIndex = null
+                onAdFailedToLoad?.invoke(message)
+            } else {
+                activeIndex = -1
+                pendingIndex = nextIndex
+            }
+        }
+
+        when (orderedNetworks.getOrNull(activeIndex)) {
+            "applovin" -> {
+                val resolvedAdUnitId = adUnitId?.takeIf { it.isNotBlank() }
+                    ?: ApplovinMaxMediation.config.NATIVE_AD_UNIT_ID
+                if (resolvedAdUnitId.isBlank()) {
+                    handleFailure("applovin", "AppLovin native ad unit id is blank.")
+                } else {
+                    ApplovinMaxMediation.showNativeAd(
+                        modifier = modifier,
+                        adUnitId = resolvedAdUnitId,
+                        onAdFailedToLoad = { errorMessage ->
+                            handleFailure("applovin", errorMessage)
+                        },
+                    )
+                }
+            }
+            "admob" -> {
+                val resolvedAdUnitId = adUnitId?.takeIf { it.isNotBlank() }
+                    ?: AdmobMediation.config.NATIVE_AD_UNIT_ID
+                if (resolvedAdUnitId.isBlank()) {
+                    handleFailure("admob", "AdMob native ad unit id is blank.")
+                } else {
+                    AdmobMediation.showNativeAd(
+                        modifier = modifier,
+                        adUnitId = resolvedAdUnitId,
+                        onAdFailedToLoad = { errorMessage ->
+                            handleFailure("admob", errorMessage)
+                        },
+                    )
+                }
+            }
+        }
+    }
+
     private fun normalizedNetworks(networks: String): List<String> {
         val requested = networks
             .split(",")

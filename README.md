@@ -261,9 +261,12 @@ Ads.showMrec(
     networks = "applovin,admob",
 )
 
-AdmobMediation.showNativeAd(
+Ads.showNativeAd(
     modifier = Modifier.fillMaxWidth(),
-)
+    networks = "applovin,admob",
+) { error ->
+    // Handle native ad load failure.
+}
 ```
 
 ### Remote config + country gating

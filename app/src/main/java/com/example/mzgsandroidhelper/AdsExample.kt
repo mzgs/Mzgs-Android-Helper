@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -29,9 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.mzgsandroidhelper.ui.theme.MzgsAndroidHelperTheme
 import com.google.android.gms.ads.AdSize
-import com.mzgs.helper.AdmobMediation
 import com.mzgs.helper.Ads
-import com.mzgs.helper.ApplovinMaxMediation
 
 class AdsExample : ComponentActivity() {
 
@@ -52,10 +51,6 @@ class AdsExample : ComponentActivity() {
             }
         }
     }
-
-    private fun updateEvent(message: String) {
-        lastEvent = message
-    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -71,6 +66,8 @@ private fun AdsExampleScreen(
     var bannerKey by remember { mutableStateOf(0) }
     var showMrec by remember { mutableStateOf(false) }
     var mrecKey by remember { mutableStateOf(0) }
+    var showNative by remember { mutableStateOf(false) }
+    var nativeKey by remember { mutableStateOf(0) }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Ads Example") }) }
@@ -126,6 +123,16 @@ private fun AdsExampleScreen(
             ) {
                 Text("Show MREC")
             }
+            Button(
+                onClick = {
+                    appliedNetworks = networks
+                    nativeKey += 1
+                    showNative = true
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Show native")
+            }
 
             Text(
                 text = "Last event: $lastEvent",
@@ -150,6 +157,18 @@ private fun AdsExampleScreen(
                         networks = appliedNetworks,
                     ) { errorMessage ->
                         onEventUpdate("MREC failed: $errorMessage")
+                    }
+                }
+            }
+            if (showNative) {
+                key(nativeKey) {
+                    Ads.showNativeAd(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(300.dp),
+                        networks = appliedNetworks,
+                    ) { errorMessage ->
+                        onEventUpdate("Native failed: $errorMessage")
                     }
                 }
             }

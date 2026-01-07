@@ -35,25 +35,17 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import com.example.mzgsandroidhelper.ui.theme.MzgsAndroidHelperTheme
-import com.google.android.gms.ads.AdSize
-import com.mzgs.helper.AdmobConfig
-import com.mzgs.helper.AdmobDebug
 import com.mzgs.helper.AdmobMediation
 import com.mzgs.helper.Ads
-import com.mzgs.helper.ApplovinMaxConfig
-import com.mzgs.helper.ApplovinMaxDebug
 import com.mzgs.helper.ApplovinMaxMediation
 import com.mzgs.helper.MzgsHelper
-import com.mzgs.helper.Pref
 import com.mzgs.helper.Remote
 import com.mzgs.helper.SimpleSplashHelper
 import com.mzgs.helper.printLine
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
-
     private var isSplashComplete = mutableStateOf(false)
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -68,11 +60,9 @@ class MainActivity : ComponentActivity() {
             MzgsHelper.initAllowedCountry(activity)
 
             SimpleSplashHelper.setOnComplete {
-
-                Ads.showInterstitial(activity){
+                Ads.showInterstitial(activity) {
                     isSplashComplete.value = true
                 }
-
             }
             val splashDuration = if (MzgsHelper.isDebug(activity))  500 else Remote.getLong("splash_time", 11_000)
             SimpleSplashHelper.setDuration(splashDuration)
