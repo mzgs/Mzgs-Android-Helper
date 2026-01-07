@@ -45,7 +45,7 @@ class App : Application() {
             NATIVE_AD_UNIT_ID = "b93d53f11cb44097",
             REWARDED_AD_UNIT_ID = "",
             DEBUG = ApplovinMaxDebug(
-                useEmptyIds = false,
+                useEmptyIds = true,
             )
 
         )

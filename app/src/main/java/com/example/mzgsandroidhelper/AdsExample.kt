@@ -41,14 +41,6 @@ class AdsExample : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        Ads.initialize(
-            this,
-            onGoBackground = { updateEvent("App went to background") },
-            onGoForeground = { updateEvent("App returned to foreground") },
-        )
-
-        AdmobMediation.initialize(this)
-        ApplovinMaxMediation.initialize(this)
 
         setContent {
             MzgsAndroidHelperTheme {
