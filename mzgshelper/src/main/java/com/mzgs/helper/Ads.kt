@@ -5,6 +5,7 @@ import android.app.Application
 import android.content.ComponentCallbacks2
 import android.content.res.Configuration
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -255,6 +256,13 @@ object Ads {
 
         var activeIndex by remember(networks, adUnitId, adSize?.toString()) { mutableStateOf(0) }
         var failedNetworks by remember(networks, adUnitId, adSize?.toString()) { mutableStateOf(setOf<String>()) }
+        var pendingIndex by remember(networks, adUnitId, adSize?.toString()) { mutableStateOf<Int?>(null) }
+
+        LaunchedEffect(pendingIndex) {
+            val nextIndex = pendingIndex ?: return@LaunchedEffect
+            activeIndex = nextIndex
+            pendingIndex = null
+        }
 
         fun handleFailure(network: String, message: String) {
             val currentNetwork = orderedNetworks.getOrNull(activeIndex)
@@ -264,9 +272,12 @@ object Ads {
             failedNetworks = failedNetworks + network
             val nextIndex = orderedNetworks.indexOfFirst { it !in failedNetworks }
             if (nextIndex == -1) {
+                activeIndex = -1
+                pendingIndex = null
                 onAdFailedToLoad?.invoke(message)
             } else {
-                activeIndex = nextIndex
+                activeIndex = -1
+                pendingIndex = nextIndex
             }
         }
 

@@ -33,7 +33,7 @@ class App : Application() {
             REWARDED_AD_UNIT_ID = "",
             NATIVE_AD_UNIT_ID = "",
             DEBUG = AdmobDebug(
-                useTestAds = true,
+                useTestAds = false,
             )
         )
 
@@ -45,7 +45,7 @@ class App : Application() {
             NATIVE_AD_UNIT_ID = "b93d53f11cb44097",
             REWARDED_AD_UNIT_ID = "",
             DEBUG = ApplovinMaxDebug(
-                useEmptyIds = true,
+                useEmptyIds = false,
             )
 
         )
