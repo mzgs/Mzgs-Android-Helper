@@ -78,6 +78,7 @@ Add to your `AndroidManifest.xml`:
 ### Application class (App.kt)
 
 ```kotlin
+
 import android.app.Application
 import com.mzgs.helper.AdmobConfig
 import com.mzgs.helper.AdmobDebug
@@ -90,6 +91,8 @@ import com.mzgs.helper.FirebaseAnalyticsManager
 import com.mzgs.helper.MzgsHelper
 import com.mzgs.helper.Pref
 import com.mzgs.helper.Remote
+import com.mzgs.helper.printLine
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -101,6 +104,8 @@ class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
+
+       
 
         AdmobMediation.config = AdmobConfig(
             INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX",
@@ -128,6 +133,8 @@ class App : Application() {
                 MzgsHelper.showUmpConsent(activity, forceDebugConsentInEea = true) {
                     AdmobMediation.initialize(this@App)
                     ApplovinMaxMediation.initialize(this@App)
+                    App.notifyUmpConsentDone()
+
                 }
 
                 Ads.initialize(
@@ -149,17 +156,30 @@ class App : Application() {
         applicationScope.launch {
             Remote.initSync(this@App)
         }
+
     }
-    
+
     companion object {
         @Volatile
         private var remoteInitJob: Job? = null
+        private val umpConsentDeferred = CompletableDeferred<Unit>()
 
         suspend fun waitForRemoteInit() {
             remoteInitJob?.join()
         }
+
+        suspend fun waitForUmpConsent() {
+            umpConsentDeferred.await()
+        }
+
+        internal fun notifyUmpConsentDone() {
+            if (!umpConsentDeferred.isCompleted) {
+                umpConsentDeferred.complete(Unit)
+            }
+        }
     }
 }
+
 ```
 
 ### MainActivity splash + interstitial
@@ -173,6 +193,8 @@ override fun onStart() {
         SimpleSplashHelper.showSplash(activity)
         App.waitForRemoteInit()
         MzgsHelper.initAllowedCountry(activity)
+        App.waitForUmpConsent()
+
 
         SimpleSplashHelper.setOnComplete {
             Ads.showInterstitial(activity) {
