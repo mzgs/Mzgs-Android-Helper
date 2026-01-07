@@ -65,10 +65,12 @@ private fun AdsExampleScreen(
     lastEvent: String,
     onEventUpdate: (String) -> Unit,
 ) {
-    var networks by remember { mutableStateOf("admob,applovin") }
+    var networks by remember { mutableStateOf("applovin,admob") }
     var appliedNetworks by remember { mutableStateOf(networks) }
     var showBanner by remember { mutableStateOf(false) }
     var bannerKey by remember { mutableStateOf(0) }
+    var showMrec by remember { mutableStateOf(false) }
+    var mrecKey by remember { mutableStateOf(0) }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Ads Example") }) }
@@ -114,6 +116,16 @@ private fun AdsExampleScreen(
             ) {
                 Text("Show banner")
             }
+            Button(
+                onClick = {
+                    appliedNetworks = networks
+                    mrecKey += 1
+                    showMrec = true
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Show MREC")
+            }
 
             Text(
                 text = "Last event: $lastEvent",
@@ -128,6 +140,16 @@ private fun AdsExampleScreen(
                         adSize = AdSize.BANNER,
                     ) { errorMessage ->
                         onEventUpdate("Banner failed: $errorMessage")
+                    }
+                }
+            }
+            if (showMrec) {
+                key(mrecKey) {
+                    Ads.showMrec(
+                        modifier = Modifier.fillMaxWidth(),
+                        networks = appliedNetworks,
+                    ) { errorMessage ->
+                        onEventUpdate("MREC failed: $errorMessage")
                     }
                 }
             }

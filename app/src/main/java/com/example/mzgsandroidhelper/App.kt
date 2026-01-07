@@ -33,7 +33,7 @@ class App : Application() {
             REWARDED_AD_UNIT_ID = "",
             NATIVE_AD_UNIT_ID = "",
             DEBUG = AdmobDebug(
-                useTestAds = false,
+                useTestAds = true,
             )
         )
 
