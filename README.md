@@ -197,9 +197,20 @@ override fun onStart() {
 
 
         SimpleSplashHelper.setOnComplete {
-            Ads.showInterstitial(activity) {
-                isSplashComplete.value = true
+            
+            val onSplashComplete = {
+                    isSplashComplete.value = true
             }
+
+            val shown = Ads.showInterstitial(activity, onAdClosed =  onSplashComplete)
+            if(shown){
+                FirebaseAnalyticsManager.logEvent("splash_interstitial_success")
+            }
+            if (!shown) {
+                val appopen_showed = Ads.showAppOpenAd(activity, onAdClosed = onSplashComplete)
+                FirebaseAnalyticsManager.logEvent( "splash_app_open_" + (if (appopen_showed) "success" else "fail"))
+            }
+
         }
 
         val splashDuration = if (MzgsHelper.isDebug(activity)) {
