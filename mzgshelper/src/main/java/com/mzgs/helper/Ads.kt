@@ -92,8 +92,8 @@ object Ads {
         activity: Activity,
         networks: String = "applovin,admob",
         onAdClosed: () -> Unit = {},
-    ) {
-        showInterstitialInternal(
+    ): Boolean {
+        return showInterstitialInternal(
             activity = activity,
             networks = networks,
             onAdClosed = onAdClosed,
@@ -132,7 +132,7 @@ object Ads {
         networks: String = "applovin,admob",
         onRewarded: (type: String, amount: Int) -> Unit = { _, _ -> },
         onAdClosed: () -> Unit = {},
-    ) {
+    ): Boolean {
         val networks = normalizedNetworks(networks)
 
         var activeNetwork: String? = null
@@ -167,13 +167,14 @@ object Ads {
                 else -> false
             }
             if (shown) {
-                return
+                return true
             }
         }
 
         if (!closedNotified) {
             onAdClosed()
         }
+        return false
     }
 
     private fun showInterstitialInternal(
@@ -214,7 +215,7 @@ object Ads {
         activity: Activity,
         networks: String = "applovin,admob",
         onAdClosed: () -> Unit = {},
-    ) {
+    ): Boolean {
         val networks = normalizedNetworks(networks)
 
         var activeNetwork: String? = null
@@ -235,13 +236,14 @@ object Ads {
                 else -> false
             }
             if (shown) {
-                return
+                return true
             }
         }
 
         if (!closedNotified) {
             onAdClosed()
         }
+        return false
     }
 
     @Composable
