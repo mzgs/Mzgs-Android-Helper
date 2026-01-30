@@ -59,7 +59,7 @@ dependencies {
     implementation("androidx.core:core-ktx:1.17.0")
     
     // Compose
-    implementation(platform("androidx.compose:compose-bom:2025.12.01"))
+    implementation(platform("androidx.compose:compose-bom:2026.01.01"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.runtime:runtime")
     
@@ -73,7 +73,7 @@ dependencies {
     implementation("com.google.android.ump:user-messaging-platform:4.0.0")
     
     // Firebase
-    implementation(platform("com.google.firebase:firebase-bom:34.7.0"))
+    implementation(platform("com.google.firebase:firebase-bom:34.8.0"))
     implementation("com.google.firebase:firebase-analytics")
     
     // AdMob (exposed to consuming modules)
