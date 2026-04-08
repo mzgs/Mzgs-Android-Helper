@@ -95,7 +95,7 @@ afterEvaluate {
                 
                 groupId = "com.github.mzgs"
                 artifactId = "mzgshelper"
-                version = "1.0.0"
+                version = "2.5"
                 
                 pom {
                     name.set("MzgsHelper")
