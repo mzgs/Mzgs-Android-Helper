@@ -56,10 +56,10 @@ android {
 
 dependencies {
     // AndroidX Core
-    implementation("androidx.core:core-ktx:1.17.0")
+    implementation("androidx.core:core-ktx:1.18.0")
     
     // Compose
-    implementation(platform("androidx.compose:compose-bom:2026.01.01"))
+    implementation(platform("androidx.compose:compose-bom:2026.03.01"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.runtime:runtime")
     
@@ -73,14 +73,14 @@ dependencies {
     implementation("com.google.android.ump:user-messaging-platform:4.0.0")
     
     // Firebase
-    implementation(platform("com.google.firebase:firebase-bom:34.8.0"))
+    implementation(platform("com.google.firebase:firebase-bom:34.11.0"))
     implementation("com.google.firebase:firebase-analytics")
     
     // AdMob (exposed to consuming modules)
-    api("com.google.android.gms:play-services-ads:24.9.0")
+    api("com.google.android.gms:play-services-ads:25.1.0")
 
     // AppLovin MAX Mediation Adapters
-    implementation("com.applovin:applovin-sdk:13.5.1")
+    implementation("com.applovin:applovin-sdk:13.6.2")
 
 
     // Testing
