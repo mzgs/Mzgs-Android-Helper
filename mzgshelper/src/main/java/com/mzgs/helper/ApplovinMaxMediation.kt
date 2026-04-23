@@ -44,8 +44,8 @@ object ApplovinMaxMediation {
 
     const val TAG = "ApplovinMaxMediation"
     private const val APPLOVIN_SDK_KEY_META = "applovin.sdk.key"
-    private const val INIT_WAIT_TIMEOUT_MS = 5_000L
-    private const val INIT_POLL_INTERVAL_MS = 250L
+    private const val INIT_WAIT_TIMEOUT_MS = 120_000L
+    private const val INIT_POLL_INTERVAL_MS = 1_000L
 
     var config: ApplovinMaxConfig = ApplovinMaxConfig()
 

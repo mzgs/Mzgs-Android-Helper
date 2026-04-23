@@ -56,8 +56,8 @@ object AdmobMediation {
 
     const val TAG = "AdmobMediation"
     private const val ADMOB_APP_ID_KEY = "com.google.android.gms.ads.APPLICATION_ID"
-    private const val INIT_WAIT_TIMEOUT_MS = 5_000L
-    private const val INIT_POLL_INTERVAL_MS = 250L
+    private const val INIT_WAIT_TIMEOUT_MS = 120_000L
+    private const val INIT_POLL_INTERVAL_MS = 1_000L
     private const val TEST_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712"
     private const val TEST_BANNER_AD_UNIT_ID = "ca-app-pub-3940256099942544/6300978111"
     private const val TEST_REWARDED_AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917"
