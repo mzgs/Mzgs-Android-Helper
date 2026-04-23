@@ -100,16 +100,6 @@ object MzgsHelper {
 
 
     
-    fun init(
-        activity: Activity,
-
-        remoteConfigUrl: String = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/nest.json"
-    ) {
-
-
-    }
-
-
     fun showUmpConsent(
         activity: Activity,
         forceDebugConsentInEea: Boolean = false,
@@ -506,7 +496,7 @@ object Remote {
      * @param context Context to use.
      * @param url Optional remote configuration URL (if provided, will fetch config asynchronously)
      */
-    fun init(context: Context, url: String? = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/nest.json") {
+    fun init(context: Context, url: String? = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/android.json") {
         val appContext = context.applicationContext
         applicationContext = appContext
         
@@ -530,7 +520,7 @@ object Remote {
      * Synchronous init that suspends until remote config is fetched (or fails).
      * Use this when you need to await completion before proceeding.
      */
-    suspend fun initSync(context: Context, url: String? = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/nest.json") {
+    suspend fun initSync(context: Context, url: String? = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/android.json") {
         val appContext = context.applicationContext
         applicationContext = appContext
         app = JSONObject()
