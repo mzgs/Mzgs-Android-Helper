@@ -56,6 +56,8 @@ object AdmobMediation {
 
     const val TAG = "AdmobMediation"
     private const val ADMOB_APP_ID_KEY = "com.google.android.gms.ads.APPLICATION_ID"
+    private const val INIT_WAIT_TIMEOUT_MS = 5_000L
+    private const val INIT_POLL_INTERVAL_MS = 250L
     private const val TEST_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712"
     private const val TEST_BANNER_AD_UNIT_ID = "ca-app-pub-3940256099942544/6300978111"
     private const val TEST_REWARDED_AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917"
@@ -68,6 +70,7 @@ object AdmobMediation {
     @Volatile private var isAppOpenShowing = false
     @Volatile private var isInitialized = false
     @Volatile private var isInitializing = false
+    @Volatile private var initFailureMessage: String? = null
     private val pendingInitCallbacks = mutableListOf<() -> Unit>()
 
     @Volatile private var interstitialAd: InterstitialAd? = null
@@ -79,6 +82,7 @@ object AdmobMediation {
 
     fun initialize(context: Context, onInitComplete: () -> Unit = {}) {
         val appContext = context.applicationContext
+        initFailureMessage = null
         if (config.DEBUG.useTestAds && MzgsHelper.isDebug(appContext)) {
             Log.d(TAG, "Using test AdMob ad unit IDs.")
             config.INTERSTITIAL_AD_UNIT_ID = TEST_INTERSTITIAL_AD_UNIT_ID
@@ -111,7 +115,8 @@ object AdmobMediation {
 
         val resolvedAppId = getAdMobAppId(appContext)
         if (resolvedAppId.isNullOrBlank()) {
-            Log.w(TAG, "AdMob app ID not found; set $ADMOB_APP_ID_KEY in the manifest or pass appId.")
+            initFailureMessage = "AdMob app ID not found; set $ADMOB_APP_ID_KEY in the manifest."
+            Log.w(TAG, initFailureMessage!!)
             isInitializing = false
             isInitialized = false
             drainInitCallbacks()
@@ -125,6 +130,7 @@ object AdmobMediation {
                     "Adapter: $adapterClass, Status: ${status.description}, Latency: ${status.latency}ms",
                 )
             }
+            initFailureMessage = null
             isInitialized = true
             isInitializing = false
             loadInterstitial(appContext)
@@ -138,6 +144,24 @@ object AdmobMediation {
         val callbacks = pendingInitCallbacks.toList()
         pendingInitCallbacks.clear()
         callbacks.forEach { it() }
+    }
+
+    private fun buildNotInitializedMessage(): String {
+        return "AdMob SDK not initialized. Call AdmobMediation.initialize(context) before showing ads."
+    }
+
+    private suspend fun awaitInitializationError(): String? {
+        var waitedMs = 0L
+        while (!isInitialized && waitedMs < INIT_WAIT_TIMEOUT_MS) {
+            initFailureMessage?.let { return it }
+            delay(INIT_POLL_INTERVAL_MS)
+            waitedMs += INIT_POLL_INTERVAL_MS
+        }
+        return when {
+            isInitialized -> null
+            initFailureMessage != null -> initFailureMessage
+            else -> buildNotInitializedMessage()
+        }
     }
 
     private fun loadInterstitial(context: Context) {
@@ -268,6 +292,7 @@ object AdmobMediation {
     ) {
         val context = LocalContext.current
         val isInitializedState = remember { mutableStateOf(isInitialized) }
+        val initErrorState = remember { mutableStateOf<String?>(null) }
         val configuration = LocalConfiguration.current
         val resolvedAdSize = remember(adSize, configuration) {
             adSize
@@ -279,10 +304,13 @@ object AdmobMediation {
         val adViewState = remember { mutableStateOf<AdView?>(null) }
 
         LaunchedEffect(Unit) {
-            while (!isInitialized) {
-                delay(1000)
-            }
-            isInitializedState.value = true
+            val initError = awaitInitializationError()
+            initErrorState.value = initError
+            isInitializedState.value = initError == null
+        }
+
+        LaunchedEffect(initErrorState.value) {
+            initErrorState.value?.let { onAdFailedToLoad?.invoke(it) }
         }
 
         if (isInitializedState.value) {
@@ -355,12 +383,16 @@ object AdmobMediation {
     ) {
         val context = LocalContext.current
         val isInitializedState = remember { mutableStateOf(isInitialized) }
+        val initErrorState = remember { mutableStateOf<String?>(null) }
 
         LaunchedEffect(Unit) {
-            while (!isInitialized) {
-                delay(1000)
-            }
-            isInitializedState.value = true
+            val initError = awaitInitializationError()
+            initErrorState.value = initError
+            isInitializedState.value = initError == null
+        }
+
+        LaunchedEffect(initErrorState.value) {
+            initErrorState.value?.let { onAdFailedToLoad?.invoke(it) }
         }
 
         if (isInitializedState.value) {

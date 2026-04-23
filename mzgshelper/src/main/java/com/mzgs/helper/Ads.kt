@@ -135,24 +135,23 @@ object Ads {
     ): Boolean {
         val networks = normalizedNetworks(networks)
 
-        var activeNetwork: String? = null
+        var shownNetwork: String? = null
         var closedNotified = false
 
         fun networkClosed(network: String) {
-            if (activeNetwork == network && !closedNotified) {
+            if (shownNetwork == network && !closedNotified) {
                 closedNotified = true
                 onAdClosed()
             }
         }
 
         fun networkRewarded(network: String, type: String, amount: Int) {
-            if (activeNetwork == network) {
+            if (shownNetwork == network) {
                 onRewarded(type, amount)
             }
         }
 
         for (network in networks) {
-            activeNetwork = network
             val shown = when (network) {
                 "applovin" -> ApplovinMaxMediation.showReward(
                     activity = activity,
@@ -167,6 +166,7 @@ object Ads {
                 else -> false
             }
             if (shown) {
+                shownNetwork = network
                 return true
             }
         }
@@ -184,24 +184,24 @@ object Ads {
     ): Boolean {
         val networks = normalizedNetworks(networks)
 
-        var activeNetwork: String? = null
+        var shownNetwork: String? = null
         var closedNotified = false
 
         fun networkClosed(network: String) {
-            if (activeNetwork == network && !closedNotified) {
+            if (shownNetwork == network && !closedNotified) {
                 closedNotified = true
                 onAdClosed()
             }
         }
 
         for (network in networks) {
-            activeNetwork = network
             val shown = when (network) {
                 "applovin" -> ApplovinMaxMediation.showInterstitial(activity) { networkClosed(network) }
                 "admob" -> AdmobMediation.showInterstitial(activity) { networkClosed(network) }
                 else -> false
             }
             if (shown) {
+                shownNetwork = network
                 return true
             }
         }
@@ -218,24 +218,24 @@ object Ads {
     ): Boolean {
         val networks = normalizedNetworks(networks)
 
-        var activeNetwork: String? = null
+        var shownNetwork: String? = null
         var closedNotified = false
 
         fun networkClosed(network: String) {
-            if (activeNetwork == network && !closedNotified) {
+            if (shownNetwork == network && !closedNotified) {
                 closedNotified = true
                 onAdClosed()
             }
         }
 
         for (network in networks) {
-            activeNetwork = network
             val shown = when (network) {
                 "applovin" -> ApplovinMaxMediation.showAppOpenAd(activity) { networkClosed(network) }
                 "admob" -> AdmobMediation.showAppOpenAd(activity) { networkClosed(network) }
                 else -> false
             }
             if (shown) {
+                shownNetwork = network
                 return true
             }
         }

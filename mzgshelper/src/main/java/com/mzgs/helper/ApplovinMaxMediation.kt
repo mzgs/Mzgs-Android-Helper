@@ -44,6 +44,8 @@ object ApplovinMaxMediation {
 
     const val TAG = "ApplovinMaxMediation"
     private const val APPLOVIN_SDK_KEY_META = "applovin.sdk.key"
+    private const val INIT_WAIT_TIMEOUT_MS = 5_000L
+    private const val INIT_POLL_INTERVAL_MS = 250L
 
     var config: ApplovinMaxConfig = ApplovinMaxConfig()
 
@@ -52,6 +54,7 @@ object ApplovinMaxMediation {
 
     private var isInitialized = false
     private var isInitializing = false
+    @Volatile private var initFailureMessage: String? = null
     private val pendingInitCallbacks = mutableListOf<() -> Unit>()
 
     private var interstitialAd: MaxInterstitialAd? = null
@@ -65,6 +68,7 @@ object ApplovinMaxMediation {
 
     fun initialize(context: Context, onInitComplete: () -> Unit = {}) {
         val appContext = context.applicationContext
+        initFailureMessage = null
         if (config.DEBUG.useEmptyIds && MzgsHelper.isDebug(appContext)) {
             Log.d(TAG, "Using empty AppLovin MAX ad unit IDs.")
             config.INTERSTITIAL_AD_UNIT_ID = ""
@@ -87,7 +91,8 @@ object ApplovinMaxMediation {
 
         val sdkKey = config.SDK_KEY.ifBlank { getAppLovinSdkKey(appContext) }.orEmpty()
         if (sdkKey.isBlank()) {
-            Log.w(TAG, "AppLovin SDK key not found; set $APPLOVIN_SDK_KEY_META in the manifest or pass SDK_KEY.")
+            initFailureMessage = "AppLovin SDK key not found; set $APPLOVIN_SDK_KEY_META in the manifest."
+            Log.w(TAG, initFailureMessage!!)
             isInitializing = false
             isInitialized = false
             val callbacks = pendingInitCallbacks.toList()
@@ -109,6 +114,7 @@ object ApplovinMaxMediation {
 
         val initConfig = initConfigBuilder.build()
         AppLovinSdk.getInstance(appContext).initialize(initConfig) {
+            initFailureMessage = null
             isInitialized = true
             isInitializing = false
             if (config.INTERSTITIAL_AD_UNIT_ID.isNotBlank()) {
@@ -123,6 +129,24 @@ object ApplovinMaxMediation {
             val callbacks = pendingInitCallbacks.toList()
             pendingInitCallbacks.clear()
             callbacks.forEach { it() }
+        }
+    }
+
+    private fun buildNotInitializedMessage(): String {
+        return "AppLovin MAX SDK not initialized. Call ApplovinMaxMediation.initialize(context) before showing ads."
+    }
+
+    private suspend fun awaitInitializationError(): String? {
+        var waitedMs = 0L
+        while (!isInitialized && waitedMs < INIT_WAIT_TIMEOUT_MS) {
+            initFailureMessage?.let { return it }
+            delay(INIT_POLL_INTERVAL_MS)
+            waitedMs += INIT_POLL_INTERVAL_MS
+        }
+        return when {
+            isInitialized -> null
+            initFailureMessage != null -> initFailureMessage
+            else -> buildNotInitializedMessage()
         }
     }
 
@@ -153,6 +177,7 @@ object ApplovinMaxMediation {
         val context = LocalContext.current
         val configuration = LocalConfiguration.current
         val isInitialized = remember { mutableStateOf(AppLovinSdk.getInstance(context).isInitialized) }
+        val initErrorState = remember { mutableStateOf<String?>(null) }
         val isMrec = remember(adSize) { adSize == AdSize.MEDIUM_RECTANGLE }
         val adViewState = remember { mutableStateOf<MaxAdView?>(null) }
         val adContainerState = remember { mutableStateOf<FrameLayout?>(null) }
@@ -165,10 +190,13 @@ object ApplovinMaxMediation {
         }
 
         LaunchedEffect(Unit) {
-            while (!AppLovinSdk.getInstance(context).isInitialized) {
-                delay(1000)
-            }
-            isInitialized.value = true
+            val initError = awaitInitializationError()
+            initErrorState.value = initError
+            isInitialized.value = initError == null
+        }
+
+        LaunchedEffect(initErrorState.value) {
+            initErrorState.value?.let { onAdFailedToLoad?.invoke(it) }
         }
 
         if (isInitialized.value) {
@@ -290,12 +318,16 @@ object ApplovinMaxMediation {
     ) {
         val context = LocalContext.current
         val isInitialized = remember { mutableStateOf(AppLovinSdk.getInstance(context).isInitialized) }
+        val initErrorState = remember { mutableStateOf<String?>(null) }
 
         LaunchedEffect(Unit) {
-            while (!AppLovinSdk.getInstance(context).isInitialized) {
-                delay(1000)
-            }
-            isInitialized.value = true
+            val initError = awaitInitializationError()
+            initErrorState.value = initError
+            isInitialized.value = initError == null
+        }
+
+        LaunchedEffect(initErrorState.value) {
+            initErrorState.value?.let { onAdFailedToLoad?.invoke(it) }
         }
 
         if (isInitialized.value) {

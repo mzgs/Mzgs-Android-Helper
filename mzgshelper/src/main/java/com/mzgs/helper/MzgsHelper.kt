@@ -694,16 +694,29 @@ object Remote {
 
 object Pref {
     private var applicationContext: Context? = null
-    private val sharedPreferences by lazy {
-        applicationContext?.getSharedPreferences("AppPreferences", Context.MODE_PRIVATE)
-    }
+    @Volatile
+    private var sharedPreferences: android.content.SharedPreferences? = null
 
     fun init(context: Context) {
         applicationContext = context.applicationContext
+        if (sharedPreferences == null) {
+            sharedPreferences = applicationContext?.getSharedPreferences("AppPreferences", Context.MODE_PRIVATE)
+        }
+    }
+
+    private fun getSharedPreferences(): android.content.SharedPreferences? {
+        val existing = sharedPreferences
+        if (existing != null) {
+            return existing
+        }
+        val context = applicationContext ?: return null
+        return context.getSharedPreferences("AppPreferences", Context.MODE_PRIVATE).also {
+            sharedPreferences = it
+        }
     }
 
     fun <T> get(key: String, defaultValue: T): T {
-        val prefs = sharedPreferences ?: return defaultValue
+        val prefs = getSharedPreferences() ?: return defaultValue
 
         @Suppress("UNCHECKED_CAST")
         return when (defaultValue) {
@@ -718,7 +731,7 @@ object Pref {
     }
 
     fun <T> set(key: String, value: T?) {
-        val prefs = sharedPreferences ?: return
+        val prefs = getSharedPreferences() ?: return
         val editor = prefs.edit()
 
         when (value) {
@@ -735,37 +748,41 @@ object Pref {
     }
 
     fun remove(key: String) {
-        sharedPreferences?.edit()?.remove(key)?.apply()
+        getSharedPreferences()?.edit()?.remove(key)?.apply()
     }
 
     fun exists(key: String): Boolean {
-        return sharedPreferences?.contains(key) ?: false
+        return getSharedPreferences()?.contains(key) ?: false
     }
 
     fun clearAll() {
-        sharedPreferences?.edit()?.clear()?.apply()
+        getSharedPreferences()?.edit()?.clear()?.apply()
     }
 
     fun getString(key: String, defaultValue: String): String {
-        return sharedPreferences?.getString(key, defaultValue) ?: defaultValue
+        return getSharedPreferences()?.getString(key, defaultValue) ?: defaultValue
     }
 
     fun getBool(key: String, defaultValue: Boolean): Boolean {
-        return if (exists(key)) sharedPreferences!!.getBoolean(key, false) else defaultValue
+        val prefs = getSharedPreferences() ?: return defaultValue
+        return if (prefs.contains(key)) prefs.getBoolean(key, false) else defaultValue
     }
 
     fun getFloat(key: String, defaultValue: Float): Float {
-        return if (exists(key)) sharedPreferences!!.getFloat(key, 0f) else defaultValue
+        val prefs = getSharedPreferences() ?: return defaultValue
+        return if (prefs.contains(key)) prefs.getFloat(key, 0f) else defaultValue
     }
 
     fun getInt(key: String, defaultValue: Int): Int {
-        return if (exists(key)) sharedPreferences!!.getInt(key, 0) else defaultValue
+        val prefs = getSharedPreferences() ?: return defaultValue
+        return if (prefs.contains(key)) prefs.getInt(key, 0) else defaultValue
     }
 
     fun getDouble(key: String, defaultValue: Double): Double {
-        return if (exists(key)) {
+        val prefs = getSharedPreferences() ?: return defaultValue
+        return if (prefs.contains(key)) {
             try {
-                sharedPreferences!!.getString(key, null)?.toDouble() ?: defaultValue
+                prefs.getString(key, null)?.toDouble() ?: defaultValue
             } catch (e: NumberFormatException) {
                 defaultValue
             }
