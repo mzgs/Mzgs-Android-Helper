@@ -10,6 +10,8 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.telephony.TelephonyManager
 import android.util.Log
 
@@ -103,13 +105,33 @@ object MzgsHelper {
     fun showUmpConsent(
         activity: Activity,
         forceDebugConsentInEea: Boolean = false,
+        timeoutMs: Long = 5_000L,
         onComplete: () -> Unit = {}
     ) {
+        val completionHandled = AtomicBoolean(false)
+        val timeoutHandler = Handler(Looper.getMainLooper())
+        val completeOnce = {
+            if (completionHandled.compareAndSet(false, true)) {
+                timeoutHandler.removeCallbacksAndMessages(null)
+                onComplete()
+            }
+        }
+
         if (activity.isFinishing || activity.isDestroyed) {
             Log.w(TAG, "Activity is not in a valid state to show UMP consent form")
-            onComplete()
+            completeOnce()
             return
         }
+
+        timeoutHandler.postDelayed(
+            {
+                if (completionHandled.compareAndSet(false, true)) {
+                    Log.w(TAG, "UMP consent timed out after ${timeoutMs}ms")
+                    onComplete()
+                }
+            },
+            timeoutMs,
+        )
 
         val context = activity.applicationContext
         val consentInformation = UserMessagingPlatform.getConsentInformation(context)
@@ -128,6 +150,9 @@ object MzgsHelper {
             activity,
             params,
             {
+                if (completionHandled.get()) {
+                    return@requestConsentInfoUpdate
+                }
                 Log.d(
                     TAG,
                     "UMP consent info updated: status=${consentInformation.consentStatus}, formAvailable=${consentInformation.isConsentFormAvailable}"
@@ -138,72 +163,45 @@ object MzgsHelper {
                 ) {
                     if (activity.isFinishing || activity.isDestroyed) {
                         Log.w(TAG, "Activity is not in a valid state to show consent form")
-                        onComplete()
+                        completeOnce()
                         return@requestConsentInfoUpdate
                     }
                     UserMessagingPlatform.loadConsentForm(
                         activity,
                         { consentForm ->
+                            if (completionHandled.get()) {
+                                return@loadConsentForm
+                            }
                             if (consentInformation.consentStatus == ConsentInformation.ConsentStatus.REQUIRED) {
                                 consentForm.show(activity) { formError ->
                                     if (formError != null) {
                                         Log.e(TAG, "UMP consent form error: ${formError.message}")
                                     }
-                                    // Retry once if consent is still required after dismissal.
-                                    if (consentInformation.consentStatus == ConsentInformation.ConsentStatus.REQUIRED) {
-                                        if (activity.isFinishing || activity.isDestroyed) {
-                                            Log.w(TAG, "Activity is not in a valid state to show consent form")
-                                            onComplete()
-                                            return@show
-                                        }
-                                        UserMessagingPlatform.loadConsentForm(
-                                            activity,
-                                            { retryForm ->
-                                                if (consentInformation.consentStatus ==
-                                                    ConsentInformation.ConsentStatus.REQUIRED
-                                                ) {
-                                                    retryForm.show(activity) { retryError ->
-                                                        if (retryError != null) {
-                                                            Log.e(
-                                                                TAG,
-                                                                "UMP consent form error: ${retryError.message}"
-                                                            )
-                                                        }
-                                                        onComplete()
-                                                    }
-                                                } else {
-                                                    onComplete()
-                                                }
-                                            },
-                                            { loadError ->
-                                                Log.e(
-                                                    TAG,
-                                                    "Failed to load UMP consent form: ${loadError.message}"
-                                                )
-                                                onComplete()
-                                            }
-                                        )
-                                    } else {
-                                        onComplete()
-                                    }
+                                    completeOnce()
                                 }
                             } else {
-                                onComplete()
+                                completeOnce()
                             }
                         },
                         { loadError ->
+                            if (completionHandled.get()) {
+                                return@loadConsentForm
+                            }
                             Log.e(TAG, "Failed to load UMP consent form: ${loadError.message}")
-                            onComplete()
+                            completeOnce()
                         }
                     )
                 } else {
                     Log.d(TAG, "UMP consent form not required (status=${consentInformation.consentStatus})")
-                    onComplete()
+                    completeOnce()
                 }
             },
             { requestError ->
+                if (completionHandled.get()) {
+                    return@requestConsentInfoUpdate
+                }
                 Log.e(TAG, "Failed to update UMP consent info: ${requestError.message}")
-                onComplete()
+                completeOnce()
             }
         )
     }
