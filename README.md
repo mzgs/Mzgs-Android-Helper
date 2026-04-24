@@ -183,6 +183,7 @@ override fun onStart() {
     lifecycleScope.launch {
         val activity = this@MainActivity
         SimpleSplashHelper.showSplash(activity)
+        App.waitForRemoteInit()
         MzgsHelper.initAllowedCountry(activity)
         App.waitForUmpConsent()
 
