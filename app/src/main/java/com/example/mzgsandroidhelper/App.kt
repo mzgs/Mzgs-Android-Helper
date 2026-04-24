@@ -12,15 +12,8 @@ import com.mzgs.helper.FirebaseAnalyticsManager
 import com.mzgs.helper.MzgsHelper
 import com.mzgs.helper.Pref
 import com.mzgs.helper.Remote
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 
 class App : Application() {
-    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
     override fun onCreate() {
         super.onCreate()
 
@@ -74,21 +67,6 @@ class App : Application() {
         FirebaseAnalyticsManager.initialize(this)
         Pref.init(this)
 
-        remoteInitJob = applicationScope.launch {
-            Remote.initSync(this@App)
-        }
-
-
-
-
-    }
-
-    companion object {
-        @Volatile
-        private var remoteInitJob: Job? = null
-
-        suspend fun waitForRemoteInit() {
-            remoteInitJob?.join()
-        }
+        Remote.init(this)
     }
 }

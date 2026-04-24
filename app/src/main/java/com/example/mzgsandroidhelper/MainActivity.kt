@@ -56,7 +56,6 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             val activity = this@MainActivity
             SimpleSplashHelper.showSplash(activity)
-            App.waitForRemoteInit()
             MzgsHelper.initAllowedCountry(activity)
 
             SimpleSplashHelper.setOnComplete {

@@ -481,6 +481,7 @@ object MzgsHelper {
  * Manages remote configuration settings fetched from a server
  */
 object Remote {
+    private const val REMOTE_CONFIG_TIMEOUT_MS = 5_000
     private var app: JSONObject? = null
     private var applicationContext: Context? = null
     
@@ -538,7 +539,7 @@ object Remote {
     private suspend fun fetchRemoteConfig(url: String) {
         try {
             val response = withContext(Dispatchers.IO) {
-                makeRequest(url, 10000)
+                makeRequest(url, REMOTE_CONFIG_TIMEOUT_MS)
             }
 
             response?.let { data ->

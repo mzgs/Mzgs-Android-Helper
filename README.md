@@ -153,20 +153,12 @@ class App : Application() {
         FirebaseAnalyticsManager.initialize(this)
         Pref.init(this)
 
-        applicationScope.launch {
-            Remote.initSync(this@App)
-        }
+        Remote.init(this@App)
 
     }
 
     companion object {
-        @Volatile
-        private var remoteInitJob: Job? = null
         private val umpConsentDeferred = CompletableDeferred<Unit>()
-
-        suspend fun waitForRemoteInit() {
-            remoteInitJob?.join()
-        }
 
         suspend fun waitForUmpConsent() {
             umpConsentDeferred.await()
@@ -191,7 +183,6 @@ override fun onStart() {
     lifecycleScope.launch {
         val activity = this@MainActivity
         SimpleSplashHelper.showSplash(activity)
-        App.waitForRemoteInit()
         MzgsHelper.initAllowedCountry(activity)
         App.waitForUmpConsent()
 
@@ -284,12 +275,12 @@ Ads.showNativeAd(
 
 ```kotlin
 Remote.init(application)
-// Or, in a coroutine: Remote.initSync(application)
 MzgsHelper.initAllowedCountry(activity)
 if (!MzgsHelper.isAllowedCountry) {
     // Skip monetization or limit features.
 }
 
+// Remote values are applied when the background fetch completes.
 val splashTime = Remote.getLong("splash_time", 11_000)
 ```
 
