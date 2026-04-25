@@ -466,7 +466,8 @@ object MzgsHelper {
  * Manages remote configuration settings fetched from a server
  */
 object Remote {
-    private const val REMOTE_CONFIG_TIMEOUT_MS = 5_000
+    private const val REMOTE_CONFIG_INIT_TIMEOUT_MS = 30_000
+    private const val REMOTE_CONFIG_INIT_SYNC_TIMEOUT_MS = 5_000
     private var app: JSONObject? = null
     private var applicationContext: Context? = null
     
@@ -492,7 +493,7 @@ object Remote {
             CoroutineScope(Dispatchers.IO).launch { 
                 // Check network connectivity before attempting to fetch
                 if (MzgsHelper.isNetworkAvailable(appContext)) {
-                    fetchRemoteConfig(configUrl)
+                    fetchRemoteConfig(configUrl, REMOTE_CONFIG_INIT_TIMEOUT_MS)
                 } else {
                     Log.w("Remote", "Network not available, using default values")
                 }
@@ -503,14 +504,22 @@ object Remote {
     /**
      * Synchronous init that suspends until remote config is fetched (or fails).
      * Use this when you need to await completion before proceeding.
+     *
+     * @param context Context to use.
+     * @param timeoutMs Request connect/read timeout in milliseconds.
+     * @param url Optional remote configuration URL (if provided, will fetch config).
      */
-    suspend fun initSync(context: Context, url: String? = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/android.json") {
+    suspend fun initSync(
+        context: Context,
+        timeoutMs: Int = REMOTE_CONFIG_INIT_SYNC_TIMEOUT_MS,
+        url: String? = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/android.json"
+    ) {
         val appContext = context.applicationContext
         applicationContext = appContext
         app = JSONObject()
 
         url?.takeIf { it.isNotEmpty() }?.let { configUrl ->
-            fetchRemoteConfig(configUrl)
+            fetchRemoteConfig(configUrl, timeoutMs)
         }
     }
 
@@ -521,10 +530,10 @@ object Remote {
      * Fetch remote configuration from URL
      * This is now a private method called internally by init
      */
-    private suspend fun fetchRemoteConfig(url: String) {
+    private suspend fun fetchRemoteConfig(url: String, timeoutMs: Int) {
         try {
             val response = withContext(Dispatchers.IO) {
-                makeRequest(url, REMOTE_CONFIG_TIMEOUT_MS)
+                makeRequest(url, timeoutMs)
             }
 
             response?.let { data ->

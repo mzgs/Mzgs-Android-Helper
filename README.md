@@ -153,15 +153,29 @@ class App : Application() {
         FirebaseAnalyticsManager.initialize(this)
         Pref.init(this)
 
-        Remote.init(this@App)
+        applicationScope.launch {
+            Remote.initSync(this@App, timeoutMs = 5_000)
+            App.notifyRemoteInitDone()
+        }
 
     }
 
     companion object {
+        private val remoteInitDeferred = CompletableDeferred<Unit>()
         private val umpConsentDeferred = CompletableDeferred<Unit>()
+
+        suspend fun waitForRemoteInit() {
+            remoteInitDeferred.await()
+        }
 
         suspend fun waitForUmpConsent() {
             umpConsentDeferred.await()
+        }
+
+        internal fun notifyRemoteInitDone() {
+            if (!remoteInitDeferred.isCompleted) {
+                remoteInitDeferred.complete(Unit)
+            }
         }
 
         internal fun notifyUmpConsentDone() {
@@ -281,8 +295,30 @@ if (!MzgsHelper.isAllowedCountry) {
     // Skip monetization or limit features.
 }
 
+// Remote.init fetches in the background with a 30-second timeout.
 // Remote values are applied when the background fetch completes.
 val splashTime = Remote.getLong("splash_time", 11_000)
+```
+
+If you need remote values before continuing, use `initSync` from a coroutine.
+It waits for the fetch to finish or fail, and defaults to a 5-second timeout.
+
+```kotlin
+lifecycleScope.launch {
+    Remote.initSync(application, timeoutMs = 5_000)
+
+    val splashTime = Remote.getLong("splash_time", 11_000)
+}
+```
+
+Custom URL with a custom sync timeout:
+
+```kotlin
+Remote.initSync(
+    context = application,
+    timeoutMs = 10_000,
+    url = "https://example.com/android.json",
+)
 ```
 
 ### Other helpers
