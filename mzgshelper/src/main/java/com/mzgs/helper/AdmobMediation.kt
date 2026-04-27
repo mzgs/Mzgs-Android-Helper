@@ -134,7 +134,6 @@ object AdmobMediation {
             isInitialized = true
             isInitializing = false
             loadInterstitial(appContext)
-            loadRewarded(appContext)
             loadAppOpenAd(appContext)
             drainInitCallbacks()
         }
@@ -192,12 +191,12 @@ object AdmobMediation {
         )
     }
 
-    private fun loadRewarded(context: Context) {
+    fun loadRewarded(context: Context): Boolean {
         if (!isInitialized || config.REWARDED_AD_UNIT_ID.isBlank()) {
-            return
+            return false
         }
         if (isRewardedLoading || rewardedAd != null) {
-            return
+            return true
         }
         isRewardedLoading = true
         val request = AdRequest.Builder().build()
@@ -218,6 +217,7 @@ object AdmobMediation {
                 }
             },
         )
+        return true
     }
 
     private fun loadAppOpenAd(context: Context) {
@@ -764,7 +764,6 @@ object AdmobMediation {
         }
         val ad = rewardedAd
         if (ad == null) {
-            loadRewarded(activity)
             onAdClosed()
             return false
         }
@@ -772,7 +771,6 @@ object AdmobMediation {
         ad.fullScreenContentCallback = object : FullScreenContentCallback() {
             override fun onAdDismissedFullScreenContent() {
                 onAdClosed()
-                loadRewarded(activity)
             }
 
             override fun onAdFailedToShowFullScreenContent(adError: AdError) {
@@ -784,7 +782,6 @@ object AdmobMediation {
                         putString("error_message", adError.message)
                     },
                 )
-                loadRewarded(activity)
             }
         }
         ad.show(

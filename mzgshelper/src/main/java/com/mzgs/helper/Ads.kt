@@ -177,6 +177,25 @@ object Ads {
         return false
     }
 
+    fun loadRewarded(
+        activity: Activity,
+        networks: String = "applovin,admob",
+    ): Boolean {
+        val networks = normalizedNetworks(networks)
+        var loadRequested = false
+
+        for (network in networks) {
+            val requested = when (network) {
+                "applovin" -> ApplovinMaxMediation.loadRewarded(activity)
+                "admob" -> AdmobMediation.loadRewarded(activity)
+                else -> false
+            }
+            loadRequested = loadRequested || requested
+        }
+
+        return loadRequested
+    }
+
     private fun showInterstitialInternal(
         activity: Activity,
         networks: String,

@@ -120,9 +120,6 @@ object ApplovinMaxMediation {
             if (config.INTERSTITIAL_AD_UNIT_ID.isNotBlank()) {
                 createInterstitialAd(appContext)
             }
-            if (config.REWARDED_AD_UNIT_ID.isNotBlank()) {
-                createRewardedAd()
-            }
             if (config.APP_OPEN_AD_UNIT_ID.isNotBlank()) {
                 createAppOpenAd()
             }
@@ -446,9 +443,26 @@ object ApplovinMaxMediation {
             ad.showAd(activity)
             return true
         }
-        rewardedAd?.loadAd()
         onAdClosed()
         return false
+    }
+
+    fun loadRewarded(context: Context): Boolean {
+        if (!AppLovinSdk.getInstance(context).isInitialized || config.REWARDED_AD_UNIT_ID.isBlank()) {
+            return false
+        }
+
+        val ad = rewardedAd
+        if (ad == null) {
+            createRewardedAd()
+            return rewardedAd != null
+        }
+        if (ad.isReady) {
+            return true
+        }
+
+        ad.loadAd()
+        return true
     }
 
     fun showMediationDebugger(context: Context) {
@@ -573,7 +587,6 @@ object ApplovinMaxMediation {
                     isFullscreenAdShowing = false
                     rewardedOnAdClosed()
                     rewardedOnAdClosed = {}
-                    rewarded.loadAd()
                     FirebaseAnalyticsManager.logAdShown(
                         adType = "rewarded",
                         adNetwork = "applovin",
@@ -586,7 +599,6 @@ object ApplovinMaxMediation {
                     isFullscreenAdShowing = false
                     rewardedOnAdClosed()
                     rewardedOnAdClosed = {}
-                    rewarded.loadAd()
                 }
 
                 override fun onAdDisplayed(ad: MaxAd) {
