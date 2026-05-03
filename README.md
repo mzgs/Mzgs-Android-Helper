@@ -95,10 +95,8 @@ class App : Application() {
     override fun onCreate() {
         super.onCreate()
 
-       
-
         AdmobMediation.config = AdmobConfig(
-            INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX",
+            INTERSTITIAL_AD_UNIT_ID = "",
             BANNER_AD_UNIT_ID = "",
             MREC_AD_UNIT_ID = "",
             APP_OPEN_AD_UNIT_ID = "",
@@ -108,40 +106,39 @@ class App : Application() {
         )
 
         ApplovinMaxMediation.config = ApplovinMaxConfig(
-            INTERSTITIAL_AD_UNIT_ID = "",
-            APP_OPEN_AD_UNIT_ID = "",
-            BANNER_AD_UNIT_ID = "",
-            MREC_AD_UNIT_ID = "",
-            NATIVE_AD_UNIT_ID = "",
+            INTERSTITIAL_AD_UNIT_ID = "b5d9132de55740f2",
+            APP_OPEN_AD_UNIT_ID = "efacaf217df0d0c4",
+            BANNER_AD_UNIT_ID = "2a850e4955fcac79",
+            MREC_AD_UNIT_ID = "499681b3d7a48fbc",
+            NATIVE_AD_UNIT_ID = "b93d53f11cb44097",
             REWARDED_AD_UNIT_ID = "",
-            DEBUG = ApplovinMaxDebug(useEmptyIds = false),
+            DEBUG = ApplovinMaxDebug(
+                useEmptyIds = false,
+            )
+
         )
 
         MzgsHelper.registerFirstActivityCallbacks(
             application = this,
             onActivityResumed = { activity ->
-                MzgsHelper.showUmpConsent(activity, forceDebugConsentInEea = true) {
-                    AdmobMediation.initialize(this@App)
-                    ApplovinMaxMediation.initialize(this@App)
-
-                }
+                AdmobMediation.initialize(this@App)
+                ApplovinMaxMediation.initialize(this@App)
 
                 Ads.initialize(
                     activity,
                     onGoForeground = {
                         if (!ApplovinMaxMediation.isFullscreenAdShowing) {
                             Ads.showAppOpenAd(activity)
-                        } else {
+                        }else{
                             AdmobMediation.showAppOpenAd(activity)
                         }
-                    },
+                    }
                 )
             },
         )
 
         FirebaseAnalyticsManager.initialize(this)
         Pref.init(this)
-
     }
 }
 
@@ -156,14 +153,14 @@ override fun onStart() {
     lifecycleScope.launch {
         val activity = this@MainActivity
         SimpleSplashHelper.showSplash(activity)
-        Remote.initSync(activity, timeoutMs = 5_000)
+        Remote.initSync(this@MainActivity, timeoutMs = 5_000)
         MzgsHelper.initAllowedCountry(activity)
 
 
         SimpleSplashHelper.setOnComplete {
-            
+
             val onSplashComplete = {
-                    isSplashComplete.value = true
+                isSplashComplete.value = true
             }
 
             val shown = Ads.showInterstitial(activity, onAdClosed =  onSplashComplete)
