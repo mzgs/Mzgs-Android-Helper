@@ -10,6 +10,8 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.telephony.TelephonyManager
 import android.util.Log
 
@@ -103,13 +105,26 @@ object MzgsHelper {
     fun showUmpConsent(
         activity: Activity,
         forceDebugConsentInEea: Boolean = false,
+        timeoutMillis: Long = 5_000L,
         onComplete: () -> Unit = {}
     ) {
         val completionHandled = AtomicBoolean(false)
-        val completeOnce = {
+        val mainHandler = Handler(Looper.getMainLooper())
+        val timeoutRunnable = Runnable {
             if (completionHandled.compareAndSet(false, true)) {
+                Log.w(TAG, "UMP consent flow timed out after ${timeoutMillis}ms")
                 onComplete()
             }
+        }
+        val completeOnce = {
+            if (completionHandled.compareAndSet(false, true)) {
+                mainHandler.removeCallbacks(timeoutRunnable)
+                onComplete()
+            }
+        }
+
+        if (timeoutMillis > 0L) {
+            mainHandler.postDelayed(timeoutRunnable, timeoutMillis)
         }
 
         if (activity.isFinishing || activity.isDestroyed) {
