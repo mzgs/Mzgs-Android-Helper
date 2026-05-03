@@ -57,6 +57,7 @@ class MainActivity : ComponentActivity() {
             val activity = this@MainActivity
             SimpleSplashHelper.showSplash(activity)
             MzgsHelper.initAllowedCountry(activity)
+            App.waitForRemoteInit()
 
             SimpleSplashHelper.setOnComplete {
                 Ads.showInterstitial(activity) {

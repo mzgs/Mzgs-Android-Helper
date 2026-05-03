@@ -12,6 +12,7 @@ import com.mzgs.helper.FirebaseAnalyticsManager
 import com.mzgs.helper.MzgsHelper
 import com.mzgs.helper.Pref
 import com.mzgs.helper.Remote
+import kotlinx.coroutines.CompletableDeferred
 
 class App : Application() {
     override fun onCreate() {
@@ -68,5 +69,30 @@ class App : Application() {
         Pref.init(this)
 
         Remote.init(this)
+    }
+
+    companion object {
+        private val remoteInitDeferred = CompletableDeferred<Unit>()
+        private val umpConsentDeferred = CompletableDeferred<Unit>()
+
+        suspend fun waitForRemoteInit() {
+            remoteInitDeferred.await()
+        }
+
+        suspend fun waitForUmpConsent() {
+            umpConsentDeferred.await()
+        }
+
+        internal fun notifyRemoteInitDone() {
+            if (!remoteInitDeferred.isCompleted) {
+                remoteInitDeferred.complete(Unit)
+            }
+        }
+
+        internal fun notifyUmpConsentDone() {
+            if (!umpConsentDeferred.isCompleted) {
+                umpConsentDeferred.complete(Unit)
+            }
+        }
     }
 }

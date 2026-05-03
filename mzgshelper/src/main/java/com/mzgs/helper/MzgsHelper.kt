@@ -173,6 +173,7 @@ object MzgsHelper {
                                 return@loadConsentForm
                             }
                             if (consentInformation.consentStatus == ConsentInformation.ConsentStatus.REQUIRED) {
+                                mainHandler.removeCallbacks(timeoutRunnable)
                                 consentForm.show(activity) { formError ->
                                     if (formError != null) {
                                         Log.e(TAG, "UMP consent form error: ${formError.message}")
