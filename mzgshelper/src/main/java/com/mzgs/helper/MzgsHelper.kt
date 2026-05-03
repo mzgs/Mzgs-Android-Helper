@@ -23,8 +23,12 @@ import com.google.android.ump.ConsentRequestParameters
 import com.google.android.ump.UserMessagingPlatform
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import com.google.android.play.core.review.ReviewManagerFactory
@@ -484,6 +488,12 @@ object MzgsHelper {
 object Remote {
     private const val REMOTE_CONFIG_INIT_TIMEOUT_MS = 30_000
     private const val REMOTE_CONFIG_INIT_SYNC_TIMEOUT_MS = 5_000
+    private val remoteScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val initLock = Any()
+    @Volatile
+    private var initDeferred: Deferred<Unit>? = null
+    @Volatile
+    private var initUrl: String? = null
     private var app: JSONObject? = null
     private var applicationContext: Context? = null
     
@@ -499,43 +509,54 @@ object Remote {
      */
     fun init(context: Context, url: String? = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/android.json") {
         val appContext = context.applicationContext
-        applicationContext = appContext
-        
-        // Initialize with empty config immediately (will use default values from getter functions)
-        app = JSONObject()
-        
-        // Try to fetch remote config asynchronously
-        url?.takeIf { it.isNotEmpty() }?.let { configUrl ->
-            CoroutineScope(Dispatchers.IO).launch { 
-                // Check network connectivity before attempting to fetch
-                if (MzgsHelper.isNetworkAvailable(appContext)) {
-                    fetchRemoteConfig(configUrl, REMOTE_CONFIG_INIT_TIMEOUT_MS)
-                } else {
-                    Log.w("Remote", "Network not available, using default values")
-                }
-            }
-        }
+        startRemoteConfigFetch(appContext, url, REMOTE_CONFIG_INIT_TIMEOUT_MS)
     }
 
     /**
-     * Synchronous init that suspends until remote config is fetched (or fails).
-     * Use this when you need to await completion before proceeding.
+     * Starts remote config fetch and suspends until it finishes, fails, or the wait timeout elapses.
+     * If the wait timeout elapses, the same fetch continues in the background.
      *
      * @param context Context to use.
-     * @param timeoutMs Request connect/read timeout in milliseconds.
+     * @param timeoutMs Maximum time to wait before proceeding, in milliseconds.
      * @param url Optional remote configuration URL (if provided, will fetch config).
+     * @param requestTimeoutMs Request connect/read timeout in milliseconds.
      */
     suspend fun initSync(
         context: Context,
         timeoutMs: Int = REMOTE_CONFIG_INIT_SYNC_TIMEOUT_MS,
-        url: String? = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/android.json"
+        url: String? = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/android.json",
+        requestTimeoutMs: Int = REMOTE_CONFIG_INIT_TIMEOUT_MS
     ) {
         val appContext = context.applicationContext
-        applicationContext = appContext
-        app = JSONObject()
+        val fetch = startRemoteConfigFetch(appContext, url, requestTimeoutMs) ?: return
+        withTimeoutOrNull(timeoutMs.toLong()) {
+            fetch.await()
+        }
+    }
 
-        url?.takeIf { it.isNotEmpty() }?.let { configUrl ->
-            fetchRemoteConfig(configUrl, timeoutMs)
+    private fun startRemoteConfigFetch(context: Context, url: String?, requestTimeoutMs: Int): Deferred<Unit>? {
+        val appContext = context.applicationContext
+        applicationContext = appContext
+        val configUrl = url?.takeIf { it.isNotEmpty() } ?: return null
+
+        synchronized(initLock) {
+            val existingFetch = initDeferred
+            if (existingFetch != null && !existingFetch.isCompleted && initUrl == configUrl) {
+                return existingFetch
+            }
+
+            app = JSONObject()
+            initUrl = configUrl
+            return remoteScope.async {
+                if (MzgsHelper.isNetworkAvailable(appContext)) {
+                    fetchRemoteConfig(configUrl, requestTimeoutMs)
+                } else {
+                    Log.w("Remote", "Network not available, using default values")
+                }
+                Unit
+            }.also {
+                initDeferred = it
+            }
         }
     }
 

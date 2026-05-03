@@ -259,7 +259,8 @@ val splashTime = Remote.getLong("splash_time", 11_000)
 ```
 
 If you need remote values before continuing, use `initSync` from a coroutine.
-It waits for the fetch to finish or fail, and defaults to a 5-second timeout.
+It waits for the fetch to finish or fail, and defaults to waiting 5 seconds.
+If the wait timeout elapses, the same fetch continues in the background and remote values are applied when it completes.
 
 ```kotlin
 lifecycleScope.launch {
@@ -269,7 +270,7 @@ lifecycleScope.launch {
 }
 ```
 
-Custom URL with a custom sync timeout:
+Custom URL with a custom wait timeout:
 
 ```kotlin
 Remote.initSync(
