@@ -90,18 +90,8 @@ import com.mzgs.helper.ApplovinMaxMediation
 import com.mzgs.helper.FirebaseAnalyticsManager
 import com.mzgs.helper.MzgsHelper
 import com.mzgs.helper.Pref
-import com.mzgs.helper.Remote
-import com.mzgs.helper.printLine
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 
 class App : Application() {
-    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
     override fun onCreate() {
         super.onCreate()
 
@@ -133,7 +123,6 @@ class App : Application() {
                 MzgsHelper.showUmpConsent(activity, forceDebugConsentInEea = true) {
                     AdmobMediation.initialize(this@App)
                     ApplovinMaxMediation.initialize(this@App)
-                    App.notifyUmpConsentDone()
 
                 }
 
@@ -153,36 +142,6 @@ class App : Application() {
         FirebaseAnalyticsManager.initialize(this)
         Pref.init(this)
 
-        applicationScope.launch {
-            Remote.initSync(this@App, timeoutMs = 5_000)
-            App.notifyRemoteInitDone()
-        }
-
-    }
-
-    companion object {
-        private val remoteInitDeferred = CompletableDeferred<Unit>()
-        private val umpConsentDeferred = CompletableDeferred<Unit>()
-
-        suspend fun waitForRemoteInit() {
-            remoteInitDeferred.await()
-        }
-
-        suspend fun waitForUmpConsent() {
-            umpConsentDeferred.await()
-        }
-
-        internal fun notifyRemoteInitDone() {
-            if (!remoteInitDeferred.isCompleted) {
-                remoteInitDeferred.complete(Unit)
-            }
-        }
-
-        internal fun notifyUmpConsentDone() {
-            if (!umpConsentDeferred.isCompleted) {
-                umpConsentDeferred.complete(Unit)
-            }
-        }
     }
 }
 
@@ -197,9 +156,8 @@ override fun onStart() {
     lifecycleScope.launch {
         val activity = this@MainActivity
         SimpleSplashHelper.showSplash(activity)
-        App.waitForRemoteInit()
+        Remote.initSync(activity, timeoutMs = 5_000)
         MzgsHelper.initAllowedCountry(activity)
-        App.waitForUmpConsent()
 
 
         SimpleSplashHelper.setOnComplete {

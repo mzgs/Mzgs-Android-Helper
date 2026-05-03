@@ -38,6 +38,7 @@ import com.example.mzgsandroidhelper.ui.theme.MzgsAndroidHelperTheme
 import com.mzgs.helper.AdmobMediation
 import com.mzgs.helper.Ads
 import com.mzgs.helper.ApplovinMaxMediation
+import com.mzgs.helper.FirebaseAnalyticsManager
 import com.mzgs.helper.MzgsHelper
 import com.mzgs.helper.Remote
 import com.mzgs.helper.SimpleSplashHelper
@@ -56,18 +57,33 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             val activity = this@MainActivity
             SimpleSplashHelper.showSplash(activity)
+            Remote.initSync(this@MainActivity, timeoutMs = 5_000)
             MzgsHelper.initAllowedCountry(activity)
-            App.waitForRemoteInit()
 
             SimpleSplashHelper.setOnComplete {
-                Ads.showInterstitial(activity) {
+
+                val onSplashComplete = {
                     isSplashComplete.value = true
                 }
+
+                val shown = Ads.showInterstitial(activity, onAdClosed =  onSplashComplete)
+                if(shown){
+                    FirebaseAnalyticsManager.logEvent("splash_interstitial_success")
+                }
+                if (!shown) {
+                    val appopen_showed = Ads.showAppOpenAd(activity, onAdClosed = onSplashComplete)
+                    FirebaseAnalyticsManager.logEvent( "splash_app_open_" + (if (appopen_showed) "success" else "fail"))
+                }
+
             }
-            val splashDuration = if (MzgsHelper.isDebug(activity))  500 else Remote.getLong("splash_time", 11_000)
+
+            val splashDuration = if (MzgsHelper.isDebug(activity)) {
+                500
+            } else {
+                Remote.getLong("splash_time", 11_000)
+            }
             SimpleSplashHelper.setDuration(splashDuration)
             SimpleSplashHelper.startProgress(activity)
-
 
 
         } // end launch
