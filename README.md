@@ -139,6 +139,8 @@ class App : Application() {
 
         FirebaseAnalyticsManager.initialize(this)
         Pref.init(this)
+        FirebaseAnalyticsManager.logEvent("mzgs_app_started")
+
     }
 }
 
@@ -158,9 +160,11 @@ override fun onStart() {
 
 
         SimpleSplashHelper.setOnComplete {
+            FirebaseAnalyticsManager.logEvent("mzgs_splash_completed")
 
             val onSplashComplete = {
                 isSplashComplete.value = true
+                FirebaseAnalyticsManager.logEvent("mzgs_splash_ads_closed")
             }
 
             val shown = Ads.showInterstitial(activity, onAdClosed =  onSplashComplete)
