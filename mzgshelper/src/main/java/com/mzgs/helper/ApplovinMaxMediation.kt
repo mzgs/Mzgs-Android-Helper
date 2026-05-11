@@ -5,6 +5,9 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -46,6 +49,9 @@ object ApplovinMaxMediation {
     private const val APPLOVIN_SDK_KEY_META = "applovin.sdk.key"
     private const val INIT_WAIT_TIMEOUT_MS = 120_000L
     private const val INIT_POLL_INTERVAL_MS = 1_000L
+    private const val LOAD_REQUEST_MIN_INTERVAL_MS = 30_000L
+    private const val LOAD_RETRY_MAX_DELAY_MS = 300_000L
+    private const val AD_EXPIRATION_MS = 3_600_000L
 
     var config: ApplovinMaxConfig = ApplovinMaxConfig()
 
@@ -60,6 +66,22 @@ object ApplovinMaxMediation {
     private var interstitialAd: MaxInterstitialAd? = null
     private var rewardedAd: MaxRewardedAd? = null
     private var appOpenAd: MaxAppOpenAd? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
+    @Volatile private var lastInterstitialLoadRequestedAtMs = 0L
+    @Volatile private var lastRewardedLoadRequestedAtMs = 0L
+    @Volatile private var lastAppOpenLoadRequestedAtMs = 0L
+    @Volatile private var lastBannerLoadRequestedAtMs = 0L
+    @Volatile private var lastMrecLoadRequestedAtMs = 0L
+    @Volatile private var lastNativeLoadRequestedAtMs = 0L
+    @Volatile private var interstitialLoadedAtMs = 0L
+    @Volatile private var rewardedLoadedAtMs = 0L
+    @Volatile private var appOpenLoadedAtMs = 0L
+    @Volatile private var interstitialRetryAttempt = 0
+    @Volatile private var rewardedRetryAttempt = 0
+    @Volatile private var appOpenRetryAttempt = 0
+    private var interstitialRetryRunnable: Runnable? = null
+    private var rewardedRetryRunnable: Runnable? = null
+    private var appOpenRetryRunnable: Runnable? = null
 
     private var interstitialOnAdClosed: () -> Unit = {}
     private var rewardedOnAdClosed: () -> Unit = {}
@@ -153,13 +175,19 @@ object ApplovinMaxMediation {
             return false
         }
         val ad = interstitialAd
+        if (ad != null && isAdExpired(interstitialLoadedAtMs)) {
+            interstitialLoadedAtMs = 0L
+            requestInterstitialLoad(ad, force = true)
+            onAdClosed()
+            return false
+        }
         if (ad != null && ad.isReady) {
             isFullscreenAdShowing = true
             interstitialOnAdClosed = onAdClosed
             ad.showAd(activity)
             return true
         }
-        interstitialAd?.loadAd()
+        interstitialAd?.let { requestInterstitialLoad(it) }
         onAdClosed()
         return false
     }
@@ -202,39 +230,53 @@ object ApplovinMaxMediation {
                 onAdFailedToLoad?.invoke("AppLovin banner ad unit id is blank.")
             } else {
                 val requestKey = remember(resolvedAdUnitId, isMrec) { "$resolvedAdUnitId:$isMrec" }
+                val retryAttempt = remember(requestKey) { mutableStateOf(0) }
+                val retrySignal = remember(requestKey) { mutableStateOf(0) }
+
+                LaunchedEffect(requestKey, retrySignal.value) {
+                    val signal = retrySignal.value
+                    if (signal <= 0) {
+                        return@LaunchedEffect
+                    }
+                    delay(retryDelayMs((retryAttempt.value - 1).coerceAtLeast(0)))
+                    adViewState.value?.let { requestAdViewLoad(it, isMrec) }
+                }
 
                 LaunchedEffect(requestKey, adContainerState.value, heightPx, widthPx) {
                     val container = adContainerState.value ?: return@LaunchedEffect
 
-                    val existing = adViewState.value
-                    if (existing == null || existing.tag != requestKey) {
-                        existing?.destroy()
-                        val adFormat = if (isMrec) MaxAdFormat.MREC else MaxAdFormat.BANNER
-                        val newAdView = MaxAdView(resolvedAdUnitId, adFormat).also { adView ->
-                            adView.tag = requestKey
-                            adView.layoutParams = FrameLayout.LayoutParams(widthPx, heightPx)
-                            adView.setBackgroundColor(Color.TRANSPARENT)
-                            adView.setListener(object : MaxAdViewAdListener {
-                                override fun onAdLoaded(ad: MaxAd) {
-                                    FirebaseAnalyticsManager.logAdLoad(
-                                        adType = if (isMrec) "mrec" else "banner",
-                                        adUnitId = resolvedAdUnitId,
-                                        adNetwork = "applovin",
-                                        success = true,
-                                    )
-                                }
+                        val existing = adViewState.value
+                        if (existing == null || existing.tag != requestKey) {
+                            existing?.destroy()
+                            val adFormat = if (isMrec) MaxAdFormat.MREC else MaxAdFormat.BANNER
+                            val newAdView = MaxAdView(resolvedAdUnitId, adFormat).also { adView ->
+                                adView.tag = requestKey
+                                adView.layoutParams = FrameLayout.LayoutParams(widthPx, heightPx)
+                                adView.setBackgroundColor(Color.TRANSPARENT)
+                                adView.setListener(object : MaxAdViewAdListener {
+                                    override fun onAdLoaded(ad: MaxAd) {
+                                        retryAttempt.value = 0
+                                        FirebaseAnalyticsManager.logAdLoad(
+                                            adType = if (isMrec) "mrec" else "banner",
+                                            adUnitId = resolvedAdUnitId,
+                                            adNetwork = "applovin",
+                                            success = true,
+                                        )
+                                    }
 
-                                override fun onAdLoadFailed(adUnitId: String, error: MaxError) {
-                                    onAdFailedToLoad?.invoke(error.message)
-                                    FirebaseAnalyticsManager.logAdLoad(
-                                        adType = if (isMrec) "mrec" else "banner",
-                                        adUnitId = resolvedAdUnitId,
-                                        adNetwork = "applovin",
-                                        success = false,
-                                        errorMessage = error.message,
-                                        errorCode = error.code,
-                                    )
-                                }
+                                    override fun onAdLoadFailed(adUnitId: String, error: MaxError) {
+                                        onAdFailedToLoad?.invoke(error.message)
+                                        retryAttempt.value += 1
+                                        retrySignal.value += 1
+                                        FirebaseAnalyticsManager.logAdLoad(
+                                            adType = if (isMrec) "mrec" else "banner",
+                                            adUnitId = resolvedAdUnitId,
+                                            adNetwork = "applovin",
+                                            success = false,
+                                            errorMessage = error.message,
+                                            errorCode = error.code,
+                                        )
+                                    }
 
                                 override fun onAdDisplayFailed(ad: MaxAd, error: MaxError) {}
                                 override fun onAdClicked(ad: MaxAd) {
@@ -249,7 +291,7 @@ object ApplovinMaxMediation {
                                 override fun onAdDisplayed(ad: MaxAd) {}
                                 override fun onAdHidden(ad: MaxAd) {}
                             })
-                            adView.loadAd()
+                            requestAdViewLoad(adView, isMrec)
                         }
                         container.removeAllViews()
                         container.addView(newAdView)
@@ -337,6 +379,8 @@ object ApplovinMaxMediation {
                 val nativeAdViewState = remember(resolvedAdUnitId) { mutableStateOf<MaxNativeAdView?>(null) }
                 val loadedNativeAdState = remember(resolvedAdUnitId) { mutableStateOf<MaxAd?>(null) }
                 val isLoading = remember(resolvedAdUnitId) { mutableStateOf(false) }
+                val retryAttempt = remember(resolvedAdUnitId) { mutableStateOf(0) }
+                val retrySignal = remember(resolvedAdUnitId) { mutableStateOf(0) }
 
                 DisposableEffect(resolvedAdUnitId) {
                     nativeAdLoader.setNativeAdListener(object : MaxNativeAdListener() {
@@ -356,11 +400,14 @@ object ApplovinMaxMediation {
                                 )
                             }
                             isLoading.value = false
+                            retryAttempt.value = 0
                         }
 
                         override fun onNativeAdLoadFailed(adUnitId: String, error: MaxError) {
                             isLoading.value = false
                             onAdFailedToLoad?.invoke(error.message)
+                            retryAttempt.value += 1
+                            retrySignal.value += 1
                             FirebaseAnalyticsManager.logAdLoad(
                                 adType = "native",
                                 adUnitId = resolvedAdUnitId,
@@ -390,7 +437,12 @@ object ApplovinMaxMediation {
                     resolvedAdUnitId,
                     nativeAdContainerState.value,
                     nativeAdViewState.value,
+                    retrySignal.value,
                 ) {
+                    val signal = retrySignal.value
+                    if (signal > 0) {
+                        delay(retryDelayMs((retryAttempt.value - 1).coerceAtLeast(0)))
+                    }
                     val container = nativeAdContainerState.value ?: return@LaunchedEffect
                     val nativeAdView = nativeAdViewState.value
                     if (nativeAdView != null) {
@@ -403,6 +455,9 @@ object ApplovinMaxMediation {
                         return@LaunchedEffect
                     }
                     if (isLoading.value || loadedNativeAdState.value != null) {
+                        return@LaunchedEffect
+                    }
+                    if (!shouldRequestNativeLoad()) {
                         return@LaunchedEffect
                     }
                     isLoading.value = true
@@ -436,7 +491,18 @@ object ApplovinMaxMediation {
             return false
         }
         val ad = rewardedAd
-        if (ad != null && ad.isReady) {
+        if (ad == null) {
+            loadRewarded(activity)
+            onAdClosed()
+            return false
+        }
+        if (isAdExpired(rewardedLoadedAtMs)) {
+            rewardedLoadedAtMs = 0L
+            requestRewardedLoad(ad, force = true)
+            onAdClosed()
+            return false
+        }
+        if (ad.isReady) {
             isFullscreenAdShowing = true
             rewardedOnAdClosed = onAdClosed
             rewardedOnUserRewarded = onRewarded
@@ -457,12 +523,14 @@ object ApplovinMaxMediation {
             createRewardedAd()
             return rewardedAd != null
         }
+        if (isAdExpired(rewardedLoadedAtMs)) {
+            rewardedLoadedAtMs = 0L
+        }
         if (ad.isReady) {
             return true
         }
 
-        ad.loadAd()
-        return true
+        return requestRewardedLoad(ad)
     }
 
     fun showMediationDebugger(context: Context) {
@@ -479,6 +547,12 @@ object ApplovinMaxMediation {
             return false
         }
         val ad = appOpenAd
+        if (ad != null && isAdExpired(appOpenLoadedAtMs)) {
+            appOpenLoadedAtMs = 0L
+            requestAppOpenLoad(ad, force = true)
+            onAdClosed()
+            return false
+        }
         if (ad != null && ad.isReady) {
             isAppOpenShowing = true
             isFullscreenAdShowing = true
@@ -486,9 +560,163 @@ object ApplovinMaxMediation {
             ad.showAd()
             return true
         }
-        appOpenAd?.loadAd()
+        appOpenAd?.let { requestAppOpenLoad(it) }
         onAdClosed()
         return false
+    }
+
+    private fun requestInterstitialLoad(ad: MaxInterstitialAd, force: Boolean = false): Boolean {
+        if (!force && !shouldRequestInterstitialLoad()) {
+            return false
+        }
+        if (force) {
+            lastInterstitialLoadRequestedAtMs = SystemClock.elapsedRealtime()
+        }
+        ad.loadAd()
+        return true
+    }
+
+    private fun requestRewardedLoad(ad: MaxRewardedAd, force: Boolean = false): Boolean {
+        if (!force && !shouldRequestRewardedLoad()) {
+            return false
+        }
+        if (force) {
+            lastRewardedLoadRequestedAtMs = SystemClock.elapsedRealtime()
+        }
+        ad.loadAd()
+        return true
+    }
+
+    private fun requestAppOpenLoad(ad: MaxAppOpenAd, force: Boolean = false): Boolean {
+        if (!force && !shouldRequestAppOpenLoad()) {
+            return false
+        }
+        if (force) {
+            lastAppOpenLoadRequestedAtMs = SystemClock.elapsedRealtime()
+        }
+        ad.loadAd()
+        return true
+    }
+
+    private fun requestAdViewLoad(adView: MaxAdView, isMrec: Boolean): Boolean {
+        val shouldRequest = if (isMrec) {
+            shouldRequestMrecLoad()
+        } else {
+            shouldRequestBannerLoad()
+        }
+        if (!shouldRequest) {
+            return false
+        }
+        adView.loadAd()
+        return true
+    }
+
+    private fun shouldRequestInterstitialLoad(): Boolean {
+        val now = SystemClock.elapsedRealtime()
+        if (lastInterstitialLoadRequestedAtMs != 0L &&
+            now - lastInterstitialLoadRequestedAtMs < LOAD_REQUEST_MIN_INTERVAL_MS
+        ) {
+            return false
+        }
+        lastInterstitialLoadRequestedAtMs = now
+        return true
+    }
+
+    private fun shouldRequestRewardedLoad(): Boolean {
+        val now = SystemClock.elapsedRealtime()
+        if (lastRewardedLoadRequestedAtMs != 0L &&
+            now - lastRewardedLoadRequestedAtMs < LOAD_REQUEST_MIN_INTERVAL_MS
+        ) {
+            return false
+        }
+        lastRewardedLoadRequestedAtMs = now
+        return true
+    }
+
+    private fun shouldRequestAppOpenLoad(): Boolean {
+        val now = SystemClock.elapsedRealtime()
+        if (lastAppOpenLoadRequestedAtMs != 0L &&
+            now - lastAppOpenLoadRequestedAtMs < LOAD_REQUEST_MIN_INTERVAL_MS
+        ) {
+            return false
+        }
+        lastAppOpenLoadRequestedAtMs = now
+        return true
+    }
+
+    private fun shouldRequestBannerLoad(): Boolean {
+        val now = SystemClock.elapsedRealtime()
+        if (lastBannerLoadRequestedAtMs != 0L &&
+            now - lastBannerLoadRequestedAtMs < LOAD_REQUEST_MIN_INTERVAL_MS
+        ) {
+            return false
+        }
+        lastBannerLoadRequestedAtMs = now
+        return true
+    }
+
+    private fun shouldRequestMrecLoad(): Boolean {
+        val now = SystemClock.elapsedRealtime()
+        if (lastMrecLoadRequestedAtMs != 0L &&
+            now - lastMrecLoadRequestedAtMs < LOAD_REQUEST_MIN_INTERVAL_MS
+        ) {
+            return false
+        }
+        lastMrecLoadRequestedAtMs = now
+        return true
+    }
+
+    private fun shouldRequestNativeLoad(): Boolean {
+        val now = SystemClock.elapsedRealtime()
+        if (lastNativeLoadRequestedAtMs != 0L &&
+            now - lastNativeLoadRequestedAtMs < LOAD_REQUEST_MIN_INTERVAL_MS
+        ) {
+            return false
+        }
+        lastNativeLoadRequestedAtMs = now
+        return true
+    }
+
+    private fun isAdExpired(loadedAtMs: Long): Boolean {
+        return loadedAtMs != 0L && SystemClock.elapsedRealtime() - loadedAtMs >= AD_EXPIRATION_MS
+    }
+
+    private fun retryDelayMs(retryAttempt: Int): Long {
+        val multiplier = 1L shl retryAttempt.coerceAtMost(4)
+        return (LOAD_REQUEST_MIN_INTERVAL_MS * multiplier).coerceAtMost(LOAD_RETRY_MAX_DELAY_MS)
+    }
+
+    private fun scheduleInterstitialRetry(ad: MaxInterstitialAd) {
+        if (interstitialRetryRunnable != null) {
+            return
+        }
+        val delayMs = retryDelayMs(interstitialRetryAttempt++)
+        interstitialRetryRunnable = Runnable {
+            interstitialRetryRunnable = null
+            requestInterstitialLoad(ad, force = true)
+        }.also { mainHandler.postDelayed(it, delayMs) }
+    }
+
+    private fun scheduleRewardedRetry(ad: MaxRewardedAd) {
+        if (rewardedRetryRunnable != null) {
+            return
+        }
+        val delayMs = retryDelayMs(rewardedRetryAttempt++)
+        rewardedRetryRunnable = Runnable {
+            rewardedRetryRunnable = null
+            requestRewardedLoad(ad, force = true)
+        }.also { mainHandler.postDelayed(it, delayMs) }
+    }
+
+    private fun scheduleAppOpenRetry(ad: MaxAppOpenAd) {
+        if (appOpenRetryRunnable != null) {
+            return
+        }
+        val delayMs = retryDelayMs(appOpenRetryAttempt++)
+        appOpenRetryRunnable = Runnable {
+            appOpenRetryRunnable = null
+            requestAppOpenLoad(ad, force = true)
+        }.also { mainHandler.postDelayed(it, delayMs) }
     }
 
     private fun createInterstitialAd(context: Context) {
@@ -498,6 +726,10 @@ object ApplovinMaxMediation {
         interstitialAd = MaxInterstitialAd(config.INTERSTITIAL_AD_UNIT_ID).also { interstitial ->
             interstitial.setListener(object : MaxAdListener {
                 override fun onAdLoaded(ad: MaxAd) {
+                    interstitialLoadedAtMs = SystemClock.elapsedRealtime()
+                    interstitialRetryAttempt = 0
+                    interstitialRetryRunnable?.let { mainHandler.removeCallbacks(it) }
+                    interstitialRetryRunnable = null
                     FirebaseAnalyticsManager.logAdLoad(
                         adType = "interstitial",
                         adUnitId = config.INTERSTITIAL_AD_UNIT_ID,
@@ -507,6 +739,8 @@ object ApplovinMaxMediation {
                 }
 
                 override fun onAdLoadFailed(adUnitId: String, error: MaxError) {
+                    interstitialLoadedAtMs = 0L
+                    scheduleInterstitialRetry(interstitial)
                     FirebaseAnalyticsManager.logAdLoad(
                         adType = "interstitial",
                         adUnitId = config.INTERSTITIAL_AD_UNIT_ID,
@@ -519,9 +753,10 @@ object ApplovinMaxMediation {
 
                 override fun onAdDisplayFailed(ad: MaxAd, error: MaxError) {
                     isFullscreenAdShowing = false
+                    interstitialLoadedAtMs = 0L
                     interstitialOnAdClosed()
                     interstitialOnAdClosed = {}
-                    interstitial.loadAd()
+                    requestInterstitialLoad(interstitial, force = true)
                     FirebaseAnalyticsManager.logAdShown(
                         adType = "interstitial",
                         adNetwork = "applovin",
@@ -532,9 +767,10 @@ object ApplovinMaxMediation {
 
                 override fun onAdHidden(ad: MaxAd) {
                     isFullscreenAdShowing = false
+                    interstitialLoadedAtMs = 0L
                     interstitialOnAdClosed()
                     interstitialOnAdClosed = {}
-                    interstitial.loadAd()
+                    requestInterstitialLoad(interstitial, force = true)
                 }
 
                 override fun onAdDisplayed(ad: MaxAd) {
@@ -553,7 +789,7 @@ object ApplovinMaxMediation {
                     )
                 }
             })
-            interstitial.loadAd()
+            requestInterstitialLoad(interstitial)
         }
     }
 
@@ -564,6 +800,10 @@ object ApplovinMaxMediation {
         rewardedAd = MaxRewardedAd.getInstance(config.REWARDED_AD_UNIT_ID).also { rewarded ->
             rewarded.setListener(object : MaxRewardedAdListener {
                 override fun onAdLoaded(ad: MaxAd) {
+                    rewardedLoadedAtMs = SystemClock.elapsedRealtime()
+                    rewardedRetryAttempt = 0
+                    rewardedRetryRunnable?.let { mainHandler.removeCallbacks(it) }
+                    rewardedRetryRunnable = null
                     FirebaseAnalyticsManager.logAdLoad(
                         adType = "rewarded",
                         adUnitId = config.REWARDED_AD_UNIT_ID,
@@ -573,6 +813,8 @@ object ApplovinMaxMediation {
                 }
 
                 override fun onAdLoadFailed(adUnitId: String, error: MaxError) {
+                    rewardedLoadedAtMs = 0L
+                    scheduleRewardedRetry(rewarded)
                     FirebaseAnalyticsManager.logAdLoad(
                         adType = "rewarded",
                         adUnitId = config.REWARDED_AD_UNIT_ID,
@@ -585,8 +827,10 @@ object ApplovinMaxMediation {
 
                 override fun onAdDisplayFailed(ad: MaxAd, error: MaxError) {
                     isFullscreenAdShowing = false
+                    rewardedLoadedAtMs = 0L
                     rewardedOnAdClosed()
                     rewardedOnAdClosed = {}
+                    requestRewardedLoad(rewarded, force = true)
                     FirebaseAnalyticsManager.logAdShown(
                         adType = "rewarded",
                         adNetwork = "applovin",
@@ -597,8 +841,10 @@ object ApplovinMaxMediation {
 
                 override fun onAdHidden(ad: MaxAd) {
                     isFullscreenAdShowing = false
+                    rewardedLoadedAtMs = 0L
                     rewardedOnAdClosed()
                     rewardedOnAdClosed = {}
+                    requestRewardedLoad(rewarded, force = true)
                 }
 
                 override fun onAdDisplayed(ad: MaxAd) {
@@ -621,7 +867,7 @@ object ApplovinMaxMediation {
                     rewardedOnUserRewarded(reward.label, reward.amount)
                 }
             })
-            rewarded.loadAd()
+            requestRewardedLoad(rewarded)
         }
     }
 
@@ -632,6 +878,10 @@ object ApplovinMaxMediation {
         appOpenAd = MaxAppOpenAd(config.APP_OPEN_AD_UNIT_ID).also { appOpen ->
             appOpen.setListener(object : MaxAdListener {
                 override fun onAdLoaded(ad: MaxAd) {
+                    appOpenLoadedAtMs = SystemClock.elapsedRealtime()
+                    appOpenRetryAttempt = 0
+                    appOpenRetryRunnable?.let { mainHandler.removeCallbacks(it) }
+                    appOpenRetryRunnable = null
                     FirebaseAnalyticsManager.logAdLoad(
                         adType = "app_open",
                         adUnitId = config.APP_OPEN_AD_UNIT_ID,
@@ -641,6 +891,8 @@ object ApplovinMaxMediation {
                 }
 
                 override fun onAdLoadFailed(adUnitId: String, error: MaxError) {
+                    appOpenLoadedAtMs = 0L
+                    scheduleAppOpenRetry(appOpen)
                     FirebaseAnalyticsManager.logAdLoad(
                         adType = "app_open",
                         adUnitId = config.APP_OPEN_AD_UNIT_ID,
@@ -654,9 +906,10 @@ object ApplovinMaxMediation {
                 override fun onAdDisplayFailed(ad: MaxAd, error: MaxError) {
                     isAppOpenShowing = false
                     isFullscreenAdShowing = false
+                    appOpenLoadedAtMs = 0L
                     appOpenOnAdClosedInternal()
                     appOpenOnAdClosedInternal = {}
-                    appOpen.loadAd()
+                    requestAppOpenLoad(appOpen, force = true)
                     FirebaseAnalyticsManager.logAdShown(
                         adType = "app_open",
                         adNetwork = "applovin",
@@ -668,9 +921,10 @@ object ApplovinMaxMediation {
                 override fun onAdHidden(ad: MaxAd) {
                     isAppOpenShowing = false
                     isFullscreenAdShowing = false
+                    appOpenLoadedAtMs = 0L
                     appOpenOnAdClosedInternal()
                     appOpenOnAdClosedInternal = {}
-                    appOpen.loadAd()
+                    requestAppOpenLoad(appOpen, force = true)
                 }
 
                 override fun onAdDisplayed(ad: MaxAd) {
@@ -689,7 +943,7 @@ object ApplovinMaxMediation {
                     )
                 }
             })
-            appOpen.loadAd()
+            requestAppOpenLoad(appOpen)
         }
     }
 
