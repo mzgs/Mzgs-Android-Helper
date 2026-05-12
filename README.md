@@ -243,7 +243,8 @@ Ads.showRewarded(
 ```
 
 `showInterstitial`, `showRewarded`, and `showAppOpenAd` return `false` when no cached ad is ready.
-If a cached interstitial is selected but fails while showing, `showInterstitial` returns `true` and calls `onAdShowFailed`.
+If a cached interstitial or rewarded ad is selected but fails while showing, the helper tries the
+next configured network before calling `onAdClosed`.
 
 ### Interstitial with cycle (remote-configurable)
 

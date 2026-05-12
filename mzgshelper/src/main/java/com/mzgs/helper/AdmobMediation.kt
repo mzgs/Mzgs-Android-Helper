@@ -1061,6 +1061,7 @@ object AdmobMediation {
     fun showReward(
         activity: Activity,
         onRewarded: (type: String, amount: Int) -> Unit = { _, _ -> },
+        onAdShowFailed: (errorMessage: String) -> Unit = {},
         onAdClosed: () -> Unit = {},
     ): Boolean {
         if (!isInitialized) {
@@ -1086,14 +1087,15 @@ object AdmobMediation {
             }
 
             override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+                onAdShowFailed(adError.message)
                 onAdClosed()
                 FirebaseAnalyticsManager.logEvent(
                     "rewarded_ad_failed_to_show",
                     Bundle().apply {
                         putString("ad_unit_id", config.REWARDED_AD_UNIT_ID)
                         putString("error_message", adError.message)
-                        },
-                    )
+                    },
+                )
                 requestRewardedLoad(activity, force = true)
             }
         }
@@ -1104,6 +1106,19 @@ object AdmobMediation {
             },
         )
         return true
+    }
+
+    fun showReward(
+        activity: Activity,
+        onRewarded: (type: String, amount: Int) -> Unit,
+        onAdClosed: () -> Unit,
+    ): Boolean {
+        return showReward(
+            activity = activity,
+            onRewarded = onRewarded,
+            onAdShowFailed = {},
+            onAdClosed = onAdClosed,
+        )
     }
 
     fun showAppOpenAd(activity: Activity, onAdClosed: () -> Unit = {}): Boolean {

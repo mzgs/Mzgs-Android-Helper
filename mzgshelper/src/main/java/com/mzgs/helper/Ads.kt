@@ -123,12 +123,30 @@ object Ads {
         val networks = normalizedNetworks(networks)
 
         var shownNetwork: String? = null
+        var shownNetworkIndex = -1
         var closedNotified = false
+        val failedToShowNetworks = mutableSetOf<String>()
+        lateinit var tryShowFrom: (startIndex: Int) -> Boolean
 
-        fun networkClosed(network: String) {
-            if (shownNetwork == network && !closedNotified) {
+        fun notifyClosed() {
+            if (!closedNotified) {
                 closedNotified = true
                 onAdClosed()
+            }
+        }
+
+        fun networkClosed(network: String) {
+            if (shownNetwork != network || closedNotified) {
+                return
+            }
+
+            if (failedToShowNetworks.remove(network)) {
+                val nextIndex = shownNetworkIndex + 1
+                shownNetwork = null
+                shownNetworkIndex = -1
+                tryShowFrom(nextIndex)
+            } else {
+                notifyClosed()
             }
         }
 
@@ -138,30 +156,45 @@ object Ads {
             }
         }
 
-        for (network in networks) {
-            val shown = when (network) {
-                "applovin" -> ApplovinMaxMediation.showReward(
-                    activity = activity,
-                    onRewarded = { type, amount -> networkRewarded(network, type, amount) },
-                    onAdClosed = { networkClosed(network) },
-                )
-                "admob" -> AdmobMediation.showReward(
-                    activity = activity,
-                    onRewarded = { type, amount -> networkRewarded(network, type, amount) },
-                    onAdClosed = { networkClosed(network) },
-                )
-                else -> false
-            }
-            if (shown) {
-                shownNetwork = network
-                return true
+        fun networkShowFailed(network: String) {
+            if (shownNetwork == network && !closedNotified) {
+                failedToShowNetworks.add(network)
             }
         }
 
-        if (!closedNotified) {
-            onAdClosed()
+        tryShowFrom = { startIndex ->
+            var shownAny = false
+            for (index in startIndex until networks.size) {
+                val network = networks[index]
+                val shown = when (network) {
+                    "applovin" -> ApplovinMaxMediation.showReward(
+                        activity = activity,
+                        onRewarded = { type, amount -> networkRewarded(network, type, amount) },
+                        onAdShowFailed = { networkShowFailed(network) },
+                        onAdClosed = { networkClosed(network) },
+                    )
+                    "admob" -> AdmobMediation.showReward(
+                        activity = activity,
+                        onRewarded = { type, amount -> networkRewarded(network, type, amount) },
+                        onAdShowFailed = { networkShowFailed(network) },
+                        onAdClosed = { networkClosed(network) },
+                    )
+                    else -> false
+                }
+                if (shown) {
+                    shownNetwork = network
+                    shownNetworkIndex = index
+                    shownAny = true
+                    break
+                }
+            }
+            if (!shownAny) {
+                notifyClosed()
+            }
+            shownAny
         }
-        return false
+
+        return tryShowFrom(0)
     }
 
     fun loadRewarded(
@@ -192,44 +225,71 @@ object Ads {
         val networks = normalizedNetworks(networks)
 
         var shownNetwork: String? = null
+        var shownNetworkIndex = -1
         var closedNotified = false
+        val failedToShowNetworks = mutableSetOf<String>()
+        lateinit var tryShowFrom: (startIndex: Int) -> Boolean
 
-        fun networkClosed(network: String) {
-            if (shownNetwork == network && !closedNotified) {
+        fun notifyClosed() {
+            if (!closedNotified) {
                 closedNotified = true
                 onAdClosed()
             }
         }
 
+        fun networkClosed(network: String) {
+            if (shownNetwork != network || closedNotified) {
+                return
+            }
+
+            if (failedToShowNetworks.remove(network)) {
+                val nextIndex = shownNetworkIndex + 1
+                shownNetwork = null
+                shownNetworkIndex = -1
+                tryShowFrom(nextIndex)
+            } else {
+                notifyClosed()
+            }
+        }
+
         fun networkShowFailed(network: String, errorMessage: String) {
-            if (shownNetwork == network) {
+            if (shownNetwork == network && !closedNotified) {
+                failedToShowNetworks.add(network)
                 onAdShowFailed(network, errorMessage)
             }
         }
 
-        for (network in networks) {
-            val shown = when (network) {
-                "applovin" -> ApplovinMaxMediation.showInterstitial(
-                    activity = activity,
-                    onAdShowFailed = { errorMessage -> networkShowFailed(network, errorMessage) },
-                    onAdClosed = { networkClosed(network) },
-                )
-                "admob" -> AdmobMediation.showInterstitial(
-                    activity = activity,
-                    onAdShowFailed = { errorMessage -> networkShowFailed(network, errorMessage) },
-                    onAdClosed = { networkClosed(network) },
-                )
-                else -> false
+        tryShowFrom = { startIndex ->
+            var shownAny = false
+            for (index in startIndex until networks.size) {
+                val network = networks[index]
+                val shown = when (network) {
+                    "applovin" -> ApplovinMaxMediation.showInterstitial(
+                        activity = activity,
+                        onAdShowFailed = { errorMessage -> networkShowFailed(network, errorMessage) },
+                        onAdClosed = { networkClosed(network) },
+                    )
+                    "admob" -> AdmobMediation.showInterstitial(
+                        activity = activity,
+                        onAdShowFailed = { errorMessage -> networkShowFailed(network, errorMessage) },
+                        onAdClosed = { networkClosed(network) },
+                    )
+                    else -> false
+                }
+                if (shown) {
+                    shownNetwork = network
+                    shownNetworkIndex = index
+                    shownAny = true
+                    break
+                }
             }
-            if (shown) {
-                shownNetwork = network
-                return true
+            if (!shownAny) {
+                notifyClosed()
             }
+            shownAny
         }
-        if (!closedNotified) {
-            onAdClosed()
-        }
-        return false
+
+        return tryShowFrom(0)
     }
 
     fun showAppOpenAd(

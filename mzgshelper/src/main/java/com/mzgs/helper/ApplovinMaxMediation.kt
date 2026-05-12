@@ -87,6 +87,7 @@ object ApplovinMaxMediation {
     private var interstitialOnAdClosed: () -> Unit = {}
     private var interstitialOnAdShowFailed: (String) -> Unit = {}
     private var rewardedOnAdClosed: () -> Unit = {}
+    private var rewardedOnAdShowFailed: (String) -> Unit = {}
     private var rewardedOnUserRewarded: (String, Int) -> Unit = { _, _ -> }
     private var appOpenOnAdClosedInternal: () -> Unit = {}
 
@@ -496,6 +497,7 @@ object ApplovinMaxMediation {
     fun showReward(
         activity: Activity,
         onRewarded: (type: String, amount: Int) -> Unit = { _, _ -> },
+        onAdShowFailed: (errorMessage: String) -> Unit = {},
         onAdClosed: () -> Unit = {},
     ): Boolean {
         if (!AppLovinSdk.getInstance(activity).isInitialized) {
@@ -513,9 +515,23 @@ object ApplovinMaxMediation {
         }
         isFullscreenAdShowing = true
         rewardedOnAdClosed = onAdClosed
+        rewardedOnAdShowFailed = onAdShowFailed
         rewardedOnUserRewarded = onRewarded
         ad.showAd(activity)
         return true
+    }
+
+    fun showReward(
+        activity: Activity,
+        onRewarded: (type: String, amount: Int) -> Unit,
+        onAdClosed: () -> Unit,
+    ): Boolean {
+        return showReward(
+            activity = activity,
+            onRewarded = onRewarded,
+            onAdShowFailed = {},
+            onAdClosed = onAdClosed,
+        )
     }
 
     fun loadInterstitial(context: Context): Boolean {
@@ -903,6 +919,8 @@ object ApplovinMaxMediation {
                 override fun onAdDisplayFailed(ad: MaxAd, error: MaxError) {
                     isFullscreenAdShowing = false
                     rewardedLoadedAtMs = 0L
+                    rewardedOnAdShowFailed(error.message)
+                    rewardedOnAdShowFailed = {}
                     rewardedOnAdClosed()
                     rewardedOnAdClosed = {}
                     requestRewardedLoad(rewarded, force = true)
@@ -917,6 +935,7 @@ object ApplovinMaxMediation {
                 override fun onAdHidden(ad: MaxAd) {
                     isFullscreenAdShowing = false
                     rewardedLoadedAtMs = 0L
+                    rewardedOnAdShowFailed = {}
                     rewardedOnAdClosed()
                     rewardedOnAdClosed = {}
                     requestRewardedLoad(rewarded, force = true)
