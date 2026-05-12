@@ -61,7 +61,6 @@ object AdmobMediation {
     private const val ADMOB_APP_ID_KEY = "com.google.android.gms.ads.APPLICATION_ID"
     private const val INIT_WAIT_TIMEOUT_MS = 120_000L
     private const val INIT_POLL_INTERVAL_MS = 1_000L
-    private const val LOAD_REQUEST_MIN_INTERVAL_MS = 30_000L
     private const val LOAD_RETRY_INITIAL_DELAY_MS = 8_000L
     private const val LOAD_RETRY_MAX_DELAY_MS = 256_000L
     private const val AD_EXPIRATION_MS = 3_600_000L
@@ -87,10 +86,6 @@ object AdmobMediation {
     @Volatile private var isRewardedLoading = false
     @Volatile private var isAppOpenLoading = false
     private val mainHandler = Handler(Looper.getMainLooper())
-    @Volatile private var lastInterstitialLoadRequestedAtMs = 0L
-    @Volatile private var lastRewardedLoadRequestedAtMs = 0L
-    @Volatile private var lastAppOpenLoadRequestedAtMs = 0L
-    @Volatile private var lastNativeLoadRequestedAtMs = 0L
     @Volatile private var interstitialLoadedAtMs = 0L
     @Volatile private var rewardedLoadedAtMs = 0L
     @Volatile private var appOpenLoadedAtMs = 0L
@@ -206,7 +201,7 @@ object AdmobMediation {
         return requestInterstitialLoad(context)
     }
 
-    private fun requestInterstitialLoad(context: Context, force: Boolean = false): Boolean {
+    private fun requestInterstitialLoad(context: Context): Boolean {
         if (!isInitialized || config.INTERSTITIAL_AD_UNIT_ID.isBlank()) {
             return false
         }
@@ -216,12 +211,6 @@ object AdmobMediation {
         }
         if (isInterstitialLoading || interstitialAd != null) {
             return true
-        }
-        if (!force && !shouldRequestInterstitialLoad()) {
-            return false
-        }
-        if (force) {
-            lastInterstitialLoadRequestedAtMs = SystemClock.elapsedRealtime()
         }
         isInterstitialLoading = true
         val request = AdRequest.Builder().build()
@@ -255,7 +244,7 @@ object AdmobMediation {
         return requestRewardedLoad(context)
     }
 
-    private fun requestRewardedLoad(context: Context, force: Boolean = false): Boolean {
+    private fun requestRewardedLoad(context: Context): Boolean {
         if (!isInitialized || config.REWARDED_AD_UNIT_ID.isBlank()) {
             return false
         }
@@ -265,12 +254,6 @@ object AdmobMediation {
         }
         if (isRewardedLoading || rewardedAd != null) {
             return true
-        }
-        if (!force && !shouldRequestRewardedLoad()) {
-            return false
-        }
-        if (force) {
-            lastRewardedLoadRequestedAtMs = SystemClock.elapsedRealtime()
         }
         isRewardedLoading = true
         val request = AdRequest.Builder().build()
@@ -304,7 +287,7 @@ object AdmobMediation {
         return requestAppOpenAdLoad(context)
     }
 
-    private fun requestAppOpenAdLoad(context: Context, force: Boolean = false): Boolean {
+    private fun requestAppOpenAdLoad(context: Context): Boolean {
         if (!isInitialized || config.APP_OPEN_AD_UNIT_ID.isBlank()) {
             return false
         }
@@ -314,12 +297,6 @@ object AdmobMediation {
         }
         if (isAppOpenLoading || appOpenAd != null) {
             return true
-        }
-        if (!force && !shouldRequestAppOpenLoad()) {
-            return false
-        }
-        if (force) {
-            lastAppOpenLoadRequestedAtMs = SystemClock.elapsedRealtime()
         }
         isAppOpenLoading = true
         val request = AdRequest.Builder().build()
@@ -349,50 +326,6 @@ object AdmobMediation {
         return true
     }
 
-    private fun shouldRequestInterstitialLoad(): Boolean {
-        val now = SystemClock.elapsedRealtime()
-        if (lastInterstitialLoadRequestedAtMs != 0L &&
-            now - lastInterstitialLoadRequestedAtMs < LOAD_REQUEST_MIN_INTERVAL_MS
-        ) {
-            return false
-        }
-        lastInterstitialLoadRequestedAtMs = now
-        return true
-    }
-
-    private fun shouldRequestRewardedLoad(): Boolean {
-        val now = SystemClock.elapsedRealtime()
-        if (lastRewardedLoadRequestedAtMs != 0L &&
-            now - lastRewardedLoadRequestedAtMs < LOAD_REQUEST_MIN_INTERVAL_MS
-        ) {
-            return false
-        }
-        lastRewardedLoadRequestedAtMs = now
-        return true
-    }
-
-    private fun shouldRequestAppOpenLoad(): Boolean {
-        val now = SystemClock.elapsedRealtime()
-        if (lastAppOpenLoadRequestedAtMs != 0L &&
-            now - lastAppOpenLoadRequestedAtMs < LOAD_REQUEST_MIN_INTERVAL_MS
-        ) {
-            return false
-        }
-        lastAppOpenLoadRequestedAtMs = now
-        return true
-    }
-
-    private fun shouldRequestNativeLoad(): Boolean {
-        val now = SystemClock.elapsedRealtime()
-        if (lastNativeLoadRequestedAtMs != 0L &&
-            now - lastNativeLoadRequestedAtMs < LOAD_REQUEST_MIN_INTERVAL_MS
-        ) {
-            return false
-        }
-        lastNativeLoadRequestedAtMs = now
-        return true
-    }
-
     private fun isAdExpired(loadedAtMs: Long): Boolean {
         return loadedAtMs != 0L && SystemClock.elapsedRealtime() - loadedAtMs >= AD_EXPIRATION_MS
     }
@@ -406,7 +339,7 @@ object AdmobMediation {
         }
         interstitialAd = null
         interstitialLoadedAtMs = 0L
-        requestInterstitialLoad(context.applicationContext, force = true)
+        requestInterstitialLoad(context.applicationContext)
         return true
     }
 
@@ -419,7 +352,7 @@ object AdmobMediation {
         }
         rewardedAd = null
         rewardedLoadedAtMs = 0L
-        requestRewardedLoad(context.applicationContext, force = true)
+        requestRewardedLoad(context.applicationContext)
         return true
     }
 
@@ -432,7 +365,7 @@ object AdmobMediation {
         }
         appOpenAd = null
         appOpenLoadedAtMs = 0L
-        requestAppOpenAdLoad(context.applicationContext, force = true)
+        requestAppOpenAdLoad(context.applicationContext)
         return true
     }
 
@@ -448,7 +381,7 @@ object AdmobMediation {
         val delayMs = retryDelayMs(interstitialRetryAttempt++)
         interstitialRetryRunnable = Runnable {
             interstitialRetryRunnable = null
-            requestInterstitialLoad(context, force = true)
+            requestInterstitialLoad(context)
         }.also { mainHandler.postDelayed(it, delayMs) }
     }
 
@@ -459,7 +392,7 @@ object AdmobMediation {
         val delayMs = retryDelayMs(rewardedRetryAttempt++)
         rewardedRetryRunnable = Runnable {
             rewardedRetryRunnable = null
-            requestRewardedLoad(context, force = true)
+            requestRewardedLoad(context)
         }.also { mainHandler.postDelayed(it, delayMs) }
     }
 
@@ -470,7 +403,7 @@ object AdmobMediation {
         val delayMs = retryDelayMs(appOpenRetryAttempt++)
         appOpenRetryRunnable = Runnable {
             appOpenRetryRunnable = null
-            requestAppOpenAdLoad(context, force = true)
+            requestAppOpenAdLoad(context)
         }.also { mainHandler.postDelayed(it, delayMs) }
     }
 
@@ -498,7 +431,7 @@ object AdmobMediation {
         ad.fullScreenContentCallback = object : FullScreenContentCallback() {
             override fun onAdDismissedFullScreenContent() {
                 onAdClosed()
-                requestInterstitialLoad(activity, force = true)
+                requestInterstitialLoad(activity)
             }
 
             override fun onAdFailedToShowFullScreenContent(adError: AdError) {
@@ -511,7 +444,7 @@ object AdmobMediation {
                         putString("error_message", adError.message)
                     },
                 )
-                requestInterstitialLoad(activity, force = true)
+                requestInterstitialLoad(activity)
             }
         }
         ad.show(activity)
@@ -657,9 +590,6 @@ object AdmobMediation {
                         delay(retryDelayMs((retryAttempt.value - 1).coerceAtLeast(0)))
                     }
                     if (isLoading.value || nativeAdState.value != null) {
-                        return@LaunchedEffect
-                    }
-                    if (!shouldRequestNativeLoad()) {
                         return@LaunchedEffect
                     }
                     isLoading.value = true
@@ -1035,7 +965,7 @@ object AdmobMediation {
         ad.fullScreenContentCallback = object : FullScreenContentCallback() {
             override fun onAdDismissedFullScreenContent() {
                 onAdClosed()
-                requestRewardedLoad(activity, force = true)
+                requestRewardedLoad(activity)
             }
 
             override fun onAdFailedToShowFullScreenContent(adError: AdError) {
@@ -1048,7 +978,7 @@ object AdmobMediation {
                         putString("error_message", adError.message)
                     },
                 )
-                requestRewardedLoad(activity, force = true)
+                requestRewardedLoad(activity)
             }
         }
         ad.show(
@@ -1113,7 +1043,7 @@ object AdmobMediation {
             override fun onAdDismissedFullScreenContent() {
                 isAppOpenShowing = false
                 onAdClosed()
-                requestAppOpenAdLoad(activity, force = true)
+                requestAppOpenAdLoad(activity)
             }
 
             override fun onAdFailedToShowFullScreenContent(adError: AdError) {
@@ -1127,7 +1057,7 @@ object AdmobMediation {
                         putString("error_message", adError.message)
                     },
                 )
-                requestAppOpenAdLoad(activity, force = true)
+                requestAppOpenAdLoad(activity)
             }
         }
         ad.show(activity)

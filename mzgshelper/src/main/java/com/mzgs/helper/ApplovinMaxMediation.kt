@@ -50,7 +50,6 @@ object ApplovinMaxMediation {
     private const val INIT_WAIT_TIMEOUT_MS = 120_000L
     private const val BANNER_INIT_WAIT_TIMEOUT_MS = 30_000L
     private const val INIT_POLL_INTERVAL_MS = 1_000L
-    private const val LOAD_REQUEST_MIN_INTERVAL_MS = 30_000L
     private const val LOAD_RETRY_INITIAL_DELAY_MS = 8_000L
     private const val LOAD_RETRY_MAX_DELAY_MS = 256_000L
     private const val AD_EXPIRATION_MS = 3_600_000L
@@ -69,10 +68,6 @@ object ApplovinMaxMediation {
     private var rewardedAd: MaxRewardedAd? = null
     private var appOpenAd: MaxAppOpenAd? = null
     private val mainHandler = Handler(Looper.getMainLooper())
-    @Volatile private var lastInterstitialLoadRequestedAtMs = 0L
-    @Volatile private var lastRewardedLoadRequestedAtMs = 0L
-    @Volatile private var lastAppOpenLoadRequestedAtMs = 0L
-    @Volatile private var lastNativeLoadRequestedAtMs = 0L
     @Volatile private var interstitialLoadedAtMs = 0L
     @Volatile private var rewardedLoadedAtMs = 0L
     @Volatile private var appOpenLoadedAtMs = 0L
@@ -460,9 +455,6 @@ object ApplovinMaxMediation {
                     if (isLoading.value || loadedNativeAdState.value != null) {
                         return@LaunchedEffect
                     }
-                    if (!shouldRequestNativeLoad()) {
-                        return@LaunchedEffect
-                    }
                     isLoading.value = true
                     nativeAdLoader.loadAd(createNativeAdView(context))
                 }
@@ -626,80 +618,18 @@ object ApplovinMaxMediation {
         return true
     }
 
-    private fun requestInterstitialLoad(ad: MaxInterstitialAd, force: Boolean = false): Boolean {
-        if (!force && !shouldRequestInterstitialLoad()) {
-            return false
-        }
-        if (force) {
-            lastInterstitialLoadRequestedAtMs = SystemClock.elapsedRealtime()
-        }
+    private fun requestInterstitialLoad(ad: MaxInterstitialAd): Boolean {
         ad.loadAd()
         return true
     }
 
-    private fun requestRewardedLoad(ad: MaxRewardedAd, force: Boolean = false): Boolean {
-        if (!force && !shouldRequestRewardedLoad()) {
-            return false
-        }
-        if (force) {
-            lastRewardedLoadRequestedAtMs = SystemClock.elapsedRealtime()
-        }
+    private fun requestRewardedLoad(ad: MaxRewardedAd): Boolean {
         ad.loadAd()
         return true
     }
 
-    private fun requestAppOpenLoad(ad: MaxAppOpenAd, force: Boolean = false): Boolean {
-        if (!force && !shouldRequestAppOpenLoad()) {
-            return false
-        }
-        if (force) {
-            lastAppOpenLoadRequestedAtMs = SystemClock.elapsedRealtime()
-        }
+    private fun requestAppOpenLoad(ad: MaxAppOpenAd): Boolean {
         ad.loadAd()
-        return true
-    }
-
-    private fun shouldRequestInterstitialLoad(): Boolean {
-        val now = SystemClock.elapsedRealtime()
-        if (lastInterstitialLoadRequestedAtMs != 0L &&
-            now - lastInterstitialLoadRequestedAtMs < LOAD_REQUEST_MIN_INTERVAL_MS
-        ) {
-            return false
-        }
-        lastInterstitialLoadRequestedAtMs = now
-        return true
-    }
-
-    private fun shouldRequestRewardedLoad(): Boolean {
-        val now = SystemClock.elapsedRealtime()
-        if (lastRewardedLoadRequestedAtMs != 0L &&
-            now - lastRewardedLoadRequestedAtMs < LOAD_REQUEST_MIN_INTERVAL_MS
-        ) {
-            return false
-        }
-        lastRewardedLoadRequestedAtMs = now
-        return true
-    }
-
-    private fun shouldRequestAppOpenLoad(): Boolean {
-        val now = SystemClock.elapsedRealtime()
-        if (lastAppOpenLoadRequestedAtMs != 0L &&
-            now - lastAppOpenLoadRequestedAtMs < LOAD_REQUEST_MIN_INTERVAL_MS
-        ) {
-            return false
-        }
-        lastAppOpenLoadRequestedAtMs = now
-        return true
-    }
-
-    private fun shouldRequestNativeLoad(): Boolean {
-        val now = SystemClock.elapsedRealtime()
-        if (lastNativeLoadRequestedAtMs != 0L &&
-            now - lastNativeLoadRequestedAtMs < LOAD_REQUEST_MIN_INTERVAL_MS
-        ) {
-            return false
-        }
-        lastNativeLoadRequestedAtMs = now
         return true
     }
 
@@ -713,7 +643,7 @@ object ApplovinMaxMediation {
             return false
         }
         interstitialLoadedAtMs = 0L
-        requestInterstitialLoad(ad, force = true)
+        requestInterstitialLoad(ad)
         return true
     }
 
@@ -723,7 +653,7 @@ object ApplovinMaxMediation {
             return false
         }
         rewardedLoadedAtMs = 0L
-        requestRewardedLoad(ad, force = true)
+        requestRewardedLoad(ad)
         return true
     }
 
@@ -733,7 +663,7 @@ object ApplovinMaxMediation {
             return false
         }
         appOpenLoadedAtMs = 0L
-        requestAppOpenLoad(ad, force = true)
+        requestAppOpenLoad(ad)
         return true
     }
 
@@ -749,7 +679,7 @@ object ApplovinMaxMediation {
         val delayMs = retryDelayMs(interstitialRetryAttempt++)
         interstitialRetryRunnable = Runnable {
             interstitialRetryRunnable = null
-            requestInterstitialLoad(ad, force = true)
+            requestInterstitialLoad(ad)
         }.also { mainHandler.postDelayed(it, delayMs) }
     }
 
@@ -760,7 +690,7 @@ object ApplovinMaxMediation {
         val delayMs = retryDelayMs(rewardedRetryAttempt++)
         rewardedRetryRunnable = Runnable {
             rewardedRetryRunnable = null
-            requestRewardedLoad(ad, force = true)
+            requestRewardedLoad(ad)
         }.also { mainHandler.postDelayed(it, delayMs) }
     }
 
@@ -771,7 +701,7 @@ object ApplovinMaxMediation {
         val delayMs = retryDelayMs(appOpenRetryAttempt++)
         appOpenRetryRunnable = Runnable {
             appOpenRetryRunnable = null
-            requestAppOpenLoad(ad, force = true)
+            requestAppOpenLoad(ad)
         }.also { mainHandler.postDelayed(it, delayMs) }
     }
 
@@ -814,7 +744,7 @@ object ApplovinMaxMediation {
                     interstitialOnAdShowFailed = {}
                     interstitialOnAdClosed()
                     interstitialOnAdClosed = {}
-                    requestInterstitialLoad(interstitial, force = true)
+                    requestInterstitialLoad(interstitial)
                     FirebaseAnalyticsManager.logAdShown(
                         adType = "interstitial",
                         adNetwork = "applovin",
@@ -829,7 +759,7 @@ object ApplovinMaxMediation {
                     interstitialOnAdShowFailed = {}
                     interstitialOnAdClosed()
                     interstitialOnAdClosed = {}
-                    requestInterstitialLoad(interstitial, force = true)
+                    requestInterstitialLoad(interstitial)
                 }
 
                 override fun onAdDisplayed(ad: MaxAd) {
@@ -891,7 +821,7 @@ object ApplovinMaxMediation {
                     rewardedOnAdShowFailed = {}
                     rewardedOnAdClosed()
                     rewardedOnAdClosed = {}
-                    requestRewardedLoad(rewarded, force = true)
+                    requestRewardedLoad(rewarded)
                     FirebaseAnalyticsManager.logAdShown(
                         adType = "rewarded",
                         adNetwork = "applovin",
@@ -906,7 +836,7 @@ object ApplovinMaxMediation {
                     rewardedOnAdShowFailed = {}
                     rewardedOnAdClosed()
                     rewardedOnAdClosed = {}
-                    requestRewardedLoad(rewarded, force = true)
+                    requestRewardedLoad(rewarded)
                 }
 
                 override fun onAdDisplayed(ad: MaxAd) {
@@ -973,7 +903,7 @@ object ApplovinMaxMediation {
                     appOpenOnAdShowFailed = {}
                     appOpenOnAdClosedInternal()
                     appOpenOnAdClosedInternal = {}
-                    requestAppOpenLoad(appOpen, force = true)
+                    requestAppOpenLoad(appOpen)
                     FirebaseAnalyticsManager.logAdShown(
                         adType = "app_open",
                         adNetwork = "applovin",
@@ -989,7 +919,7 @@ object ApplovinMaxMediation {
                     appOpenOnAdShowFailed = {}
                     appOpenOnAdClosedInternal()
                     appOpenOnAdClosedInternal = {}
-                    requestAppOpenLoad(appOpen, force = true)
+                    requestAppOpenLoad(appOpen)
                 }
 
                 override fun onAdDisplayed(ad: MaxAd) {
