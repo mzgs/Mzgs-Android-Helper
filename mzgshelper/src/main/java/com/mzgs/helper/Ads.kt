@@ -127,6 +127,25 @@ object Ads {
         return false
     }
 
+    fun loadInterstitial(
+        activity: Activity,
+        networks: String = "applovin,admob",
+    ): Boolean {
+        val networks = normalizedNetworks(networks)
+        var loadRequested = false
+
+        for (network in networks) {
+            val requested = when (network) {
+                "applovin" -> ApplovinMaxMediation.loadInterstitial(activity)
+                "admob" -> AdmobMediation.loadInterstitial(activity)
+                else -> false
+            }
+            loadRequested = loadRequested || requested
+        }
+
+        return loadRequested
+    }
+
     fun showRewarded(
         activity: Activity,
         networks: String = "applovin,admob",
@@ -263,6 +282,25 @@ object Ads {
             onAdClosed()
         }
         return false
+    }
+
+    fun loadAppOpenAd(
+        activity: Activity,
+        networks: String = "applovin,admob",
+    ): Boolean {
+        val networks = normalizedNetworks(networks)
+        var loadRequested = false
+
+        for (network in networks) {
+            val requested = when (network) {
+                "applovin" -> ApplovinMaxMediation.loadAppOpenAd(activity)
+                "admob" -> AdmobMediation.loadAppOpenAd(activity)
+                else -> false
+            }
+            loadRequested = loadRequested || requested
+        }
+
+        return loadRequested
     }
 
     @Composable

@@ -140,12 +140,6 @@ object ApplovinMaxMediation {
             initFailureMessage = null
             isInitialized = true
             isInitializing = false
-            if (config.INTERSTITIAL_AD_UNIT_ID.isNotBlank()) {
-                createInterstitialAd(appContext)
-            }
-            if (config.APP_OPEN_AD_UNIT_ID.isNotBlank()) {
-                createAppOpenAd()
-            }
             val callbacks = pendingInitCallbacks.toList()
             pendingInitCallbacks.clear()
             callbacks.forEach { it() }
@@ -504,6 +498,26 @@ object ApplovinMaxMediation {
         return true
     }
 
+    fun loadInterstitial(context: Context): Boolean {
+        if (!AppLovinSdk.getInstance(context).isInitialized || config.INTERSTITIAL_AD_UNIT_ID.isBlank()) {
+            return false
+        }
+
+        val ad = interstitialAd
+        if (ad == null) {
+            createInterstitialAd(context.applicationContext)
+            return interstitialAd != null
+        }
+        if (isAdExpired(interstitialLoadedAtMs)) {
+            interstitialLoadedAtMs = 0L
+        }
+        if (ad.isReady) {
+            return true
+        }
+
+        return requestInterstitialLoad(ad)
+    }
+
     fun loadRewarded(context: Context): Boolean {
         if (!AppLovinSdk.getInstance(context).isInitialized || config.REWARDED_AD_UNIT_ID.isBlank()) {
             return false
@@ -522,6 +536,26 @@ object ApplovinMaxMediation {
         }
 
         return requestRewardedLoad(ad)
+    }
+
+    fun loadAppOpenAd(context: Context): Boolean {
+        if (!AppLovinSdk.getInstance(context).isInitialized || config.APP_OPEN_AD_UNIT_ID.isBlank()) {
+            return false
+        }
+
+        val ad = appOpenAd
+        if (ad == null) {
+            createAppOpenAd()
+            return appOpenAd != null
+        }
+        if (isAdExpired(appOpenLoadedAtMs)) {
+            appOpenLoadedAtMs = 0L
+        }
+        if (ad.isReady) {
+            return true
+        }
+
+        return requestAppOpenLoad(ad)
     }
 
     fun showMediationDebugger(context: Context) {

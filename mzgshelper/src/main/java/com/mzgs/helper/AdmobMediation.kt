@@ -156,8 +156,6 @@ object AdmobMediation {
             initFailureMessage = null
             isInitialized = true
             isInitializing = false
-            requestInterstitialLoad(appContext)
-            requestAppOpenAdLoad(appContext)
             drainInitCallbacks()
         }
     }
