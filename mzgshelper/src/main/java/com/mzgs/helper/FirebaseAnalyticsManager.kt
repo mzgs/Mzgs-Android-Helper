@@ -74,11 +74,13 @@ object FirebaseAnalyticsManager {
         adType: String,
         adNetwork: String,
         success: Boolean = true,
-        errorMessage: String? = null
+        errorMessage: String? = null,
+        adUnitId: String = ""
     ) {
         if (!ensureInitialized()) return
         val bundle = Bundle().apply {
             putString("ad_type", adType)
+            putString("ad_unit_id", adUnitId)
             putString("ad_network", adNetwork)
             if (!success) {
                 errorMessage?.let { putString("error_message", it) }
@@ -86,5 +88,37 @@ object FirebaseAnalyticsManager {
         }
         val eventName = if (success) "ad_show_success" else "ad_show_failed"
         logEvent(eventName, bundle)
+    }
+
+    fun logAdFailedToShow(
+        adType: String,
+        adUnitId: String,
+        adNetwork: String,
+        errorMessage: String
+    ) {
+        if (!ensureInitialized()) return
+        logEvent(
+            "${adNetwork}_${adType}_ad_failed_to_show",
+            Bundle().apply {
+                putString("ad_unit_id", adUnitId)
+                putString("error_message", errorMessage)
+            },
+        )
+    }
+
+    fun logAdNotReady(
+        adType: String,
+        adUnitId: String,
+        adNetwork: String
+    ) {
+        if (!ensureInitialized()) return
+        logEvent(
+            "${adNetwork}_${adType}_not_ready",
+            Bundle().apply {
+                putString("ad_type", adType)
+                putString("ad_unit_id", adUnitId)
+                putString("ad_network", adNetwork)
+            },
+        )
     }
 }

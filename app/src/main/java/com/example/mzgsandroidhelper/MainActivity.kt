@@ -66,10 +66,11 @@ class MainActivity : ComponentActivity() {
                 FirebaseAnalyticsManager.logEvent("mzgs_splash_completed")
 
                 Ads.showSplashAds(activity){
+                    FirebaseAnalyticsManager.logEvent("mzgs_splash_completed_ads_closed")
                     isSplashComplete.value = true
 
                     // Load Applovin ads
-                    
+                
                     ApplovinMaxMediation.loadInterstitial(activity)
                     ApplovinMaxMediation.loadAppOpenAd(activity)
                 }

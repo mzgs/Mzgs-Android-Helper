@@ -4,7 +4,6 @@ import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Color
-import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -606,10 +605,20 @@ object ApplovinMaxMediation {
         }
         val ad = appOpenAd
         if (refreshExpiredAppOpenAd()) {
+            FirebaseAnalyticsManager.logAdNotReady(
+                adType = "app_open",
+                adUnitId = config.APP_OPEN_AD_UNIT_ID,
+                adNetwork = "applovin",
+            )
             onAdClosed()
             return false
         }
         if (ad == null || !ad.isReady) {
+            FirebaseAnalyticsManager.logAdNotReady(
+                adType = "app_open",
+                adUnitId = config.APP_OPEN_AD_UNIT_ID,
+                adNetwork = "applovin",
+            )
             onAdClosed()
             return false
         }
@@ -762,10 +771,10 @@ object ApplovinMaxMediation {
                     interstitialOnAdClosed()
                     interstitialOnAdClosed = {}
                     requestInterstitialLoad(interstitial)
-                    FirebaseAnalyticsManager.logAdShown(
+                    FirebaseAnalyticsManager.logAdFailedToShow(
                         adType = "interstitial",
+                        adUnitId = config.INTERSTITIAL_AD_UNIT_ID,
                         adNetwork = "applovin",
-                        success = false,
                         errorMessage = error.message,
                     )
                 }
@@ -784,6 +793,7 @@ object ApplovinMaxMediation {
                         adType = "interstitial",
                         adNetwork = "applovin",
                         success = true,
+                        adUnitId = config.INTERSTITIAL_AD_UNIT_ID,
                     )
                 }
 
@@ -841,10 +851,10 @@ object ApplovinMaxMediation {
                     rewardedOnAdClosed()
                     rewardedOnAdClosed = {}
                     requestRewardedLoad(rewarded)
-                    FirebaseAnalyticsManager.logAdShown(
+                    FirebaseAnalyticsManager.logAdFailedToShow(
                         adType = "rewarded",
+                        adUnitId = config.REWARDED_AD_UNIT_ID,
                         adNetwork = "applovin",
-                        success = false,
                         errorMessage = error.message,
                     )
                 }
@@ -863,6 +873,7 @@ object ApplovinMaxMediation {
                         adType = "rewarded",
                         adNetwork = "applovin",
                         success = true,
+                        adUnitId = config.REWARDED_AD_UNIT_ID,
                     )
                 }
 
@@ -925,10 +936,10 @@ object ApplovinMaxMediation {
                     appOpenOnAdClosedInternal()
                     appOpenOnAdClosedInternal = {}
                     requestAppOpenLoad(appOpen)
-                    FirebaseAnalyticsManager.logAdShown(
+                    FirebaseAnalyticsManager.logAdFailedToShow(
                         adType = "app_open",
+                        adUnitId = config.APP_OPEN_AD_UNIT_ID,
                         adNetwork = "applovin",
-                        success = false,
                         errorMessage = error.message,
                     )
                 }
@@ -948,6 +959,7 @@ object ApplovinMaxMediation {
                         adType = "app_open",
                         adNetwork = "applovin",
                         success = true,
+                        adUnitId = config.APP_OPEN_AD_UNIT_ID,
                     )
                 }
 

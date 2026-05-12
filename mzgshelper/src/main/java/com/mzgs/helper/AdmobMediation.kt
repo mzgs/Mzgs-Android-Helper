@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
-import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -226,6 +225,12 @@ object AdmobMediation {
                     interstitialRetryAttempt = 0
                     interstitialRetryRunnable?.let { mainHandler.removeCallbacks(it) }
                     interstitialRetryRunnable = null
+                    FirebaseAnalyticsManager.logAdLoad(
+                        adType = "interstitial",
+                        adUnitId = config.INTERSTITIAL_AD_UNIT_ID,
+                        adNetwork = "admob",
+                        success = true,
+                    )
                 }
 
                 override fun onAdFailedToLoad(loadAdError: LoadAdError) {
@@ -234,6 +239,14 @@ object AdmobMediation {
                     isInterstitialLoading = false
                     Log.w(TAG, "Interstitial failed to load: ${loadAdError.message}")
                     scheduleInterstitialRetry(context.applicationContext)
+                    FirebaseAnalyticsManager.logAdLoad(
+                        adType = "interstitial",
+                        adUnitId = config.INTERSTITIAL_AD_UNIT_ID,
+                        adNetwork = "admob",
+                        success = false,
+                        errorMessage = loadAdError.message,
+                        errorCode = loadAdError.code,
+                    )
                 }
             },
         )
@@ -269,6 +282,12 @@ object AdmobMediation {
                     rewardedRetryAttempt = 0
                     rewardedRetryRunnable?.let { mainHandler.removeCallbacks(it) }
                     rewardedRetryRunnable = null
+                    FirebaseAnalyticsManager.logAdLoad(
+                        adType = "rewarded",
+                        adUnitId = config.REWARDED_AD_UNIT_ID,
+                        adNetwork = "admob",
+                        success = true,
+                    )
                 }
 
                 override fun onAdFailedToLoad(loadAdError: LoadAdError) {
@@ -277,6 +296,14 @@ object AdmobMediation {
                     isRewardedLoading = false
                     Log.w(TAG, "Rewarded failed to load: ${loadAdError.message}")
                     scheduleRewardedRetry(context.applicationContext)
+                    FirebaseAnalyticsManager.logAdLoad(
+                        adType = "rewarded",
+                        adUnitId = config.REWARDED_AD_UNIT_ID,
+                        adNetwork = "admob",
+                        success = false,
+                        errorMessage = loadAdError.message,
+                        errorCode = loadAdError.code,
+                    )
                 }
             },
         )
@@ -312,6 +339,12 @@ object AdmobMediation {
                     appOpenRetryAttempt = 0
                     appOpenRetryRunnable?.let { mainHandler.removeCallbacks(it) }
                     appOpenRetryRunnable = null
+                    FirebaseAnalyticsManager.logAdLoad(
+                        adType = "app_open",
+                        adUnitId = config.APP_OPEN_AD_UNIT_ID,
+                        adNetwork = "admob",
+                        success = true,
+                    )
                 }
 
                 override fun onAdFailedToLoad(loadAdError: LoadAdError) {
@@ -320,6 +353,14 @@ object AdmobMediation {
                     isAppOpenLoading = false
                     Log.w(TAG, "App open failed to load: ${loadAdError.message}")
                     scheduleAppOpenRetry(context.applicationContext)
+                    FirebaseAnalyticsManager.logAdLoad(
+                        adType = "app_open",
+                        adUnitId = config.APP_OPEN_AD_UNIT_ID,
+                        adNetwork = "admob",
+                        success = false,
+                        errorMessage = loadAdError.message,
+                        errorCode = loadAdError.code,
+                    )
                 }
             },
         )
@@ -434,15 +475,22 @@ object AdmobMediation {
                 requestInterstitialLoad(activity)
             }
 
+            override fun onAdShowedFullScreenContent() {
+                FirebaseAnalyticsManager.logAdShown(
+                    adType = "interstitial",
+                    adNetwork = "admob",
+                    adUnitId = config.INTERSTITIAL_AD_UNIT_ID,
+                )
+            }
+
             override fun onAdFailedToShowFullScreenContent(adError: AdError) {
                 onAdShowFailed(adError.message)
                 onAdClosed()
-                FirebaseAnalyticsManager.logEvent(
-                    "interstitial_ad_failed_to_show",
-                    Bundle().apply {
-                        putString("ad_unit_id", config.INTERSTITIAL_AD_UNIT_ID)
-                        putString("error_message", adError.message)
-                    },
+                FirebaseAnalyticsManager.logAdFailedToShow(
+                    adType = "interstitial",
+                    adUnitId = config.INTERSTITIAL_AD_UNIT_ID,
+                    adNetwork = "admob",
+                    errorMessage = adError.message,
                 )
                 requestInterstitialLoad(activity)
             }
@@ -508,12 +556,34 @@ object AdmobMediation {
                                 adView.adListener = object : AdListener() {
                                     override fun onAdLoaded() {
                                         hasLoadedSuccessfully.value = true
+                                        FirebaseAnalyticsManager.logAdLoad(
+                                            adType = if (resolvedAdSize == AdSize.MEDIUM_RECTANGLE) {
+                                                "mrec"
+                                            } else {
+                                                "banner"
+                                            },
+                                            adUnitId = resolvedAdUnitId,
+                                            adNetwork = "admob",
+                                            success = true,
+                                        )
                                     }
 
                                     override fun onAdFailedToLoad(adError: LoadAdError) {
                                         if (!hasLoadedSuccessfully.value) {
                                             onAdFailedToLoad?.invoke(adError.message)
                                         }
+                                        FirebaseAnalyticsManager.logAdLoad(
+                                            adType = if (resolvedAdSize == AdSize.MEDIUM_RECTANGLE) {
+                                                "mrec"
+                                            } else {
+                                                "banner"
+                                            },
+                                            adUnitId = resolvedAdUnitId,
+                                            adNetwork = "admob",
+                                            success = false,
+                                            errorMessage = adError.message,
+                                            errorCode = adError.code,
+                                        )
                                     }
                                 }
                                 if (!hasRequestedLoad.value) {
@@ -599,6 +669,12 @@ object AdmobMediation {
                             nativeAdState.value = nativeAd
                             isLoading.value = false
                             retryAttempt.value = 0
+                            FirebaseAnalyticsManager.logAdLoad(
+                                adType = "native",
+                                adUnitId = resolvedAdUnitId,
+                                adNetwork = "admob",
+                                success = true,
+                            )
                         }
                         .withNativeAdOptions(NativeAdOptions.Builder().build())
                         .withAdListener(object : AdListener() {
@@ -607,12 +683,13 @@ object AdmobMediation {
                                 onAdFailedToLoad?.invoke(adError.message)
                                 retryAttempt.value += 1
                                 retrySignal.value += 1
-                                FirebaseAnalyticsManager.logEvent(
-                                    "native_ad_failed_to_load",
-                                    Bundle().apply {
-                                        putString("ad_unit_id", resolvedAdUnitId)
-                                        putString("error_message", adError.message)
-                                    },
+                                FirebaseAnalyticsManager.logAdLoad(
+                                    adType = "native",
+                                    adUnitId = resolvedAdUnitId,
+                                    adNetwork = "admob",
+                                    success = false,
+                                    errorMessage = adError.message,
+                                    errorCode = adError.code,
                                 )
                             }
                         })
@@ -968,15 +1045,22 @@ object AdmobMediation {
                 requestRewardedLoad(activity)
             }
 
+            override fun onAdShowedFullScreenContent() {
+                FirebaseAnalyticsManager.logAdShown(
+                    adType = "rewarded",
+                    adNetwork = "admob",
+                    adUnitId = config.REWARDED_AD_UNIT_ID,
+                )
+            }
+
             override fun onAdFailedToShowFullScreenContent(adError: AdError) {
                 onAdShowFailed(adError.message)
                 onAdClosed()
-                FirebaseAnalyticsManager.logEvent(
-                    "rewarded_ad_failed_to_show",
-                    Bundle().apply {
-                        putString("ad_unit_id", config.REWARDED_AD_UNIT_ID)
-                        putString("error_message", adError.message)
-                    },
+                FirebaseAnalyticsManager.logAdFailedToShow(
+                    adType = "rewarded",
+                    adUnitId = config.REWARDED_AD_UNIT_ID,
+                    adNetwork = "admob",
+                    errorMessage = adError.message,
                 )
                 requestRewardedLoad(activity)
             }
@@ -1027,12 +1111,20 @@ object AdmobMediation {
         }
         val ad = appOpenAd
         if (refreshExpiredAppOpenAd(activity)) {
-            FirebaseAnalyticsManager.logEvent("app_open_not_ready")
+            FirebaseAnalyticsManager.logAdNotReady(
+                adType = "app_open",
+                adUnitId = config.APP_OPEN_AD_UNIT_ID,
+                adNetwork = "admob",
+            )
             onAdClosed()
             return false
         }
         if (ad == null) {
-            FirebaseAnalyticsManager.logEvent("app_open_not_ready")
+            FirebaseAnalyticsManager.logAdNotReady(
+                adType = "app_open",
+                adUnitId = config.APP_OPEN_AD_UNIT_ID,
+                adNetwork = "admob",
+            )
             onAdClosed()
             return false
         }
@@ -1046,16 +1138,23 @@ object AdmobMediation {
                 requestAppOpenAdLoad(activity)
             }
 
+            override fun onAdShowedFullScreenContent() {
+                FirebaseAnalyticsManager.logAdShown(
+                    adType = "app_open",
+                    adNetwork = "admob",
+                    adUnitId = config.APP_OPEN_AD_UNIT_ID,
+                )
+            }
+
             override fun onAdFailedToShowFullScreenContent(adError: AdError) {
                 isAppOpenShowing = false
                 onAdShowFailed(adError.message)
                 onAdClosed()
-                FirebaseAnalyticsManager.logEvent(
-                    "app_open_ad_failed_to_show",
-                    Bundle().apply {
-                        putString("ad_unit_id", config.APP_OPEN_AD_UNIT_ID)
-                        putString("error_message", adError.message)
-                    },
+                FirebaseAnalyticsManager.logAdFailedToShow(
+                    adType = "app_open",
+                    adUnitId = config.APP_OPEN_AD_UNIT_ID,
+                    adNetwork = "admob",
+                    errorMessage = adError.message,
                 )
                 requestAppOpenAdLoad(activity)
             }

@@ -118,7 +118,7 @@ object Ads {
                         onAdClosed = { appOpenShowed ->
                             FirebaseAnalyticsManager.logEvent(
                                 "splash_ads_" + (if (appOpenShowed) "success" else "fail"),
-                                Bundle().apply { putString("ad_type", "appopen") },
+                                Bundle().apply { putString("ad_type", "app_open") },
                             )
                             onSplashAdClosed()
                         },
