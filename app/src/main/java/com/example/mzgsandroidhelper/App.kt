@@ -11,6 +11,7 @@ import com.mzgs.helper.ApplovinMaxMediation
 import com.mzgs.helper.FirebaseAnalyticsManager
 import com.mzgs.helper.MzgsHelper
 import com.mzgs.helper.Pref
+import com.mzgs.helper.Remote
 
 class App : Application() {
     override fun onCreate() {
@@ -48,20 +49,24 @@ class App : Application() {
                 AdmobMediation.initialize(this@App)
                 ApplovinMaxMediation.initialize(this@App)
 
-                Ads.initialize(
-                    activity,
-                    onGoForeground = {
-                        if (!ApplovinMaxMediation.isFullscreenAdShowing) {
-                            Ads.showAppOpenAd(activity)
-                        }else{
-                            AdmobMediation.showAppOpenAd(activity)
-                        }
-                    }
-                )
+            },
+        )
+
+
+        MzgsHelper.registerAppLifecycleCallbacks(
+            application = this,
+            onGoForeground = { activity ->
+                if (!ApplovinMaxMediation.isFullscreenAdShowing) {
+                    Ads.showAppOpenAd(activity)
+                }else{
+                    AdmobMediation.showAppOpenAd(activity)
+                }
             },
         )
 
         FirebaseAnalyticsManager.initialize(this)
+        FirebaseAnalyticsManager.logEvent("mzgs_app_started")
         Pref.init(this)
+        Remote.init(this)
     }
 }

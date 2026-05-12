@@ -57,7 +57,6 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             val activity = this@MainActivity
             SimpleSplashHelper.showSplash(activity)
-            Remote.initSync(this@MainActivity, timeoutMs = 5_000)
             MzgsHelper.initAllowedCountry(activity)
 
             SimpleSplashHelper.setOnComplete {
@@ -77,11 +76,7 @@ class MainActivity : ComponentActivity() {
 
             }
 
-            val splashDuration = if (MzgsHelper.isDebug(activity)) {
-                500
-            } else {
-                Remote.getLong("splash_time", 11_000)
-            }
+            val splashDuration = if (MzgsHelper.isDebug(activity)) 9500 else Remote.getLong("splash_time", 11_000)
             SimpleSplashHelper.setDuration(splashDuration)
             SimpleSplashHelper.startProgress(activity)
 
