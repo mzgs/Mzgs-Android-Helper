@@ -64,27 +64,25 @@ class MainActivity : ComponentActivity() {
             SimpleSplashHelper.setOnComplete {
                 FirebaseAnalyticsManager.logEvent("mzgs_splash_completed")
 
-
-
-                val onSplashComplete = {
+                val onSplashAdClosed = {
                     isSplashComplete.value = true
                 }
 
                 Ads.showInterstitial(activity, onAdClosed = { interstitialShowed ->
                     if (interstitialShowed) {
-                        FirebaseAnalyticsManager.logEvent("splash_interstitial_success")
-                        onSplashComplete()
+                        FirebaseAnalyticsManager.logEvent("splash_ads_success", Bundle().apply { putString("ad_type", "interstitial") })
+                        onSplashAdClosed()
                     } else {
                         Ads.showAppOpenAd(activity, onAdClosed = { appOpenShowed ->
-                            FirebaseAnalyticsManager.logEvent("splash_app_open_" + (if (appOpenShowed) "success" else "fail"))
-                            onSplashComplete()
+                            FirebaseAnalyticsManager.logEvent("splash_ads_" + (if (appOpenShowed) "success" else "fail"), Bundle().apply { putString("ad_type", "appopen") })
+                            onSplashAdClosed()
                         })
                     }
                 })
 
             }
 
-            val splashDuration = if (MzgsHelper.isDebug(activity)) 9500 else Remote.getLong("splash_time", 11_000)
+            val splashDuration = if (MzgsHelper.isDebug(activity)) 9500 else Remote.getLong("splash_time", 12_000)
             SimpleSplashHelper.setDuration(splashDuration)
             SimpleSplashHelper.startProgress(activity)
 
