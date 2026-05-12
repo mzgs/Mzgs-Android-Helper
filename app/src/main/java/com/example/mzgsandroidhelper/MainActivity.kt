@@ -61,25 +61,17 @@ class MainActivity : ComponentActivity() {
             )
 
             SimpleSplashHelper.showSplash(activity)
-            SimpleSplashHelper.setCustomImage(R.drawable.cleaner)
+            // SimpleSplashHelper.setCustomImage(R.drawable.cleaner)
             SimpleSplashHelper.setOnComplete {
                 FirebaseAnalyticsManager.logEvent("mzgs_splash_completed")
 
-                val onSplashAdClosed = {
+                Ads.showSplashAds(activity){
                     isSplashComplete.value = true
-                }
 
-                Ads.showInterstitial(activity, onAdClosed = { interstitialShowed ->
-                    if (interstitialShowed) {
-                        FirebaseAnalyticsManager.logEvent("splash_ads_success", Bundle().apply { putString("ad_type", "interstitial") })
-                        onSplashAdClosed()
-                    } else {
-                        Ads.showAppOpenAd(activity, onAdClosed = { appOpenShowed ->
-                            FirebaseAnalyticsManager.logEvent("splash_ads_" + (if (appOpenShowed) "success" else "fail"), Bundle().apply { putString("ad_type", "appopen") })
-                            onSplashAdClosed()
-                        })
-                    }
-                })
+                    // Load Applovin ads
+                    ApplovinMaxMediation.loadInterstitial(activity)
+                    ApplovinMaxMediation.loadAppOpenAd(activity)
+                }
 
             }
 

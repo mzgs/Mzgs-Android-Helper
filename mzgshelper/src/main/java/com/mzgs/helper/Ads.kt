@@ -1,6 +1,7 @@
 package com.mzgs.helper
 
 import android.app.Activity
+import android.os.Bundle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -92,6 +93,39 @@ object Ads {
         }
 
         onAdClosed(false)
+    }
+
+    fun showSplashAds(
+        activity: Activity,
+        interstitialNetworks: String = "applovin,admob",
+        appOpenNetworks: String = "applovin,admob",
+        onSplashAdClosed: () -> Unit = {},
+    ) {
+        showInterstitial(
+            activity = activity,
+            networks = interstitialNetworks,
+            onAdClosed = { interstitialShowed ->
+                if (interstitialShowed) {
+                    FirebaseAnalyticsManager.logEvent(
+                        "splash_ads_success",
+                        Bundle().apply { putString("ad_type", "interstitial") },
+                    )
+                    onSplashAdClosed()
+                } else {
+                    showAppOpenAd(
+                        activity = activity,
+                        networks = appOpenNetworks,
+                        onAdClosed = { appOpenShowed ->
+                            FirebaseAnalyticsManager.logEvent(
+                                "splash_ads_" + (if (appOpenShowed) "success" else "fail"),
+                                Bundle().apply { putString("ad_type", "appopen") },
+                            )
+                            onSplashAdClosed()
+                        },
+                    )
+                }
+            },
+        )
     }
 
     fun loadInterstitial(

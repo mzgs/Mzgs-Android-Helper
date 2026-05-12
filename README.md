@@ -202,17 +202,7 @@ override fun onStart() {
                 FirebaseAnalyticsManager.logEvent("mzgs_splash_ads_closed")
             }
 
-            Ads.showInterstitial(activity, onAdClosed = { interstitialShowed ->
-                if (interstitialShowed) {
-                    FirebaseAnalyticsManager.logEvent("splash_interstitial_success")
-                    onSplashComplete()
-                } else {
-                    Ads.showAppOpenAd(activity, onAdClosed = { appOpenShowed ->
-                        FirebaseAnalyticsManager.logEvent("splash_app_open_" + (if (appOpenShowed) "success" else "fail"))
-                        onSplashComplete()
-                    })
-                }
-            })
+            Ads.showSplashAds(activity, onSplashAdClosed = onSplashComplete)
 
         }
 
