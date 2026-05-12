@@ -68,6 +68,9 @@ object ApplovinMaxMediation {
     private var rewardedAd: MaxRewardedAd? = null
     private var appOpenAd: MaxAppOpenAd? = null
     private val mainHandler = Handler(Looper.getMainLooper())
+    @Volatile private var isInterstitialLoading = false
+    @Volatile private var isRewardedLoading = false
+    @Volatile private var isAppOpenLoading = false
     @Volatile private var interstitialLoadedAtMs = 0L
     @Volatile private var rewardedLoadedAtMs = 0L
     @Volatile private var appOpenLoadedAtMs = 0L
@@ -619,16 +622,28 @@ object ApplovinMaxMediation {
     }
 
     private fun requestInterstitialLoad(ad: MaxInterstitialAd): Boolean {
+        if (isInterstitialLoading) {
+            return true
+        }
+        isInterstitialLoading = true
         ad.loadAd()
         return true
     }
 
     private fun requestRewardedLoad(ad: MaxRewardedAd): Boolean {
+        if (isRewardedLoading) {
+            return true
+        }
+        isRewardedLoading = true
         ad.loadAd()
         return true
     }
 
     private fun requestAppOpenLoad(ad: MaxAppOpenAd): Boolean {
+        if (isAppOpenLoading) {
+            return true
+        }
+        isAppOpenLoading = true
         ad.loadAd()
         return true
     }
@@ -712,6 +727,7 @@ object ApplovinMaxMediation {
         interstitialAd = MaxInterstitialAd(config.INTERSTITIAL_AD_UNIT_ID).also { interstitial ->
             interstitial.setListener(object : MaxAdListener {
                 override fun onAdLoaded(ad: MaxAd) {
+                    isInterstitialLoading = false
                     interstitialLoadedAtMs = SystemClock.elapsedRealtime()
                     interstitialRetryAttempt = 0
                     interstitialRetryRunnable?.let { mainHandler.removeCallbacks(it) }
@@ -725,6 +741,7 @@ object ApplovinMaxMediation {
                 }
 
                 override fun onAdLoadFailed(adUnitId: String, error: MaxError) {
+                    isInterstitialLoading = false
                     interstitialLoadedAtMs = 0L
                     scheduleInterstitialRetry(interstitial)
                     FirebaseAnalyticsManager.logAdLoad(
@@ -789,6 +806,7 @@ object ApplovinMaxMediation {
         rewardedAd = MaxRewardedAd.getInstance(config.REWARDED_AD_UNIT_ID).also { rewarded ->
             rewarded.setListener(object : MaxRewardedAdListener {
                 override fun onAdLoaded(ad: MaxAd) {
+                    isRewardedLoading = false
                     rewardedLoadedAtMs = SystemClock.elapsedRealtime()
                     rewardedRetryAttempt = 0
                     rewardedRetryRunnable?.let { mainHandler.removeCallbacks(it) }
@@ -802,6 +820,7 @@ object ApplovinMaxMediation {
                 }
 
                 override fun onAdLoadFailed(adUnitId: String, error: MaxError) {
+                    isRewardedLoading = false
                     rewardedLoadedAtMs = 0L
                     scheduleRewardedRetry(rewarded)
                     FirebaseAnalyticsManager.logAdLoad(
@@ -870,6 +889,7 @@ object ApplovinMaxMediation {
         appOpenAd = MaxAppOpenAd(config.APP_OPEN_AD_UNIT_ID).also { appOpen ->
             appOpen.setListener(object : MaxAdListener {
                 override fun onAdLoaded(ad: MaxAd) {
+                    isAppOpenLoading = false
                     appOpenLoadedAtMs = SystemClock.elapsedRealtime()
                     appOpenRetryAttempt = 0
                     appOpenRetryRunnable?.let { mainHandler.removeCallbacks(it) }
@@ -883,6 +903,7 @@ object ApplovinMaxMediation {
                 }
 
                 override fun onAdLoadFailed(adUnitId: String, error: MaxError) {
+                    isAppOpenLoading = false
                     appOpenLoadedAtMs = 0L
                     scheduleAppOpenRetry(appOpen)
                     FirebaseAnalyticsManager.logAdLoad(
