@@ -50,7 +50,8 @@ object ApplovinMaxMediation {
     private const val INIT_WAIT_TIMEOUT_MS = 120_000L
     private const val INIT_POLL_INTERVAL_MS = 1_000L
     private const val LOAD_REQUEST_MIN_INTERVAL_MS = 30_000L
-    private const val LOAD_RETRY_MAX_DELAY_MS = 300_000L
+    private const val LOAD_RETRY_INITIAL_DELAY_MS = 8_000L
+    private const val LOAD_RETRY_MAX_DELAY_MS = 256_000L
     private const val AD_EXPIRATION_MS = 3_600_000L
 
     var config: ApplovinMaxConfig = ApplovinMaxConfig()
@@ -175,21 +176,18 @@ object ApplovinMaxMediation {
             return false
         }
         val ad = interstitialAd
-        if (ad != null && isAdExpired(interstitialLoadedAtMs)) {
-            interstitialLoadedAtMs = 0L
-            requestInterstitialLoad(ad, force = true)
+        if (refreshExpiredInterstitial()) {
             onAdClosed()
             return false
         }
-        if (ad != null && ad.isReady) {
-            isFullscreenAdShowing = true
-            interstitialOnAdClosed = onAdClosed
-            ad.showAd(activity)
-            return true
+        if (ad == null || !ad.isReady) {
+            onAdClosed()
+            return false
         }
-        interstitialAd?.let { requestInterstitialLoad(it) }
-        onAdClosed()
-        return false
+        isFullscreenAdShowing = true
+        interstitialOnAdClosed = onAdClosed
+        ad.showAd(activity)
+        return true
     }
 
     @Composable
@@ -491,26 +489,19 @@ object ApplovinMaxMediation {
             return false
         }
         val ad = rewardedAd
-        if (ad == null) {
-            loadRewarded(activity)
+        if (refreshExpiredRewarded()) {
             onAdClosed()
             return false
         }
-        if (isAdExpired(rewardedLoadedAtMs)) {
-            rewardedLoadedAtMs = 0L
-            requestRewardedLoad(ad, force = true)
+        if (ad == null || !ad.isReady) {
             onAdClosed()
             return false
         }
-        if (ad.isReady) {
-            isFullscreenAdShowing = true
-            rewardedOnAdClosed = onAdClosed
-            rewardedOnUserRewarded = onRewarded
-            ad.showAd(activity)
-            return true
-        }
-        onAdClosed()
-        return false
+        isFullscreenAdShowing = true
+        rewardedOnAdClosed = onAdClosed
+        rewardedOnUserRewarded = onRewarded
+        ad.showAd(activity)
+        return true
     }
 
     fun loadRewarded(context: Context): Boolean {
@@ -547,22 +538,19 @@ object ApplovinMaxMediation {
             return false
         }
         val ad = appOpenAd
-        if (ad != null && isAdExpired(appOpenLoadedAtMs)) {
-            appOpenLoadedAtMs = 0L
-            requestAppOpenLoad(ad, force = true)
+        if (refreshExpiredAppOpenAd()) {
             onAdClosed()
             return false
         }
-        if (ad != null && ad.isReady) {
-            isAppOpenShowing = true
-            isFullscreenAdShowing = true
-            appOpenOnAdClosedInternal = onAdClosed
-            ad.showAd()
-            return true
+        if (ad == null || !ad.isReady) {
+            onAdClosed()
+            return false
         }
-        appOpenAd?.let { requestAppOpenLoad(it) }
-        onAdClosed()
-        return false
+        isAppOpenShowing = true
+        isFullscreenAdShowing = true
+        appOpenOnAdClosedInternal = onAdClosed
+        ad.showAd()
+        return true
     }
 
     private fun requestInterstitialLoad(ad: MaxInterstitialAd, force: Boolean = false): Boolean {
@@ -681,9 +669,39 @@ object ApplovinMaxMediation {
         return loadedAtMs != 0L && SystemClock.elapsedRealtime() - loadedAtMs >= AD_EXPIRATION_MS
     }
 
+    private fun refreshExpiredInterstitial(): Boolean {
+        val ad = interstitialAd ?: return false
+        if (!isAdExpired(interstitialLoadedAtMs)) {
+            return false
+        }
+        interstitialLoadedAtMs = 0L
+        requestInterstitialLoad(ad, force = true)
+        return true
+    }
+
+    private fun refreshExpiredRewarded(): Boolean {
+        val ad = rewardedAd ?: return false
+        if (!isAdExpired(rewardedLoadedAtMs)) {
+            return false
+        }
+        rewardedLoadedAtMs = 0L
+        requestRewardedLoad(ad, force = true)
+        return true
+    }
+
+    private fun refreshExpiredAppOpenAd(): Boolean {
+        val ad = appOpenAd ?: return false
+        if (!isAdExpired(appOpenLoadedAtMs)) {
+            return false
+        }
+        appOpenLoadedAtMs = 0L
+        requestAppOpenLoad(ad, force = true)
+        return true
+    }
+
     private fun retryDelayMs(retryAttempt: Int): Long {
-        val multiplier = 1L shl retryAttempt.coerceAtMost(4)
-        return (LOAD_REQUEST_MIN_INTERVAL_MS * multiplier).coerceAtMost(LOAD_RETRY_MAX_DELAY_MS)
+        val multiplier = 1L shl retryAttempt.coerceAtMost(5)
+        return (LOAD_RETRY_INITIAL_DELAY_MS * multiplier).coerceAtMost(LOAD_RETRY_MAX_DELAY_MS)
     }
 
     private fun scheduleInterstitialRetry(ad: MaxInterstitialAd) {
