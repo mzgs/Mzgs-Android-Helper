@@ -57,6 +57,7 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             val activity = this@MainActivity
             SimpleSplashHelper.showSplash(activity)
+            MzgsHelper.restrictedCountries = listOf("UK", "US", "GB", "CN", "MX", "JP", "KR", "AR", "HK", "IN", "PK", "TR", "VN", "RU", "SG", "MO", "TW", "PY")
             MzgsHelper.initAllowedCountry(activity)
 
             SimpleSplashHelper.setOnComplete {

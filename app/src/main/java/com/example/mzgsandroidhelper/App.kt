@@ -50,7 +50,10 @@ class App : Application() {
         MzgsHelper.registerFirstActivityCallbacks(
             application = this,
             onActivityResumed = { activity ->
-                AdmobMediation.initialize(this@App)
+                AdmobMediation.initialize(this@App){
+                    AdmobMediation.loadAppOpenAd(activity)
+                    AdmobMediation.loadInterstitial(activity)
+                }
                 ApplovinMaxMediation.initialize(this@App)
 
             },
