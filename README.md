@@ -224,6 +224,9 @@ Ads.loadInterstitial(activity, networks = "applovin,admob")
 Ads.showInterstitial(
     activity,
     networks = "applovin,admob",
+    onAdShowFailed = { network, errorMessage ->
+        // Called if a loaded ad fails while showing.
+    },
 ) {
     // Called when the shown ad is closed or no ad is available.
 }
@@ -240,6 +243,7 @@ Ads.showRewarded(
 ```
 
 `showInterstitial`, `showRewarded`, and `showAppOpenAd` return `false` when no cached ad is ready.
+If a cached interstitial is selected but fails while showing, `showInterstitial` returns `true` and calls `onAdShowFailed`.
 
 ### Interstitial with cycle (remote-configurable)
 
@@ -249,6 +253,9 @@ Ads.showInterstitialWithCycle(
     name = "interstitial_cycle_home",
     defaultValue = 3,
     networks = "applovin,admob",
+    onAdShowFailed = { network, errorMessage ->
+        // Called if a loaded ad fails while showing.
+    },
 ) {
     // Called when an ad closes or when the cycle skips showing.
 }

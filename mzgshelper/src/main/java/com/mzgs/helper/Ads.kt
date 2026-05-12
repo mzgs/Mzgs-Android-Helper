@@ -55,11 +55,13 @@ object Ads {
     fun showInterstitial(
         activity: Activity,
         networks: String = "applovin,admob",
+        onAdShowFailed: (network: String, errorMessage: String) -> Unit = { _, _ -> },
         onAdClosed: () -> Unit = {},
     ): Boolean {
         return showInterstitialInternal(
             activity = activity,
             networks = networks,
+            onAdShowFailed = onAdShowFailed,
             onAdClosed = onAdClosed,
         )
     }
@@ -69,6 +71,7 @@ object Ads {
         name: String,
         defaultValue: Int = 3,
         networks: String = "applovin,admob",
+        onAdShowFailed: (network: String, errorMessage: String) -> Unit = { _, _ -> },
         onAdClosed: () -> Unit = {},
     ): Boolean {
         val cycleValue = Remote.getInt(name, defaultValue)
@@ -83,6 +86,7 @@ object Ads {
             return showInterstitialInternal(
                 activity = activity,
                 networks = networks,
+                onAdShowFailed = onAdShowFailed,
                 onAdClosed = onAdClosed,
             )
         }
@@ -182,6 +186,7 @@ object Ads {
     private fun showInterstitialInternal(
         activity: Activity,
         networks: String,
+        onAdShowFailed: (network: String, errorMessage: String) -> Unit,
         onAdClosed: () -> Unit,
     ): Boolean {
         val networks = normalizedNetworks(networks)
@@ -196,10 +201,24 @@ object Ads {
             }
         }
 
+        fun networkShowFailed(network: String, errorMessage: String) {
+            if (shownNetwork == network) {
+                onAdShowFailed(network, errorMessage)
+            }
+        }
+
         for (network in networks) {
             val shown = when (network) {
-                "applovin" -> ApplovinMaxMediation.showInterstitial(activity) { networkClosed(network) }
-                "admob" -> AdmobMediation.showInterstitial(activity) { networkClosed(network) }
+                "applovin" -> ApplovinMaxMediation.showInterstitial(
+                    activity = activity,
+                    onAdShowFailed = { errorMessage -> networkShowFailed(network, errorMessage) },
+                    onAdClosed = { networkClosed(network) },
+                )
+                "admob" -> AdmobMediation.showInterstitial(
+                    activity = activity,
+                    onAdShowFailed = { errorMessage -> networkShowFailed(network, errorMessage) },
+                    onAdClosed = { networkClosed(network) },
+                )
                 else -> false
             }
             if (shown) {

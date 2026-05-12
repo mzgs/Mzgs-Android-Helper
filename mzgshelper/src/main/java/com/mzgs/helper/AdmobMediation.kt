@@ -506,7 +506,11 @@ object AdmobMediation {
         }.also { mainHandler.postDelayed(it, delayMs) }
     }
 
-    fun showInterstitial(activity: Activity, onAdClosed: () -> Unit = {}): Boolean {
+    fun showInterstitial(
+        activity: Activity,
+        onAdShowFailed: (errorMessage: String) -> Unit = {},
+        onAdClosed: () -> Unit = {},
+    ): Boolean {
         if (!isInitialized) {
             Log.w(TAG, "MobileAds not initialized; skipping interstitial.")
             onAdClosed()
@@ -530,6 +534,7 @@ object AdmobMediation {
             }
 
             override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+                onAdShowFailed(adError.message)
                 onAdClosed()
                 FirebaseAnalyticsManager.logEvent(
                     "interstitial_ad_failed_to_show",

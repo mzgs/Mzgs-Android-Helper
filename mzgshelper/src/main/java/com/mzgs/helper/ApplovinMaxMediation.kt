@@ -85,6 +85,7 @@ object ApplovinMaxMediation {
     private var appOpenRetryRunnable: Runnable? = null
 
     private var interstitialOnAdClosed: () -> Unit = {}
+    private var interstitialOnAdShowFailed: (String) -> Unit = {}
     private var rewardedOnAdClosed: () -> Unit = {}
     private var rewardedOnUserRewarded: (String, Int) -> Unit = { _, _ -> }
     private var appOpenOnAdClosedInternal: () -> Unit = {}
@@ -178,7 +179,11 @@ object ApplovinMaxMediation {
         }
     }
 
-    fun showInterstitial(activity: Activity, onAdClosed: () -> Unit = {}): Boolean {
+    fun showInterstitial(
+        activity: Activity,
+        onAdShowFailed: (errorMessage: String) -> Unit = {},
+        onAdClosed: () -> Unit = {},
+    ): Boolean {
         if (!AppLovinSdk.getInstance(activity).isInitialized) {
             onAdClosed()
             return false
@@ -193,6 +198,7 @@ object ApplovinMaxMediation {
             return false
         }
         isFullscreenAdShowing = true
+        interstitialOnAdShowFailed = onAdShowFailed
         interstitialOnAdClosed = onAdClosed
         ad.showAd(activity)
         return true
@@ -820,6 +826,8 @@ object ApplovinMaxMediation {
                 override fun onAdDisplayFailed(ad: MaxAd, error: MaxError) {
                     isFullscreenAdShowing = false
                     interstitialLoadedAtMs = 0L
+                    interstitialOnAdShowFailed(error.message)
+                    interstitialOnAdShowFailed = {}
                     interstitialOnAdClosed()
                     interstitialOnAdClosed = {}
                     requestInterstitialLoad(interstitial, force = true)
@@ -834,6 +842,7 @@ object ApplovinMaxMediation {
                 override fun onAdHidden(ad: MaxAd) {
                     isFullscreenAdShowing = false
                     interstitialLoadedAtMs = 0L
+                    interstitialOnAdShowFailed = {}
                     interstitialOnAdClosed()
                     interstitialOnAdClosed = {}
                     requestInterstitialLoad(interstitial, force = true)
