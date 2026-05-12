@@ -174,6 +174,15 @@ AdmobMediation.setInitListener {
 
 ### MainActivity splash + interstitial
 
+Optional custom splash image:
+
+```kotlin
+SimpleSplashHelper.setCustomImage(R.drawable.my_splash_image)
+SimpleSplashHelper.showSplash(activity)
+```
+
+Without `setCustomImage`, the splash keeps the default rotating app logo behavior.
+
 ```kotlin
 override fun onStart() {
     super.onStart()

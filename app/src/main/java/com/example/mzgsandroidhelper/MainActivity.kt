@@ -61,6 +61,7 @@ class MainActivity : ComponentActivity() {
             )
 
             SimpleSplashHelper.showSplash(activity)
+            SimpleSplashHelper.setCustomImage(R.drawable.cleaner)
             SimpleSplashHelper.setOnComplete {
                 FirebaseAnalyticsManager.logEvent("mzgs_splash_completed")
 

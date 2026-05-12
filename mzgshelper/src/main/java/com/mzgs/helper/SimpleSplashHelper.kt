@@ -7,6 +7,7 @@ import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.app.Activity
 import android.app.Dialog
+import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
@@ -23,6 +24,7 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.annotation.DrawableRes
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.withStateAtLeast
@@ -47,10 +49,12 @@ object SimpleSplashHelper {
     private var rotateLogo: Boolean = true
     private var logoAnimatorSet: AnimatorSet? = null
     private var progressStarted: Boolean = false
+    @DrawableRes
+    private var customImageResId: Int? = null
 
     fun showSplash(activity: Activity, duration: Long = 3000L) {
         dismiss()
-        resetState()
+        resetRuntimeState()
         this.splashDuration = duration
         createAndShowSplash(activity)
         startLogoRotationAnimation()
@@ -64,6 +68,22 @@ object SimpleSplashHelper {
     fun setOnComplete(callback: () -> Unit): SimpleSplashHelper = apply { onComplete = callback }
 
     fun setRotateLogo(rotate: Boolean): SimpleSplashHelper = apply { rotateLogo = rotate }
+
+    @JvmOverloads
+    fun setCustomImage(@DrawableRes imageResId: Int, rotate: Boolean = false): SimpleSplashHelper = apply {
+        customImageResId = imageResId
+        rotateLogo = rotate
+        logoAnimatorSet?.cancel()
+        logoAnimatorSet = null
+        findLogoImageView()?.let { logo ->
+            logo.setImageResource(imageResId)
+            applyLogoLayout(logo, hasCustomImage = true)
+            resetLogoTransform(logo)
+        }
+        if (rotate) {
+            startLogoRotationAnimation()
+        }
+    }
 
     @JvmOverloads
     fun startProgress(activity: Activity? = null) {
@@ -142,11 +162,9 @@ object SimpleSplashHelper {
             val logo = ImageView(context).apply {
                 logoImageViewId = View.generateViewId()
                 id = logoImageViewId
-                setImageResource(currentActivity.applicationInfo.icon)
-                layoutParams = LinearLayout.LayoutParams(240, 240).apply {
-                    bottomMargin = 40
-                }
-                scaleType = ImageView.ScaleType.FIT_CENTER
+                setImageResource(customImageResId ?: currentActivity.applicationInfo.icon)
+                val hasCustomImage = customImageResId != null
+                applyLogoLayout(this, hasCustomImage)
             }
             addView(logo)
 
@@ -253,6 +271,9 @@ object SimpleSplashHelper {
     private fun startLogoRotationAnimation() {
         if (!rotateLogo) return
         findLogoImageView()?.let { logo ->
+            logoAnimatorSet?.cancel()
+            resetLogoTransform(logo)
+
             val rotationAnimator = ObjectAnimator.ofFloat(logo, "rotation", 0f, 360f).apply {
                 duration = 1500
                 repeatCount = ValueAnimator.INFINITE
@@ -281,6 +302,27 @@ object SimpleSplashHelper {
         }
     }
 
+    private fun resetLogoTransform(logo: ImageView) {
+        logo.rotation = 0f
+        logo.scaleX = 1f
+        logo.scaleY = 1f
+    }
+
+    private fun applyLogoLayout(logo: ImageView, hasCustomImage: Boolean) {
+        logo.layoutParams = LinearLayout.LayoutParams(
+            if (hasCustomImage) LinearLayout.LayoutParams.MATCH_PARENT else 240,
+            if (hasCustomImage) getCustomImageHeight(logo.context) else 240
+        ).apply {
+            bottomMargin = 40
+        }
+        logo.adjustViewBounds = hasCustomImage
+        logo.scaleType = ImageView.ScaleType.FIT_CENTER
+    }
+
+    private fun getCustomImageHeight(context: Context): Int {
+        return context.resources.displayMetrics.heightPixels / 2
+    }
+
     private fun dismiss() {
         progressAnimator?.cancel()
         logoAnimatorSet?.cancel()
@@ -295,10 +337,9 @@ object SimpleSplashHelper {
         progressStarted = false
     }
 
-    private fun resetState() {
+    private fun resetRuntimeState() {
         splashDuration = 3000L
         onComplete = null
-        shouldShowProgress = true
         splashDialogRef = null
         progressBarId = View.NO_ID
         progressTextId = View.NO_ID
@@ -308,9 +349,15 @@ object SimpleSplashHelper {
         handler = null
         dismissRunnable = null
         onCompleteInvoked = false
-        rotateLogo = true
         logoAnimatorSet = null
         progressStarted = false
+    }
+
+    private fun resetState() {
+        resetRuntimeState()
+        shouldShowProgress = true
+        rotateLogo = true
+        customImageResId = null
     }
 
     fun hideProgress() {
