@@ -300,31 +300,70 @@ object Ads {
         val networks = normalizedNetworks(networks)
 
         var shownNetwork: String? = null
+        var shownNetworkIndex = -1
         var closedNotified = false
+        val failedToShowNetworks = mutableSetOf<String>()
+        lateinit var tryShowFrom: (startIndex: Int) -> Boolean
 
-        fun networkClosed(network: String) {
-            if (shownNetwork == network && !closedNotified) {
+        fun notifyClosed() {
+            if (!closedNotified) {
                 closedNotified = true
                 onAdClosed()
             }
         }
 
-        for (network in networks) {
-            val shown = when (network) {
-                "applovin" -> ApplovinMaxMediation.showAppOpenAd(activity) { networkClosed(network) }
-                "admob" -> AdmobMediation.showAppOpenAd(activity) { networkClosed(network) }
-                else -> false
+        fun networkClosed(network: String) {
+            if (shownNetwork != network || closedNotified) {
+                return
             }
-            if (shown) {
-                shownNetwork = network
-                return true
+
+            if (failedToShowNetworks.remove(network)) {
+                val nextIndex = shownNetworkIndex + 1
+                shownNetwork = null
+                shownNetworkIndex = -1
+                tryShowFrom(nextIndex)
+            } else {
+                notifyClosed()
             }
         }
 
-        if (!closedNotified) {
-            onAdClosed()
+        fun networkShowFailed(network: String) {
+            if (shownNetwork == network && !closedNotified) {
+                failedToShowNetworks.add(network)
+            }
         }
-        return false
+
+        tryShowFrom = { startIndex ->
+            var shownAny = false
+            for (index in startIndex until networks.size) {
+                val network = networks[index]
+                val shown = when (network) {
+                    "applovin" -> ApplovinMaxMediation.showAppOpenAdWithFailure(
+                        activity = activity,
+                        onAdShowFailed = { networkShowFailed(network) },
+                        onAdClosed = { networkClosed(network) },
+                    )
+                    "admob" -> AdmobMediation.showAppOpenAdWithFailure(
+                        activity = activity,
+                        onAdShowFailed = { networkShowFailed(network) },
+                        onAdClosed = { networkClosed(network) },
+                    )
+                    else -> false
+                }
+                if (shown) {
+                    shownNetwork = network
+                    shownNetworkIndex = index
+                    shownAny = true
+                    break
+                }
+            }
+            if (!shownAny) {
+                notifyClosed()
+            }
+            shownAny
+        }
+
+        return tryShowFrom(0)
     }
 
     fun loadAppOpenAd(

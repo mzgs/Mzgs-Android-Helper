@@ -90,6 +90,7 @@ object ApplovinMaxMediation {
     private var rewardedOnAdShowFailed: (String) -> Unit = {}
     private var rewardedOnUserRewarded: (String, Int) -> Unit = { _, _ -> }
     private var appOpenOnAdClosedInternal: () -> Unit = {}
+    private var appOpenOnAdShowFailed: (String) -> Unit = {}
 
     fun initialize(context: Context, onInitComplete: () -> Unit = {}) {
         val appContext = context.applicationContext
@@ -599,6 +600,18 @@ object ApplovinMaxMediation {
     }
 
     fun showAppOpenAd(activity: Activity, onAdClosed: () -> Unit = {}): Boolean {
+        return showAppOpenAdWithFailure(
+            activity = activity,
+            onAdShowFailed = {},
+            onAdClosed = onAdClosed,
+        )
+    }
+
+    internal fun showAppOpenAdWithFailure(
+        activity: Activity,
+        onAdShowFailed: (errorMessage: String) -> Unit = {},
+        onAdClosed: () -> Unit = {},
+    ): Boolean {
         if (isAppOpenShowing || activity.isFinishing || activity.isDestroyed) {
             onAdClosed()
             return false
@@ -618,6 +631,7 @@ object ApplovinMaxMediation {
         }
         isAppOpenShowing = true
         isFullscreenAdShowing = true
+        appOpenOnAdShowFailed = onAdShowFailed
         appOpenOnAdClosedInternal = onAdClosed
         ad.showAd()
         return true
@@ -1001,6 +1015,8 @@ object ApplovinMaxMediation {
                     isAppOpenShowing = false
                     isFullscreenAdShowing = false
                     appOpenLoadedAtMs = 0L
+                    appOpenOnAdShowFailed(error.message)
+                    appOpenOnAdShowFailed = {}
                     appOpenOnAdClosedInternal()
                     appOpenOnAdClosedInternal = {}
                     requestAppOpenLoad(appOpen, force = true)
@@ -1016,6 +1032,7 @@ object ApplovinMaxMediation {
                     isAppOpenShowing = false
                     isFullscreenAdShowing = false
                     appOpenLoadedAtMs = 0L
+                    appOpenOnAdShowFailed = {}
                     appOpenOnAdClosedInternal()
                     appOpenOnAdClosedInternal = {}
                     requestAppOpenLoad(appOpen, force = true)

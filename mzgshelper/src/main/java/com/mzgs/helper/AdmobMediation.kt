@@ -1122,6 +1122,18 @@ object AdmobMediation {
     }
 
     fun showAppOpenAd(activity: Activity, onAdClosed: () -> Unit = {}): Boolean {
+        return showAppOpenAdWithFailure(
+            activity = activity,
+            onAdShowFailed = {},
+            onAdClosed = onAdClosed,
+        )
+    }
+
+    internal fun showAppOpenAdWithFailure(
+        activity: Activity,
+        onAdShowFailed: (errorMessage: String) -> Unit = {},
+        onAdClosed: () -> Unit = {},
+    ): Boolean {
         if (!isInitialized) {
             Log.w(TAG, "MobileAds not initialized; skipping app open.")
             onAdClosed()
@@ -1154,14 +1166,15 @@ object AdmobMediation {
 
             override fun onAdFailedToShowFullScreenContent(adError: AdError) {
                 isAppOpenShowing = false
+                onAdShowFailed(adError.message)
                 onAdClosed()
                 FirebaseAnalyticsManager.logEvent(
                     "app_open_ad_failed_to_show",
                     Bundle().apply {
                         putString("ad_unit_id", config.APP_OPEN_AD_UNIT_ID)
                         putString("error_message", adError.message)
-                        },
-                    )
+                    },
+                )
                 requestAppOpenAdLoad(activity, force = true)
             }
         }
