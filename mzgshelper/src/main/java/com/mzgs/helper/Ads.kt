@@ -56,8 +56,8 @@ object Ads {
         activity: Activity,
         networks: String = "applovin,admob",
         onAdClosed: (adShowed: Boolean) -> Unit = {},
-    ): Boolean {
-        return showInterstitialInternal(
+    ) {
+        showInterstitialInternal(
             activity = activity,
             networks = networks,
             onAdShowFailed = { _, _ -> },
@@ -72,26 +72,26 @@ object Ads {
         networks: String = "applovin,admob",
         onAdShowFailed: (network: String, errorMessage: String) -> Unit = { _, _ -> },
         onAdClosed: (adShowed: Boolean) -> Unit = {},
-    ): Boolean {
+    ) {
         val cycleValue = Remote.getInt(name, defaultValue)
         val currentCounter = ActionCounter.increaseGet(name)
 
         if (cycleValue <= 0) {
             onAdClosed(false)
-            return false
+            return
         }
 
         if (currentCounter % cycleValue == 0) {
-            return showInterstitialInternal(
+            showInterstitialInternal(
                 activity = activity,
                 networks = networks,
                 onAdShowFailed = onAdShowFailed,
                 onAdClosed = onAdClosed,
             )
+            return
         }
 
         onAdClosed(false)
-        return false
     }
 
     fun loadInterstitial(
@@ -117,8 +117,8 @@ object Ads {
         activity: Activity,
         networks: String = "applovin,admob",
         onRewarded: (type: String, amount: Int) -> Unit = { _, _ -> },
-        onAdClosed: () -> Unit = {},
-    ): Boolean {
+        onAdClosed: (adShowed: Boolean) -> Unit = {},
+    ) {
         val networks = normalizedNetworks(networks)
 
         var shownNetwork: String? = null
@@ -127,10 +127,10 @@ object Ads {
         val failedToShowNetworks = mutableSetOf<String>()
         lateinit var tryShowFrom: (startIndex: Int) -> Boolean
 
-        fun notifyClosed() {
+        fun notifyClosed(adShowed: Boolean) {
             if (!closedNotified) {
                 closedNotified = true
-                onAdClosed()
+                onAdClosed(adShowed)
             }
         }
 
@@ -145,7 +145,7 @@ object Ads {
                 shownNetworkIndex = -1
                 tryShowFrom(nextIndex)
             } else {
-                notifyClosed()
+                notifyClosed(adShowed = true)
             }
         }
 
@@ -188,12 +188,12 @@ object Ads {
                 }
             }
             if (!shownAny) {
-                notifyClosed()
+                notifyClosed(adShowed = false)
             }
             shownAny
         }
 
-        return tryShowFrom(0)
+        tryShowFrom(0)
     }
 
     fun loadRewarded(
@@ -220,7 +220,7 @@ object Ads {
         networks: String,
         onAdShowFailed: (network: String, errorMessage: String) -> Unit,
         onAdClosed: (adShowed: Boolean) -> Unit,
-    ): Boolean {
+    ) {
         val networks = normalizedNetworks(networks)
 
         var shownNetwork: String? = null
@@ -288,14 +288,14 @@ object Ads {
             shownAny
         }
 
-        return tryShowFrom(0)
+        tryShowFrom(0)
     }
 
     fun showAppOpenAd(
         activity: Activity,
         networks: String = "applovin,admob",
-        onAdClosed: () -> Unit = {},
-    ): Boolean {
+        onAdClosed: (adShowed: Boolean) -> Unit = {},
+    ) {
         val networks = normalizedNetworks(networks)
 
         var shownNetwork: String? = null
@@ -304,10 +304,10 @@ object Ads {
         val failedToShowNetworks = mutableSetOf<String>()
         lateinit var tryShowFrom: (startIndex: Int) -> Boolean
 
-        fun notifyClosed() {
+        fun notifyClosed(adShowed: Boolean) {
             if (!closedNotified) {
                 closedNotified = true
-                onAdClosed()
+                onAdClosed(adShowed)
             }
         }
 
@@ -322,7 +322,7 @@ object Ads {
                 shownNetworkIndex = -1
                 tryShowFrom(nextIndex)
             } else {
-                notifyClosed()
+                notifyClosed(adShowed = true)
             }
         }
 
@@ -357,12 +357,12 @@ object Ads {
                 }
             }
             if (!shownAny) {
-                notifyClosed()
+                notifyClosed(adShowed = false)
             }
             shownAny
         }
 
-        return tryShowFrom(0)
+        tryShowFrom(0)
     }
 
     fun loadAppOpenAd(

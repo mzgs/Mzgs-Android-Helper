@@ -70,19 +70,17 @@ class MainActivity : ComponentActivity() {
                     isSplashComplete.value = true
                 }
 
-                val shown = Ads.showInterstitial(activity, onAdClosed =  {
-
-
+                Ads.showInterstitial(activity, onAdClosed = { interstitialShowed ->
+                    if (interstitialShowed) {
+                        FirebaseAnalyticsManager.logEvent("splash_interstitial_success")
+                        onSplashComplete()
+                    } else {
+                        Ads.showAppOpenAd(activity, onAdClosed = { appOpenShowed ->
+                            FirebaseAnalyticsManager.logEvent("splash_app_open_" + (if (appOpenShowed) "success" else "fail"))
+                            onSplashComplete()
+                        })
+                    }
                 })
-
-
-                if(shown){
-                    FirebaseAnalyticsManager.logEvent("splash_interstitial_success")
-                }
-                if (!shown) {
-                    val appopen_showed = Ads.showAppOpenAd(activity, onAdClosed = onSplashComplete)
-                    FirebaseAnalyticsManager.logEvent( "splash_app_open_" + (if (appopen_showed) "success" else "fail"))
-                }
 
             }
 

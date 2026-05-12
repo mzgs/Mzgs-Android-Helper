@@ -193,16 +193,17 @@ override fun onStart() {
                 FirebaseAnalyticsManager.logEvent("mzgs_splash_ads_closed")
             }
 
-            val shown = Ads.showInterstitial(activity, onAdClosed =  { adShowed ->
-                onSplashComplete()
+            Ads.showInterstitial(activity, onAdClosed = { interstitialShowed ->
+                if (interstitialShowed) {
+                    FirebaseAnalyticsManager.logEvent("splash_interstitial_success")
+                    onSplashComplete()
+                } else {
+                    Ads.showAppOpenAd(activity, onAdClosed = { appOpenShowed ->
+                        FirebaseAnalyticsManager.logEvent("splash_app_open_" + (if (appOpenShowed) "success" else "fail"))
+                        onSplashComplete()
+                    })
+                }
             })
-            if(shown){
-                FirebaseAnalyticsManager.logEvent("splash_interstitial_success")
-            }
-            if (!shown) {
-                val appopen_showed = Ads.showAppOpenAd(activity, onAdClosed = onSplashComplete)
-                FirebaseAnalyticsManager.logEvent( "splash_app_open_" + (if (appopen_showed) "success" else "fail"))
-            }
 
         }
 
@@ -238,10 +239,13 @@ Ads.showRewarded(
     onRewarded = { type, amount ->
         // Reward the user.
     },
-)
+) { adShowed ->
+    // adShowed is true only when a rewarded ad was actually shown and then closed.
+}
 ```
 
-`showInterstitial`, `showRewarded`, and `showAppOpenAd` return `false` when no cached ad is ready.
+`showInterstitial`, `showRewarded`, and `showAppOpenAd` report the final show result through
+`onAdClosed(adShowed)`.
 If a cached interstitial, rewarded, or app open ad is selected but fails while showing, the helper
 tries the next configured network before calling `onAdClosed`.
 
