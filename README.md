@@ -80,7 +80,6 @@ Add to your `AndroidManifest.xml`:
 ```kotlin
 
 import android.app.Application
-import android.app.Activity
 import com.mzgs.helper.AdmobConfig
 import com.mzgs.helper.AdmobDebug
 import com.mzgs.helper.AdmobMediation
@@ -91,10 +90,16 @@ import com.mzgs.helper.ApplovinMaxMediation
 import com.mzgs.helper.FirebaseAnalyticsManager
 import com.mzgs.helper.MzgsHelper
 import com.mzgs.helper.Pref
+import com.mzgs.helper.Remote
 
 class App : Application() {
     override fun onCreate() {
         super.onCreate()
+
+        FirebaseAnalyticsManager.initialize(this)
+        FirebaseAnalyticsManager.logEvent("mzgs_app_started")
+        Pref.init(this)
+        Remote.init(this)
 
         AdmobMediation.config = AdmobConfig(
             INTERSTITIAL_AD_UNIT_ID = "",
@@ -113,22 +118,16 @@ class App : Application() {
             MREC_AD_UNIT_ID = "YOUR_MAX_MREC_AD_UNIT_ID",
             NATIVE_AD_UNIT_ID = "YOUR_MAX_NATIVE_AD_UNIT_ID",
             REWARDED_AD_UNIT_ID = "",
-            DEBUG = ApplovinMaxDebug(
-                useEmptyIds = false,
-            )
-
+            DEBUG = ApplovinMaxDebug(useEmptyIds = false),
         )
-
-        FirebaseAnalyticsManager.initialize(this)
-        Pref.init(this)
 
         MzgsHelper.registerFirstActivityCallbacks(
             application = this,
             onActivityResumed = { activity ->
-                Ads.setInitListener {
-                    preloadFullscreenAds(activity)
+                AdmobMediation.initialize(this@App) {
+                    AdmobMediation.loadAppOpenAd(activity)
+                    AdmobMediation.loadInterstitial(activity)
                 }
-                AdmobMediation.initialize(this@App)
                 ApplovinMaxMediation.initialize(this@App)
             },
         )
@@ -138,17 +137,11 @@ class App : Application() {
             onGoForeground = { activity ->
                 if (!ApplovinMaxMediation.isFullscreenAdShowing) {
                     Ads.showAppOpenAd(activity)
+                } else {
+                    AdmobMediation.showAppOpenAd(activity)
                 }
             },
         )
-
-        FirebaseAnalyticsManager.logEvent("mzgs_app_started")
-    }
-
-    private fun preloadFullscreenAds(activity: Activity) {
-        Ads.loadInterstitial(activity)
-        Ads.loadRewarded(activity)
-        Ads.loadAppOpenAd(activity)
     }
 }
 
@@ -167,7 +160,7 @@ Ads.setInitListener {
 
 // Runs after AppLovin MAX initialization completes.
 // If AppLovin MAX is already initialized, it runs immediately.
-AdmobMediation.setInitListener {
+ApplovinMaxMediation.setInitListener {
     // AppLovin MAX is ready.
 }
 ```
@@ -184,35 +177,47 @@ SimpleSplashHelper.showSplash(activity)
 Without `setCustomImage`, the splash keeps the default rotating app logo behavior.
 
 ```kotlin
-override fun onStart() {
-    super.onStart()
+override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+    enableEdgeToEdge()
 
     lifecycleScope.launch {
         val activity = this@MainActivity
+
+        MzgsHelper.initAllowedCountry(
+            activity,
+            debugAllow = false,
+            defaultRestrictedCountries = listOf(
+                "UK", "US", "GB", "CN", "MX", "JP", "KR", "AR", "HK", "IN",
+                "PK", "TR", "VN", "RU", "SG", "MO", "TW", "PY",
+            ),
+        )
+
         SimpleSplashHelper.showSplash(activity)
-        Remote.initSync(this@MainActivity, timeoutMs = 5_000)
-        MzgsHelper.initAllowedCountry(activity)
-
-
+        // SimpleSplashHelper.setCustomImage(R.drawable.cleaner)
         SimpleSplashHelper.setOnComplete {
             FirebaseAnalyticsManager.logEvent("mzgs_splash_completed")
 
-            val onSplashComplete = {
+            Ads.showSplashAds(activity) {
+                FirebaseAnalyticsManager.logEvent("mzgs_splash_completed_ads_closed")
                 isSplashComplete.value = true
-                FirebaseAnalyticsManager.logEvent("mzgs_splash_ads_closed")
+
+                ApplovinMaxMediation.setInitListener {
+                    ApplovinMaxMediation.loadInterstitial(activity)
+                    ApplovinMaxMediation.loadAppOpenAd(activity)
+                }
             }
-
-            Ads.showSplashAds(activity, onSplashAdClosed = onSplashComplete)
-
         }
 
-        val splashDuration = if (MzgsHelper.isDebug(activity)) {
-            500
-        } else {
-            Remote.getLong("splash_time", 11_000)
-        }
+        val splashDuration = if (MzgsHelper.isDebug(activity)) 9500 else Remote.getLong("splash_time", 12_000)
         SimpleSplashHelper.setDuration(splashDuration)
         SimpleSplashHelper.startProgress(activity)
+    }
+
+    setContent {
+        MzgsAndroidHelperTheme {
+            MainExampleScreen(isSplashComplete = isSplashComplete.value)
+        }
     }
 }
 ```

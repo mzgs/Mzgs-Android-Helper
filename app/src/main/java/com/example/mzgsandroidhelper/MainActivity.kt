@@ -70,11 +70,11 @@ class MainActivity : ComponentActivity() {
                     isSplashComplete.value = true
 
                     // Load Applovin ads
-                
-                    ApplovinMaxMediation.loadInterstitial(activity)
-                    ApplovinMaxMediation.loadAppOpenAd(activity)
+                    ApplovinMaxMediation.setInitListener {
+                        ApplovinMaxMediation.loadInterstitial(activity)
+                        ApplovinMaxMediation.loadAppOpenAd(activity)
+                    }
                 }
-
             }
 
             val splashDuration = if (MzgsHelper.isDebug(activity)) 9500 else Remote.getLong("splash_time", 12_000)
