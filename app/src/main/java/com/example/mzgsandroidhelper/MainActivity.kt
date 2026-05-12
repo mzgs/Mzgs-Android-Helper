@@ -56,17 +56,25 @@ class MainActivity : ComponentActivity() {
 
         lifecycleScope.launch {
             val activity = this@MainActivity
-            SimpleSplashHelper.showSplash(activity)
-            MzgsHelper.restrictedCountries = listOf("UK", "US", "GB", "CN", "MX", "JP", "KR", "AR", "HK", "IN", "PK", "TR", "VN", "RU", "SG", "MO", "TW", "PY")
-            MzgsHelper.initAllowedCountry(activity)
+            MzgsHelper.initAllowedCountry(activity, debugAllow = false, defaultRestrictedCountries = listOf(
+                    "UK", "US", "GB", "CN", "MX", "JP", "KR", "AR", "HK", "IN", "PK", "TR", "VN", "RU", "SG", "MO", "TW", "PY")
+            )
 
+            SimpleSplashHelper.showSplash(activity)
             SimpleSplashHelper.setOnComplete {
+
+
 
                 val onSplashComplete = {
                     isSplashComplete.value = true
                 }
 
-                val shown = Ads.showInterstitial(activity, onAdClosed =  onSplashComplete)
+                val shown = Ads.showInterstitial(activity, onAdClosed =  {
+
+
+                })
+
+
                 if(shown){
                     FirebaseAnalyticsManager.logEvent("splash_interstitial_success")
                 }

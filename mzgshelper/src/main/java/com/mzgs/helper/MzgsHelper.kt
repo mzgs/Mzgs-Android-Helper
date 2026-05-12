@@ -68,10 +68,11 @@ object MzgsHelper {
     private var lastStartedActivityRef: WeakReference<Activity>? = null
     @Volatile
     var onFirstActivityCreatedListener: ((Activity) -> Unit)? = null
-    var restrictedCountries: List<String> = listOf(
+    private val defaultRestrictedCountries: List<String> = listOf(
         "UK", "US", "GB", "CN", "MX", "JP", "KR", "AR", "HK", "IN",
         "PK", "TR", "VN", "RU", "SG", "MO", "TW", "PY"
     )
+    private var restrictedCountries: List<String> = defaultRestrictedCountries
 
     var isAllowedCountry = true
     var IPCountry: String? = null
@@ -362,12 +363,17 @@ object MzgsHelper {
         }
     }
 
-    fun initAllowedCountry(context: Context, debugAllow: Boolean? = null) {
+    fun initAllowedCountry(
+        context: Context,
+        debugAllow: Boolean? = null,
+        defaultRestrictedCountries: List<String> = MzgsHelper.defaultRestrictedCountries,
+    ) {
         if (debugAllow != null && isDebug(context)) {
             isAllowedCountry = debugAllow
             Log.d("LibHelper", "Debug mode with debugAllow=$debugAllow, setting isAllowedCountry to $debugAllow")
             return
         }
+        restrictedCountries = defaultRestrictedCountries.map { it.uppercase(Locale.ROOT) }
         setRestrictedCountriesFromRemoteConfig()
 
         setIsAllowedCountry(context)

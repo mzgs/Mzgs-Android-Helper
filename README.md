@@ -282,7 +282,10 @@ Ads.showNativeAd(
 
 ```kotlin
 Remote.init(application)
-MzgsHelper.initAllowedCountry(activity)
+MzgsHelper.initAllowedCountry(
+    activity,
+    defaultRestrictedCountries = listOf("US", "GB", "CN"),
+)
 if (!MzgsHelper.isAllowedCountry) {
     // Skip monetization or limit features.
 }
