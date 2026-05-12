@@ -12,15 +12,11 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.telephony.TelephonyManager
 import android.util.Log
 
 import android.widget.Toast
 import androidx.annotation.RequiresPermission
-import com.google.android.ump.ConsentDebugSettings
-import com.google.android.ump.ConsentInformation
 import com.google.android.ump.ConsentRequestParameters
 import com.google.android.ump.UserMessagingPlatform
 
@@ -182,105 +178,40 @@ object MzgsHelper {
     
     fun showUmpConsent(
         activity: Activity,
-        forceDebugConsentInEea: Boolean = false,
-        timeoutMillis: Long = 5_000L,
         onComplete: () -> Unit = {}
     ) {
-        val completionHandled = AtomicBoolean(false)
-        val mainHandler = Handler(Looper.getMainLooper())
-        val timeoutRunnable = Runnable {
-            if (completionHandled.compareAndSet(false, true)) {
-                Log.w(TAG, "UMP consent flow timed out after ${timeoutMillis}ms")
-                onComplete()
-            }
-        }
-        val completeOnce = {
-            if (completionHandled.compareAndSet(false, true)) {
-                mainHandler.removeCallbacks(timeoutRunnable)
-                onComplete()
-            }
-        }
-
-        if (timeoutMillis > 0L) {
-            mainHandler.postDelayed(timeoutRunnable, timeoutMillis)
-        }
-
         if (activity.isFinishing || activity.isDestroyed) {
             Log.w(TAG, "Activity is not in a valid state to show UMP consent form")
-            completeOnce()
+            onComplete()
             return
         }
 
         val context = activity.applicationContext
         val consentInformation = UserMessagingPlatform.getConsentInformation(context)
-        val paramsBuilder = ConsentRequestParameters.Builder()
-
-        // Enable debug consent flow even outside EEA if requested in debug builds.
-        if (isDebug(activity) && forceDebugConsentInEea) {
-            val debugSettingsBuilder = ConsentDebugSettings.Builder(activity)
-                .setDebugGeography(ConsentDebugSettings.DebugGeography.DEBUG_GEOGRAPHY_EEA)
-            paramsBuilder.setConsentDebugSettings(debugSettingsBuilder.build())
-        }
-
-        val params = paramsBuilder.build()
 
         consentInformation.requestConsentInfoUpdate(
             activity,
-            params,
+            ConsentRequestParameters.Builder().build(),
             {
-                if (completionHandled.get()) {
-                    return@requestConsentInfoUpdate
-                }
                 Log.d(
                     TAG,
                     "UMP consent info updated: status=${consentInformation.consentStatus}, formAvailable=${consentInformation.isConsentFormAvailable}"
                 )
-                if (
-                    consentInformation.consentStatus == ConsentInformation.ConsentStatus.REQUIRED &&
-                    consentInformation.isConsentFormAvailable
-                ) {
-                    if (activity.isFinishing || activity.isDestroyed) {
-                        Log.w(TAG, "Activity is not in a valid state to show consent form")
-                        completeOnce()
-                        return@requestConsentInfoUpdate
+                if (activity.isFinishing || activity.isDestroyed) {
+                    Log.w(TAG, "Activity is not in a valid state to show consent form")
+                    onComplete()
+                    return@requestConsentInfoUpdate
+                }
+                UserMessagingPlatform.loadAndShowConsentFormIfRequired(activity) { formError ->
+                    if (formError != null) {
+                        Log.e(TAG, "UMP consent form error: ${formError.message}")
                     }
-                    UserMessagingPlatform.loadConsentForm(
-                        activity,
-                        { consentForm ->
-                            if (completionHandled.get()) {
-                                return@loadConsentForm
-                            }
-                            if (consentInformation.consentStatus == ConsentInformation.ConsentStatus.REQUIRED) {
-                                mainHandler.removeCallbacks(timeoutRunnable)
-                                consentForm.show(activity) { formError ->
-                                    if (formError != null) {
-                                        Log.e(TAG, "UMP consent form error: ${formError.message}")
-                                    }
-                                    completeOnce()
-                                }
-                            } else {
-                                completeOnce()
-                            }
-                        },
-                        { loadError ->
-                            if (completionHandled.get()) {
-                                return@loadConsentForm
-                            }
-                            Log.e(TAG, "Failed to load UMP consent form: ${loadError.message}")
-                            completeOnce()
-                        }
-                    )
-                } else {
-                    Log.d(TAG, "UMP consent form not required (status=${consentInformation.consentStatus})")
-                    completeOnce()
+                    onComplete()
                 }
             },
             { requestError ->
-                if (completionHandled.get()) {
-                    return@requestConsentInfoUpdate
-                }
                 Log.e(TAG, "Failed to update UMP consent info: ${requestError.message}")
-                completeOnce()
+                onComplete()
             }
         )
     }
