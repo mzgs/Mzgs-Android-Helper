@@ -90,8 +90,6 @@ object AdmobMediation {
     @Volatile private var lastInterstitialLoadRequestedAtMs = 0L
     @Volatile private var lastRewardedLoadRequestedAtMs = 0L
     @Volatile private var lastAppOpenLoadRequestedAtMs = 0L
-    @Volatile private var lastBannerLoadRequestedAtMs = 0L
-    @Volatile private var lastMrecLoadRequestedAtMs = 0L
     @Volatile private var lastNativeLoadRequestedAtMs = 0L
     @Volatile private var interstitialLoadedAtMs = 0L
     @Volatile private var rewardedLoadedAtMs = 0L
@@ -384,28 +382,6 @@ object AdmobMediation {
         return true
     }
 
-    private fun shouldRequestBannerLoad(): Boolean {
-        val now = SystemClock.elapsedRealtime()
-        if (lastBannerLoadRequestedAtMs != 0L &&
-            now - lastBannerLoadRequestedAtMs < LOAD_REQUEST_MIN_INTERVAL_MS
-        ) {
-            return false
-        }
-        lastBannerLoadRequestedAtMs = now
-        return true
-    }
-
-    private fun shouldRequestMrecLoad(): Boolean {
-        val now = SystemClock.elapsedRealtime()
-        if (lastMrecLoadRequestedAtMs != 0L &&
-            now - lastMrecLoadRequestedAtMs < LOAD_REQUEST_MIN_INTERVAL_MS
-        ) {
-            return false
-        }
-        lastMrecLoadRequestedAtMs = now
-        return true
-    }
-
     private fun shouldRequestNativeLoad(): Boolean {
         val now = SystemClock.elapsedRealtime()
         if (lastNativeLoadRequestedAtMs != 0L &&
@@ -415,14 +391,6 @@ object AdmobMediation {
         }
         lastNativeLoadRequestedAtMs = now
         return true
-    }
-
-    private fun shouldRequestBannerLikeLoad(adSize: AdSize): Boolean {
-        return if (adSize == AdSize.MEDIUM_RECTANGLE) {
-            shouldRequestMrecLoad()
-        } else {
-            shouldRequestBannerLoad()
-        }
     }
 
     private fun isAdExpired(loadedAtMs: Long): Boolean {
@@ -588,28 +556,12 @@ object AdmobMediation {
                 val requestKey = remember(resolvedAdUnitId, resolvedAdSize) {
                     "$resolvedAdUnitId:$resolvedAdSize"
                 }
-                val hasLoaded = remember(requestKey) { mutableStateOf(false) }
-                val retryAttempt = remember(requestKey) { mutableStateOf(0) }
-                val retrySignal = remember(requestKey) { mutableStateOf(0) }
-
-                LaunchedEffect(requestKey, retrySignal.value) {
-                    val signal = retrySignal.value
-                    if (signal <= 0) {
-                        return@LaunchedEffect
-                    }
-                    delay(retryDelayMs((retryAttempt.value - 1).coerceAtLeast(0)))
-                    hasLoaded.value = false
-                }
+                val hasRequestedLoad = remember(requestKey) { mutableStateOf(false) }
+                val hasLoadedSuccessfully = remember(requestKey) { mutableStateOf(false) }
 
                 fun requestAdViewLoad(adView: AdView) {
-                    if (shouldRequestBannerLikeLoad(resolvedAdSize)) {
-                        adView.loadAd(AdRequest.Builder().build())
-                        hasLoaded.value = true
-                    } else {
-                        hasLoaded.value = true
-                        retryAttempt.value = retryAttempt.value.coerceAtLeast(1)
-                        retrySignal.value += 1
-                    }
+                    adView.loadAd(AdRequest.Builder().build())
+                    hasRequestedLoad.value = true
                 }
 
                 key(requestKey) {
@@ -622,22 +574,22 @@ object AdmobMediation {
                                 adView.setAdSize(resolvedAdSize)
                                 adView.adListener = object : AdListener() {
                                     override fun onAdLoaded() {
-                                        retryAttempt.value = 0
+                                        hasLoadedSuccessfully.value = true
                                     }
 
                                     override fun onAdFailedToLoad(adError: LoadAdError) {
-                                        onAdFailedToLoad?.invoke(adError.message)
-                                        retryAttempt.value += 1
-                                        retrySignal.value += 1
+                                        if (!hasLoadedSuccessfully.value) {
+                                            onAdFailedToLoad?.invoke(adError.message)
+                                        }
                                     }
                                 }
-                                if (!hasLoaded.value) {
+                                if (!hasRequestedLoad.value) {
                                     requestAdViewLoad(adView)
                                 }
                             }
                         },
                         update = { adView ->
-                            if (!hasLoaded.value) {
+                            if (!hasRequestedLoad.value) {
                                 requestAdViewLoad(adView)
                             }
                         },

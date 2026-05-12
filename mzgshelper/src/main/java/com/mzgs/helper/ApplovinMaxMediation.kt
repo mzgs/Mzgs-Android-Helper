@@ -48,6 +48,7 @@ object ApplovinMaxMediation {
     const val TAG = "ApplovinMaxMediation"
     private const val APPLOVIN_SDK_KEY_META = "applovin.sdk.key"
     private const val INIT_WAIT_TIMEOUT_MS = 120_000L
+    private const val BANNER_INIT_WAIT_TIMEOUT_MS = 30_000L
     private const val INIT_POLL_INTERVAL_MS = 1_000L
     private const val LOAD_REQUEST_MIN_INTERVAL_MS = 30_000L
     private const val LOAD_RETRY_INITIAL_DELAY_MS = 8_000L
@@ -71,8 +72,6 @@ object ApplovinMaxMediation {
     @Volatile private var lastInterstitialLoadRequestedAtMs = 0L
     @Volatile private var lastRewardedLoadRequestedAtMs = 0L
     @Volatile private var lastAppOpenLoadRequestedAtMs = 0L
-    @Volatile private var lastBannerLoadRequestedAtMs = 0L
-    @Volatile private var lastMrecLoadRequestedAtMs = 0L
     @Volatile private var lastNativeLoadRequestedAtMs = 0L
     @Volatile private var interstitialLoadedAtMs = 0L
     @Volatile private var rewardedLoadedAtMs = 0L
@@ -167,9 +166,9 @@ object ApplovinMaxMediation {
         return "AppLovin MAX SDK not initialized. Call ApplovinMaxMediation.initialize(context) before showing ads."
     }
 
-    private suspend fun awaitInitializationError(): String? {
+    private suspend fun awaitInitializationError(timeoutMs: Long = INIT_WAIT_TIMEOUT_MS): String? {
         var waitedMs = 0L
-        while (!isInitialized && waitedMs < INIT_WAIT_TIMEOUT_MS) {
+        while (!isInitialized && waitedMs < timeoutMs) {
             initFailureMessage?.let { return it }
             delay(INIT_POLL_INTERVAL_MS)
             waitedMs += INIT_POLL_INTERVAL_MS
@@ -229,7 +228,7 @@ object ApplovinMaxMediation {
         }
 
         LaunchedEffect(Unit) {
-            val initError = awaitInitializationError()
+            val initError = awaitInitializationError(BANNER_INIT_WAIT_TIMEOUT_MS)
             initErrorState.value = initError
             isInitialized.value = initError == null
         }
@@ -244,17 +243,7 @@ object ApplovinMaxMediation {
                 onAdFailedToLoad?.invoke("AppLovin banner ad unit id is blank.")
             } else {
                 val requestKey = remember(resolvedAdUnitId, isMrec) { "$resolvedAdUnitId:$isMrec" }
-                val retryAttempt = remember(requestKey) { mutableStateOf(0) }
-                val retrySignal = remember(requestKey) { mutableStateOf(0) }
-
-                LaunchedEffect(requestKey, retrySignal.value) {
-                    val signal = retrySignal.value
-                    if (signal <= 0) {
-                        return@LaunchedEffect
-                    }
-                    delay(retryDelayMs((retryAttempt.value - 1).coerceAtLeast(0)))
-                    adViewState.value?.let { requestAdViewLoad(it, isMrec) }
-                }
+                val hasLoadedSuccessfully = remember(requestKey) { mutableStateOf(false) }
 
                 LaunchedEffect(requestKey, adContainerState.value, heightPx, widthPx) {
                     val container = adContainerState.value ?: return@LaunchedEffect
@@ -269,7 +258,7 @@ object ApplovinMaxMediation {
                                 adView.setBackgroundColor(Color.TRANSPARENT)
                                 adView.setListener(object : MaxAdViewAdListener {
                                     override fun onAdLoaded(ad: MaxAd) {
-                                        retryAttempt.value = 0
+                                        hasLoadedSuccessfully.value = true
                                         FirebaseAnalyticsManager.logAdLoad(
                                             adType = if (isMrec) "mrec" else "banner",
                                             adUnitId = resolvedAdUnitId,
@@ -279,9 +268,9 @@ object ApplovinMaxMediation {
                                     }
 
                                     override fun onAdLoadFailed(adUnitId: String, error: MaxError) {
-                                        onAdFailedToLoad?.invoke(error.message)
-                                        retryAttempt.value += 1
-                                        retrySignal.value += 1
+                                        if (!hasLoadedSuccessfully.value) {
+                                            onAdFailedToLoad?.invoke(error.message)
+                                        }
                                         FirebaseAnalyticsManager.logAdLoad(
                                             adType = if (isMrec) "mrec" else "banner",
                                             adUnitId = resolvedAdUnitId,
@@ -305,7 +294,7 @@ object ApplovinMaxMediation {
                                 override fun onAdDisplayed(ad: MaxAd) {}
                                 override fun onAdHidden(ad: MaxAd) {}
                             })
-                            requestAdViewLoad(adView, isMrec)
+                            adView.loadAd()
                         }
                         container.removeAllViews()
                         container.addView(newAdView)
@@ -670,19 +659,6 @@ object ApplovinMaxMediation {
         return true
     }
 
-    private fun requestAdViewLoad(adView: MaxAdView, isMrec: Boolean): Boolean {
-        val shouldRequest = if (isMrec) {
-            shouldRequestMrecLoad()
-        } else {
-            shouldRequestBannerLoad()
-        }
-        if (!shouldRequest) {
-            return false
-        }
-        adView.loadAd()
-        return true
-    }
-
     private fun shouldRequestInterstitialLoad(): Boolean {
         val now = SystemClock.elapsedRealtime()
         if (lastInterstitialLoadRequestedAtMs != 0L &&
@@ -713,28 +689,6 @@ object ApplovinMaxMediation {
             return false
         }
         lastAppOpenLoadRequestedAtMs = now
-        return true
-    }
-
-    private fun shouldRequestBannerLoad(): Boolean {
-        val now = SystemClock.elapsedRealtime()
-        if (lastBannerLoadRequestedAtMs != 0L &&
-            now - lastBannerLoadRequestedAtMs < LOAD_REQUEST_MIN_INTERVAL_MS
-        ) {
-            return false
-        }
-        lastBannerLoadRequestedAtMs = now
-        return true
-    }
-
-    private fun shouldRequestMrecLoad(): Boolean {
-        val now = SystemClock.elapsedRealtime()
-        if (lastMrecLoadRequestedAtMs != 0L &&
-            now - lastMrecLoadRequestedAtMs < LOAD_REQUEST_MIN_INTERVAL_MS
-        ) {
-            return false
-        }
-        lastMrecLoadRequestedAtMs = now
         return true
     }
 

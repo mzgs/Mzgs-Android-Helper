@@ -69,6 +69,7 @@ class MainActivity : ComponentActivity() {
                     isSplashComplete.value = true
 
                     // Load Applovin ads
+                    
                     ApplovinMaxMediation.loadInterstitial(activity)
                     ApplovinMaxMediation.loadAppOpenAd(activity)
                 }
