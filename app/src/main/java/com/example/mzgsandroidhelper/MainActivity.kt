@@ -60,7 +60,6 @@ class MainActivity : ComponentActivity() {
                     "UK", "US", "GB", "CN", "MX", "JP", "KR", "AR", "HK", "IN", "PK", "TR", "VN", "RU", "SG", "MO", "TW", "PY")
             )
 
-            SimpleSplashHelper.showSplash(activity)
             // SimpleSplashHelper.setCustomImage(R.drawable.cleaner)
             SimpleSplashHelper.setOnComplete {
                 FirebaseAnalyticsManager.logEvent("mzgs_splash_completed")
@@ -77,9 +76,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            val splashDuration = if (MzgsHelper.isDebug(activity)) 9500 else Remote.getLong("splash_time", 12_000)
-            SimpleSplashHelper.setDuration(splashDuration)
-            SimpleSplashHelper.startProgress(activity)
+
 
 
         } // end launch

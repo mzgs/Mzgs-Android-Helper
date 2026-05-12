@@ -1,6 +1,7 @@
 package com.example.mzgsandroidhelper
 
 import android.app.Application
+import androidx.lifecycle.lifecycleScope
 import com.mzgs.helper.AdmobConfig
 import com.mzgs.helper.AdmobDebug
 import com.mzgs.helper.AdmobMediation
@@ -12,6 +13,8 @@ import com.mzgs.helper.FirebaseAnalyticsManager
 import com.mzgs.helper.MzgsHelper
 import com.mzgs.helper.Pref
 import com.mzgs.helper.Remote
+import com.mzgs.helper.SimpleSplashHelper
+import kotlinx.coroutines.launch
 
 class App : Application() {
     override fun onCreate() {
@@ -50,11 +53,21 @@ class App : Application() {
         MzgsHelper.registerFirstActivityCallbacks(
             application = this,
             onActivityResumed = { activity ->
-                AdmobMediation.initialize(this@App){
-                    AdmobMediation.loadAppOpenAd(activity)
-                    AdmobMediation.loadInterstitial(activity)
+
+                SimpleSplashHelper.showSplash(activity)
+
+                MzgsHelper.showUmpConsent(activity){
+
+                    AdmobMediation.initialize(this@App){
+                        AdmobMediation.loadAppOpenAd(activity)
+                        AdmobMediation.loadInterstitial(activity)
+                    }
+                    ApplovinMaxMediation.initialize(this@App)
+
+                    val splashDuration = if (MzgsHelper.isDebug(activity)) 9500 else Remote.getLong("splash_time", 12_000)
+                    SimpleSplashHelper.setDuration(splashDuration)
+                    SimpleSplashHelper.startProgress(activity)
                 }
-                ApplovinMaxMediation.initialize(this@App)
 
             },
         )
