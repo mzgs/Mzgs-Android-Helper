@@ -59,8 +59,8 @@ object ApplovinMaxMediation {
     @Volatile private var isAppOpenShowing = false
     @Volatile var isFullscreenAdShowing = false
 
-    private var isInitialized = false
-    private var isInitializing = false
+    @Volatile private var isInitialized = false
+    @Volatile private var isInitializing = false
     @Volatile private var initFailureMessage: String? = null
     private val pendingInitCallbacks = mutableListOf<() -> Unit>()
 
@@ -118,9 +118,7 @@ object ApplovinMaxMediation {
             Log.w(TAG, initFailureMessage!!)
             isInitializing = false
             isInitialized = false
-            val callbacks = pendingInitCallbacks.toList()
-            pendingInitCallbacks.clear()
-            callbacks.forEach { it() }
+            drainInitCallbacks()
             return
         }
 
@@ -140,10 +138,26 @@ object ApplovinMaxMediation {
             initFailureMessage = null
             isInitialized = true
             isInitializing = false
-            val callbacks = pendingInitCallbacks.toList()
-            pendingInitCallbacks.clear()
-            callbacks.forEach { it() }
+            drainInitCallbacks()
         }
+    }
+
+    /**
+     * Registers a callback for AppLovin MAX initialization.
+     * If MAX is already initialized, the callback is invoked immediately.
+     */
+    fun setInitListener(onInitComplete: () -> Unit) {
+        if (isInitialized) {
+            onInitComplete()
+            return
+        }
+        pendingInitCallbacks.add(onInitComplete)
+    }
+
+    private fun drainInitCallbacks() {
+        val callbacks = pendingInitCallbacks.toList()
+        pendingInitCallbacks.clear()
+        callbacks.forEach { it() }
     }
 
     private fun buildNotInitializedMessage(): String {

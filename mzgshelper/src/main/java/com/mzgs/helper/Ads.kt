@@ -14,6 +14,43 @@ object Ads {
 
     private val validNetworks = setOf("applovin", "admob")
 
+    /**
+     * Registers a callback that runs after both AdMob and AppLovin MAX initialization complete.
+     * If both networks are already initialized, the callback is invoked immediately.
+     */
+    fun setInitListener(onInitComplete: () -> Unit) {
+        val lock = Any()
+        var isAdmobInitialized = false
+        var isAppLovinMaxInitialized = false
+        var isCallbackInvoked = false
+
+        fun markInitialized(isAdmob: Boolean) {
+            val shouldInvoke = synchronized(lock) {
+                if (isAdmob) {
+                    isAdmobInitialized = true
+                } else {
+                    isAppLovinMaxInitialized = true
+                }
+                if (isAdmobInitialized && isAppLovinMaxInitialized && !isCallbackInvoked) {
+                    isCallbackInvoked = true
+                    true
+                } else {
+                    false
+                }
+            }
+            if (shouldInvoke) {
+                onInitComplete()
+            }
+        }
+
+        AdmobMediation.setAdmobInitListener {
+            markInitialized(isAdmob = true)
+        }
+        ApplovinMaxMediation.setInitListener {
+            markInitialized(isAdmob = false)
+        }
+    }
+
 //    order : netowrks by comma : applovin,admob
     fun showInterstitial(
         activity: Activity,

@@ -160,6 +160,26 @@ object AdmobMediation {
         }
     }
 
+    /**
+     * Registers a callback for AppLovin MAX initialization.
+     * If MAX is already initialized, the callback is invoked immediately.
+     */
+    fun setInitListener(onAppLovinMaxInitComplete: () -> Unit) {
+        ApplovinMaxMediation.setInitListener(onAppLovinMaxInitComplete)
+    }
+
+    /**
+     * Registers a callback for AdMob initialization.
+     * If AdMob is already initialized, the callback is invoked immediately.
+     */
+    fun setAdmobInitListener(onInitComplete: () -> Unit) {
+        if (isInitialized) {
+            onInitComplete()
+            return
+        }
+        pendingInitCallbacks.add(onInitComplete)
+    }
+
     private fun drainInitCallbacks() {
         val callbacks = pendingInitCallbacks.toList()
         pendingInitCallbacks.clear()

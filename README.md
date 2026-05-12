@@ -125,12 +125,11 @@ class App : Application() {
         MzgsHelper.registerFirstActivityCallbacks(
             application = this,
             onActivityResumed = { activity ->
-                AdmobMediation.initialize(this@App) {
+                Ads.setInitListener {
                     preloadFullscreenAds(activity)
                 }
-                ApplovinMaxMediation.initialize(this@App) {
-                    preloadFullscreenAds(activity)
-                }
+                AdmobMediation.initialize(this@App)
+                ApplovinMaxMediation.initialize(this@App)
             },
         )
 
@@ -153,6 +152,24 @@ class App : Application() {
     }
 }
 
+```
+
+### Init listeners
+
+```kotlin
+// Runs after both AdMob and AppLovin MAX initialization callbacks complete.
+// If both are already initialized, it runs immediately.
+Ads.setInitListener {
+    Ads.loadInterstitial(activity)
+    Ads.loadRewarded(activity)
+    Ads.loadAppOpenAd(activity)
+}
+
+// Runs after AppLovin MAX initialization completes.
+// If AppLovin MAX is already initialized, it runs immediately.
+AdmobMediation.setInitListener {
+    // AppLovin MAX is ready.
+}
 ```
 
 ### MainActivity splash + interstitial

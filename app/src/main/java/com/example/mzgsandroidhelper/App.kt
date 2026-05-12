@@ -17,6 +17,10 @@ class App : Application() {
     override fun onCreate() {
         super.onCreate()
 
+        FirebaseAnalyticsManager.initialize(this)
+        FirebaseAnalyticsManager.logEvent("mzgs_app_started")
+        Pref.init(this)
+        Remote.init(this)
 
         AdmobMediation.config = AdmobConfig(
             INTERSTITIAL_AD_UNIT_ID = "",
@@ -64,9 +68,6 @@ class App : Application() {
             },
         )
 
-        FirebaseAnalyticsManager.initialize(this)
-        FirebaseAnalyticsManager.logEvent("mzgs_app_started")
-        Pref.init(this)
-        Remote.init(this)
+
     }
 }
