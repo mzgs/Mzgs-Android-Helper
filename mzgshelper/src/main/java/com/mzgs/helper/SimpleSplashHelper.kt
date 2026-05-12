@@ -192,6 +192,7 @@ object SimpleSplashHelper {
                         36
                     ).apply {
                         bottomMargin = 28
+                        gravity = Gravity.CENTER_HORIZONTAL
                     }
                     max = 100
                     progress = 0
@@ -234,6 +235,7 @@ object SimpleSplashHelper {
                         120
                     ).apply {
                         bottomMargin = 20
+                        gravity = Gravity.CENTER_HORIZONTAL
                     }
                     visibility = View.VISIBLE
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -261,6 +263,12 @@ object SimpleSplashHelper {
                     letterSpacing = 0.1f
                     setTypeface(null, android.graphics.Typeface.BOLD)
                     setPadding(0, 8, 0, 0)
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        gravity = Gravity.CENTER_HORIZONTAL
+                    }
                     visibility = View.GONE
                 }
                 addView(progressLabel)
@@ -314,6 +322,7 @@ object SimpleSplashHelper {
             if (hasCustomImage) getCustomImageHeight(logo.context) else 240
         ).apply {
             bottomMargin = 40
+            gravity = Gravity.CENTER_HORIZONTAL
         }
         logo.adjustViewBounds = hasCustomImage
         logo.scaleType = ImageView.ScaleType.FIT_CENTER
