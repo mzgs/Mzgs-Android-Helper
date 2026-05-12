@@ -270,13 +270,14 @@ if (!MzgsHelper.isAllowedCountry) {
     // Skip monetization or limit features.
 }
 
-// Remote.init fetches in the background with a 30-second timeout.
-// Remote values are applied when the background fetch completes.
+// Remote.init loads the last fetched config from prefs immediately,
+// then fetches in the background with a 30-second timeout.
+// New remote values are applied and saved to prefs when the fetch completes.
 val splashTime = Remote.getLong("splash_time", 11_000)
 ```
 
 If you need remote values before continuing, use `initSync` from a coroutine.
-It waits for the fetch to finish or fail, and defaults to waiting 5 seconds.
+It reads cached values first, then waits for the fetch to finish or fail, and defaults to waiting 5 seconds.
 If the wait timeout elapses, the same fetch continues in the background and remote values are applied when it completes.
 
 ```kotlin

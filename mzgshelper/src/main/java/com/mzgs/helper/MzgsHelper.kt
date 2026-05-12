@@ -561,6 +561,7 @@ object MzgsHelper {
 object Remote {
     private const val REMOTE_CONFIG_INIT_TIMEOUT_MS = 30_000
     private const val REMOTE_CONFIG_INIT_SYNC_TIMEOUT_MS = 5_000
+    private const val REMOTE_CONFIG_PREF_KEY = "mzgs_remote_config_json"
     private val remoteScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val initLock = Any()
     @Volatile
@@ -610,6 +611,8 @@ object Remote {
     private fun startRemoteConfigFetch(context: Context, url: String?, requestTimeoutMs: Int): Deferred<Unit>? {
         val appContext = context.applicationContext
         applicationContext = appContext
+        Pref.init(appContext)
+        loadCachedRemoteConfig()
         val configUrl = url?.takeIf { it.isNotEmpty() } ?: return null
 
         synchronized(initLock) {
@@ -618,13 +621,12 @@ object Remote {
                 return existingFetch
             }
 
-            app = JSONObject()
             initUrl = configUrl
             return remoteScope.async {
                 if (MzgsHelper.isNetworkAvailable(appContext)) {
                     fetchRemoteConfig(configUrl, requestTimeoutMs)
                 } else {
-                    Log.w("Remote", "Network not available, using default values")
+                    Log.w("Remote", "Network not available, using cached/default values")
                 }
                 Unit
             }.also {
@@ -649,10 +651,11 @@ object Remote {
             response?.let { data ->
                 val jsonObj = jsonDecode(data)
                 jsonObj?.let { json ->
-                    app = json.optJSONObject(getPackageName())
+                    val packageConfig = json.optJSONObject(getPackageName()) ?: JSONObject()
+                    app = packageConfig
+                    saveCachedRemoteConfig(packageConfig)
 
-                    if (app == null || app?.length() == 0) {
-                        app = JSONObject()
+                    if (packageConfig.length() == 0) {
                         Log.i("Remote", "No config found for package, using defaults")
                     } else {
                         Log.i("Remote", "Successfully fetched remote config")
@@ -662,9 +665,22 @@ object Remote {
                 Log.w("Remote", "Empty response from remote config, using defaults")
             }
         } catch (e: Exception) {
-            Log.w("Remote", "Failed to fetch remote config, using defaults: ${e.message}")
-            // Keep the already initialized empty JSONObject, which will use defaults
+            Log.w("Remote", "Failed to fetch remote config, using cached/default values: ${e.message}")
+            // Keep the already loaded cached config, or defaults when no cache exists.
         }
+    }
+
+    private fun loadCachedRemoteConfig() {
+        val cachedJson = Pref.getString(REMOTE_CONFIG_PREF_KEY, "")
+        app = if (cachedJson.isNotEmpty()) {
+            jsonDecode(cachedJson) ?: JSONObject()
+        } else {
+            JSONObject()
+        }
+    }
+
+    private fun saveCachedRemoteConfig(config: JSONObject) {
+        Pref.set(REMOTE_CONFIG_PREF_KEY, config.toString())
     }
 
 
