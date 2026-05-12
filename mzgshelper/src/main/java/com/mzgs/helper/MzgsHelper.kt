@@ -17,6 +17,7 @@ import android.util.Log
 
 import android.widget.Toast
 import androidx.annotation.RequiresPermission
+import com.google.android.ump.ConsentDebugSettings
 import com.google.android.ump.ConsentRequestParameters
 import com.google.android.ump.UserMessagingPlatform
 
@@ -178,6 +179,7 @@ object MzgsHelper {
     
     fun showUmpConsent(
         activity: Activity,
+        forceShowDebug: Boolean = false,
         onComplete: () -> Unit = {}
     ) {
         if (activity.isFinishing || activity.isDestroyed) {
@@ -188,10 +190,22 @@ object MzgsHelper {
 
         val context = activity.applicationContext
         val consentInformation = UserMessagingPlatform.getConsentInformation(context)
+        val shouldForceShowDebug = forceShowDebug && isDebug(context)
+        val requestParametersBuilder = ConsentRequestParameters.Builder()
+
+        if (shouldForceShowDebug) {
+            consentInformation.reset()
+            requestParametersBuilder.setConsentDebugSettings(
+                ConsentDebugSettings.Builder(context)
+                    .setDebugGeography(ConsentDebugSettings.DebugGeography.DEBUG_GEOGRAPHY_EEA)
+                    .setForceTesting(true)
+                    .build()
+            )
+        }
 
         consentInformation.requestConsentInfoUpdate(
             activity,
-            ConsentRequestParameters.Builder().build(),
+            requestParametersBuilder.build(),
             {
                 Log.d(
                     TAG,
