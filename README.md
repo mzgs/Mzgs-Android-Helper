@@ -80,6 +80,7 @@ Add to your `AndroidManifest.xml`:
 ```kotlin
 
 import android.app.Application
+import android.app.Activity
 import com.mzgs.helper.AdmobConfig
 import com.mzgs.helper.AdmobDebug
 import com.mzgs.helper.AdmobMediation
@@ -106,11 +107,11 @@ class App : Application() {
         )
 
         ApplovinMaxMediation.config = ApplovinMaxConfig(
-            INTERSTITIAL_AD_UNIT_ID = "b5d9132de55740f2",
-            APP_OPEN_AD_UNIT_ID = "efacaf217df0d0c4",
-            BANNER_AD_UNIT_ID = "2a850e4955fcac79",
-            MREC_AD_UNIT_ID = "499681b3d7a48fbc",
-            NATIVE_AD_UNIT_ID = "b93d53f11cb44097",
+            INTERSTITIAL_AD_UNIT_ID = "YOUR_MAX_INTERSTITIAL_AD_UNIT_ID",
+            APP_OPEN_AD_UNIT_ID = "YOUR_MAX_APP_OPEN_AD_UNIT_ID",
+            BANNER_AD_UNIT_ID = "YOUR_MAX_BANNER_AD_UNIT_ID",
+            MREC_AD_UNIT_ID = "YOUR_MAX_MREC_AD_UNIT_ID",
+            NATIVE_AD_UNIT_ID = "YOUR_MAX_NATIVE_AD_UNIT_ID",
             REWARDED_AD_UNIT_ID = "",
             DEBUG = ApplovinMaxDebug(
                 useEmptyIds = false,
@@ -118,29 +119,37 @@ class App : Application() {
 
         )
 
+        FirebaseAnalyticsManager.initialize(this)
+        Pref.init(this)
+
         MzgsHelper.registerFirstActivityCallbacks(
             application = this,
             onActivityResumed = { activity ->
-                AdmobMediation.initialize(this@App)
-                ApplovinMaxMediation.initialize(this@App)
-
-                Ads.initialize(
-                    activity,
-                    onGoForeground = {
-                        if (!ApplovinMaxMediation.isFullscreenAdShowing) {
-                            Ads.showAppOpenAd(activity)
-                        }else{
-                            AdmobMediation.showAppOpenAd(activity)
-                        }
-                    }
-                )
+                AdmobMediation.initialize(this@App) {
+                    preloadFullscreenAds(activity)
+                }
+                ApplovinMaxMediation.initialize(this@App) {
+                    preloadFullscreenAds(activity)
+                }
             },
         )
 
-        FirebaseAnalyticsManager.initialize(this)
-        Pref.init(this)
-        FirebaseAnalyticsManager.logEvent("mzgs_app_started")
+        MzgsHelper.registerAppLifecycleCallbacks(
+            application = this,
+            onGoForeground = { activity ->
+                if (!ApplovinMaxMediation.isFullscreenAdShowing) {
+                    Ads.showAppOpenAd(activity)
+                }
+            },
+        )
 
+        FirebaseAnalyticsManager.logEvent("mzgs_app_started")
+    }
+
+    private fun preloadFullscreenAds(activity: Activity) {
+        Ads.loadInterstitial(activity)
+        Ads.loadRewarded(activity)
+        Ads.loadAppOpenAd(activity)
     }
 }
 
@@ -192,12 +201,17 @@ override fun onStart() {
 ### Fullscreen ads with fallback ordering
 
 ```kotlin
+// Fullscreen ads are cached. Load before show, ideally after SDK init completes.
+Ads.loadInterstitial(activity, networks = "applovin,admob")
+
 Ads.showInterstitial(
     activity,
     networks = "applovin,admob",
 ) {
     // Called when the shown ad is closed or no ad is available.
 }
+
+Ads.loadRewarded(activity, networks = "admob,applovin")
 
 Ads.showRewarded(
     activity,
@@ -207,6 +221,8 @@ Ads.showRewarded(
     },
 )
 ```
+
+`showInterstitial`, `showRewarded`, and `showAppOpenAd` return `false` when no cached ad is ready.
 
 ### Interstitial with cycle (remote-configurable)
 
@@ -321,7 +337,7 @@ val isFeatureEnabled = Remote.getBool("new_feature", false)
 ```
 
 ## Mediation adapters
-- AdMob Mediation adapers
+- AdMob Mediation adapters
 
  ```kotlin
     implementation("com.google.ads.mediation:applovin:13.5.1.0")

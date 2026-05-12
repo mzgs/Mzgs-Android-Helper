@@ -3,9 +3,11 @@ package com.mzgs.helper
 import android.Manifest
 import android.app.Activity
 import android.app.Application
+import android.content.ComponentCallbacks2
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
@@ -32,6 +34,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import com.google.android.play.core.review.ReviewManagerFactory
+import java.lang.ref.WeakReference
 import java.net.URL
 import java.util.*
 import java.util.concurrent.atomic.AtomicBoolean
@@ -56,6 +59,13 @@ object MzgsHelper {
     private var activityDetectRegistered = false
     private var onFirstActivityCreated: (Activity) -> Unit = {}
     private var onFirstActivityResumed: (Activity) -> Unit = {}
+    private var startedActivityCount = 0
+    private var appWentToBackground = false
+    private var appLifecycleActivityCallbacksRegistered = false
+    private var appLifecycleComponentCallbacksRegistered = false
+    private var onGoBackground: (Activity) -> Unit = {}
+    private var onGoForeground: (Activity) -> Unit = {}
+    private var lastStartedActivityRef: WeakReference<Activity>? = null
     @Volatile
     var onFirstActivityCreatedListener: ((Activity) -> Unit)? = null
     var restrictedCountries: List<String> = listOf(
@@ -91,6 +101,52 @@ object MzgsHelper {
         override fun onActivityDestroyed(activity: Activity) = Unit
     }
 
+    private val appLifecycleActivityCallbacks = object : Application.ActivityLifecycleCallbacks {
+        override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
+
+        override fun onActivityStarted(activity: Activity) {
+            startedActivityCount += 1
+            lastStartedActivityRef = WeakReference(activity)
+            if (startedActivityCount == 1) {
+                val shouldNotify = appWentToBackground
+                if (appWentToBackground) {
+                    appWentToBackground = false
+                }
+                if (shouldNotify) {
+                    onGoForeground(activity)
+                }
+            }
+        }
+
+        override fun onActivityResumed(activity: Activity) = Unit
+
+        override fun onActivityPaused(activity: Activity) = Unit
+
+        override fun onActivityStopped(activity: Activity) {
+            if (startedActivityCount > 0) {
+                startedActivityCount -= 1
+            }
+        }
+
+        override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
+
+        override fun onActivityDestroyed(activity: Activity) = Unit
+    }
+
+    private val appLifecycleComponentCallbacks = object : ComponentCallbacks2 {
+        override fun onTrimMemory(level: Int) {
+            if (level >= ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN && !appWentToBackground) {
+                appWentToBackground = true
+                lastStartedActivityRef?.get()?.let { onGoBackground(it) }
+            }
+        }
+
+        override fun onConfigurationChanged(newConfig: Configuration) = Unit
+
+        @Suppress("OVERRIDE_DEPRECATION")
+        override fun onLowMemory() = Unit
+    }
+
     fun registerFirstActivityCallbacks(
         application: Application,
         onActivityCreated: (Activity) -> Unit = {},
@@ -101,6 +157,23 @@ object MzgsHelper {
         if (!activityDetectRegistered) {
             application.registerActivityLifecycleCallbacks(activityDetectCallbacks)
             activityDetectRegistered = true
+        }
+    }
+
+    fun registerAppLifecycleCallbacks(
+        application: Application,
+        onGoBackground: (Activity) -> Unit = {},
+        onGoForeground: (Activity) -> Unit = {},
+    ) {
+        this.onGoBackground = onGoBackground
+        this.onGoForeground = onGoForeground
+        if (!appLifecycleActivityCallbacksRegistered) {
+            application.registerActivityLifecycleCallbacks(appLifecycleActivityCallbacks)
+            appLifecycleActivityCallbacksRegistered = true
+        }
+        if (!appLifecycleComponentCallbacksRegistered) {
+            application.registerComponentCallbacks(appLifecycleComponentCallbacks)
+            appLifecycleComponentCallbacksRegistered = true
         }
     }
 
