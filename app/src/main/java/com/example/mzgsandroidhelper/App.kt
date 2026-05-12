@@ -56,7 +56,7 @@ class App : Application() {
 
                 SimpleSplashHelper.showSplash(activity)
 
-                MzgsHelper.showUmpConsent(activity){
+                MzgsHelper.showUmpConsent(activity,true){
 
                     AdmobMediation.initialize(this@App){
                         AdmobMediation.loadAppOpenAd(activity)

@@ -58,9 +58,15 @@ Add to your `AndroidManifest.xml`:
 ```xml
 <uses-permission android:name="android.permission.INTERNET" />
 <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-<uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
+<uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+<uses-permission android:name="com.google.android.gms.permission.AD_ID" />
 
 <application>
+    <!-- Optional: delay app measurement until consent/setup is complete. -->
+    <meta-data
+        android:name="com.google.android.gms.ads.DELAY_APP_MEASUREMENT_INIT"
+        android:value="true" />
+
     <!-- AdMob App ID (Required if using AdMob) -->
     <meta-data
         android:name="com.google.android.gms.ads.APPLICATION_ID"
@@ -78,7 +84,6 @@ Add to your `AndroidManifest.xml`:
 ### Application class (App.kt)
 
 ```kotlin
-
 import android.app.Application
 import com.mzgs.helper.AdmobConfig
 import com.mzgs.helper.AdmobDebug
@@ -91,6 +96,7 @@ import com.mzgs.helper.FirebaseAnalyticsManager
 import com.mzgs.helper.MzgsHelper
 import com.mzgs.helper.Pref
 import com.mzgs.helper.Remote
+import com.mzgs.helper.SimpleSplashHelper
 
 class App : Application() {
     override fun onCreate() {
@@ -124,11 +130,25 @@ class App : Application() {
         MzgsHelper.registerFirstActivityCallbacks(
             application = this,
             onActivityResumed = { activity ->
-                AdmobMediation.initialize(this@App) {
-                    AdmobMediation.loadAppOpenAd(activity)
-                    AdmobMediation.loadInterstitial(activity)
+                // Call setCustomImage before showSplash if you want a custom splash image.
+                // SimpleSplashHelper.setCustomImage(R.drawable.cleaner)
+                SimpleSplashHelper.showSplash(activity)
+
+                MzgsHelper.showUmpConsent(activity, forceShowDebug = true) {
+                    AdmobMediation.initialize(this@App) {
+                        AdmobMediation.loadAppOpenAd(activity)
+                        AdmobMediation.loadInterstitial(activity)
+                    }
+                    ApplovinMaxMediation.initialize(this@App)
+
+                    val splashDuration = if (MzgsHelper.isDebug(activity)) {
+                        9500
+                    } else {
+                        Remote.getLong("splash_time", 12_000)
+                    }
+                    SimpleSplashHelper.setDuration(splashDuration)
+                    SimpleSplashHelper.startProgress(activity)
                 }
-                ApplovinMaxMediation.initialize(this@App)
             },
         )
 
@@ -144,7 +164,6 @@ class App : Application() {
         )
     }
 }
-
 ```
 
 ### Init listeners
@@ -165,16 +184,18 @@ ApplovinMaxMediation.setInitListener {
 }
 ```
 
-### MainActivity splash + interstitial
+### MainActivity splash completion
 
 Optional custom splash image:
 
 ```kotlin
+// Call before SimpleSplashHelper.showSplash(activity) in App.kt.
 SimpleSplashHelper.setCustomImage(R.drawable.my_splash_image)
-SimpleSplashHelper.showSplash(activity)
 ```
 
 Without `setCustomImage`, the splash keeps the default rotating app logo behavior.
+In the example app, the splash is shown and started from `App.kt`; `MainActivity`
+only sets the completion callback and unlocks the main content after splash ads.
 
 ```kotlin
 override fun onCreate(savedInstanceState: Bundle?) {
@@ -185,7 +206,7 @@ override fun onCreate(savedInstanceState: Bundle?) {
         val activity = this@MainActivity
 
         MzgsHelper.initAllowedCountry(
-            activity,
+            context = activity,
             debugAllow = false,
             defaultRestrictedCountries = listOf(
                 "UK", "US", "GB", "CN", "MX", "JP", "KR", "AR", "HK", "IN",
@@ -193,8 +214,6 @@ override fun onCreate(savedInstanceState: Bundle?) {
             ),
         )
 
-        SimpleSplashHelper.showSplash(activity)
-        // SimpleSplashHelper.setCustomImage(R.drawable.cleaner)
         SimpleSplashHelper.setOnComplete {
             FirebaseAnalyticsManager.logEvent("mzgs_splash_completed")
 
@@ -208,10 +227,6 @@ override fun onCreate(savedInstanceState: Bundle?) {
                 }
             }
         }
-
-        val splashDuration = if (MzgsHelper.isDebug(activity)) 9500 else Remote.getLong("splash_time", 12_000)
-        SimpleSplashHelper.setDuration(splashDuration)
-        SimpleSplashHelper.startProgress(activity)
     }
 
     setContent {
@@ -271,25 +286,88 @@ Ads.showInterstitialWithCycle(
 
 ### Compose banners, MREC, and native ads
 
-```kotlin
-Ads.showBanner(
-    modifier = Modifier.fillMaxWidth(),
-    networks = "admob,applovin",
-    adSize = AdSize.BANNER,
-) { error ->
-    // Handle banner load failure.
-}
+The example screen keeps the network order editable and passes the same value
+to fullscreen and Compose ad helpers.
 
-Ads.showMrec(
-    modifier = Modifier.fillMaxWidth(),
-    networks = "applovin,admob",
+```kotlin
+var networks by remember { mutableStateOf("applovin,admob") }
+var appliedNetworks by remember { mutableStateOf(networks) }
+var showBanner by remember { mutableStateOf(false) }
+var showMrec by remember { mutableStateOf(false) }
+var showNative by remember { mutableStateOf(false) }
+
+OutlinedTextField(
+    value = networks,
+    onValueChange = { networks = it },
+    label = { Text("Networks order") },
+    supportingText = { Text("Comma separated: applovin,admob") },
 )
 
-Ads.showNativeAd(
-    modifier = Modifier.fillMaxWidth(),
-    networks = "applovin,admob",
-) { error ->
-    // Handle native ad load failure.
+Button(
+    onClick = {
+        Ads.showInterstitial(activity, networks = networks) {
+            onEventUpdate("Interstitial closed")
+        }
+    },
+) {
+    Text("Show interstitial")
+}
+
+Button(
+    onClick = {
+        appliedNetworks = networks
+        showBanner = true
+    },
+) {
+    Text("Show banner")
+}
+
+Button(
+    onClick = {
+        appliedNetworks = networks
+        showMrec = true
+    },
+) {
+    Text("Show MREC")
+}
+
+Button(
+    onClick = {
+        appliedNetworks = networks
+        showNative = true
+    },
+) {
+    Text("Show native")
+}
+
+if (showBanner) {
+    Ads.showBanner(
+        modifier = Modifier.fillMaxWidth(),
+        networks = appliedNetworks,
+        adSize = AdSize.BANNER,
+    ) { errorMessage ->
+        onEventUpdate("Banner failed: $errorMessage")
+    }
+}
+
+if (showMrec) {
+    Ads.showMrec(
+        modifier = Modifier.fillMaxWidth(),
+        networks = appliedNetworks,
+    ) { errorMessage ->
+        onEventUpdate("MREC failed: $errorMessage")
+    }
+}
+
+if (showNative) {
+    Ads.showNativeAd(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(300.dp),
+        networks = appliedNetworks,
+    ) { errorMessage ->
+        onEventUpdate("Native failed: $errorMessage")
+    }
 }
 ```
 
