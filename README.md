@@ -193,7 +193,9 @@ override fun onStart() {
                 FirebaseAnalyticsManager.logEvent("mzgs_splash_ads_closed")
             }
 
-            val shown = Ads.showInterstitial(activity, onAdClosed =  onSplashComplete)
+            val shown = Ads.showInterstitial(activity, onAdClosed =  { adShowed ->
+                onSplashComplete()
+            })
             if(shown){
                 FirebaseAnalyticsManager.logEvent("splash_interstitial_success")
             }
@@ -224,11 +226,8 @@ Ads.loadInterstitial(activity, networks = "applovin,admob")
 Ads.showInterstitial(
     activity,
     networks = "applovin,admob",
-    onAdShowFailed = { network, errorMessage ->
-        // Called if a loaded ad fails while showing.
-    },
-) {
-    // Called when the shown ad is closed or no ad is available.
+) { adShowed ->
+    // adShowed is true only when an ad was actually shown and then closed.
 }
 
 Ads.loadRewarded(activity, networks = "admob,applovin")
@@ -257,8 +256,8 @@ Ads.showInterstitialWithCycle(
     onAdShowFailed = { network, errorMessage ->
         // Called if a loaded ad fails while showing.
     },
-) {
-    // Called when an ad closes or when the cycle skips showing.
+) { adShowed ->
+    // adShowed is true only when an ad was actually shown and then closed.
 }
 ```
 

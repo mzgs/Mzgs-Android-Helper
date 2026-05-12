@@ -55,13 +55,12 @@ object Ads {
     fun showInterstitial(
         activity: Activity,
         networks: String = "applovin,admob",
-        onAdShowFailed: (network: String, errorMessage: String) -> Unit = { _, _ -> },
-        onAdClosed: () -> Unit = {},
+        onAdClosed: (adShowed: Boolean) -> Unit = {},
     ): Boolean {
         return showInterstitialInternal(
             activity = activity,
             networks = networks,
-            onAdShowFailed = onAdShowFailed,
+            onAdShowFailed = { _, _ -> },
             onAdClosed = onAdClosed,
         )
     }
@@ -72,13 +71,13 @@ object Ads {
         defaultValue: Int = 3,
         networks: String = "applovin,admob",
         onAdShowFailed: (network: String, errorMessage: String) -> Unit = { _, _ -> },
-        onAdClosed: () -> Unit = {},
+        onAdClosed: (adShowed: Boolean) -> Unit = {},
     ): Boolean {
         val cycleValue = Remote.getInt(name, defaultValue)
         val currentCounter = ActionCounter.increaseGet(name)
 
         if (cycleValue <= 0) {
-            onAdClosed()
+            onAdClosed(false)
             return false
         }
 
@@ -91,7 +90,7 @@ object Ads {
             )
         }
 
-        onAdClosed()
+        onAdClosed(false)
         return false
     }
 
@@ -220,7 +219,7 @@ object Ads {
         activity: Activity,
         networks: String,
         onAdShowFailed: (network: String, errorMessage: String) -> Unit,
-        onAdClosed: () -> Unit,
+        onAdClosed: (adShowed: Boolean) -> Unit,
     ): Boolean {
         val networks = normalizedNetworks(networks)
 
@@ -230,10 +229,10 @@ object Ads {
         val failedToShowNetworks = mutableSetOf<String>()
         lateinit var tryShowFrom: (startIndex: Int) -> Boolean
 
-        fun notifyClosed() {
+        fun notifyClosed(adShowed: Boolean) {
             if (!closedNotified) {
                 closedNotified = true
-                onAdClosed()
+                onAdClosed(adShowed)
             }
         }
 
@@ -248,7 +247,7 @@ object Ads {
                 shownNetworkIndex = -1
                 tryShowFrom(nextIndex)
             } else {
-                notifyClosed()
+                notifyClosed(adShowed = true)
             }
         }
 
@@ -284,7 +283,7 @@ object Ads {
                 }
             }
             if (!shownAny) {
-                notifyClosed()
+                notifyClosed(adShowed = false)
             }
             shownAny
         }

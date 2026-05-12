@@ -62,6 +62,7 @@ class MainActivity : ComponentActivity() {
 
             SimpleSplashHelper.showSplash(activity)
             SimpleSplashHelper.setOnComplete {
+                FirebaseAnalyticsManager.logEvent("mzgs_splash_completed")
 
 
 
