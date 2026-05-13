@@ -348,7 +348,6 @@ object SimpleSplashHelper {
 
     private fun resetRuntimeState() {
         splashDuration = 3000L
-        onComplete = null
         splashDialogRef = null
         progressBarId = View.NO_ID
         progressTextId = View.NO_ID
@@ -364,6 +363,7 @@ object SimpleSplashHelper {
 
     private fun resetState() {
         resetRuntimeState()
+        onComplete = null
         shouldShowProgress = true
         rotateLogo = true
         customImageResId = null

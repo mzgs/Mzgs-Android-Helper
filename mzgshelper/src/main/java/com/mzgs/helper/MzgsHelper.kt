@@ -55,8 +55,8 @@ object MzgsHelper {
     private val firstActivityCreatedHandled = AtomicBoolean(false)
     private val firstActivityResumedHandled = AtomicBoolean(false)
     private var activityDetectRegistered = false
-    private var onFirstActivityCreated: (Activity) -> Unit = {}
-    private var onFirstActivityResumed: (Activity) -> Unit = {}
+    private val onFirstActivityCreatedCallbacks = CopyOnWriteArrayList<(Activity) -> Unit>()
+    private val onFirstActivityResumedCallbacks = CopyOnWriteArrayList<(Activity) -> Unit>()
     private var startedActivityCount = 0
     private var appWentToBackground = false
     private var foregroundNotificationPending = false
@@ -85,7 +85,7 @@ object MzgsHelper {
     private val activityDetectCallbacks = object : Application.ActivityLifecycleCallbacks {
         override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
             if (firstActivityCreatedHandled.compareAndSet(false, true)) {
-                onFirstActivityCreated(activity)
+                onFirstActivityCreatedCallbacks.forEach { it(activity) }
                 onFirstActivityCreatedListener?.invoke(activity)
             }
         }
@@ -95,7 +95,7 @@ object MzgsHelper {
         override fun onActivityResumed(activity: Activity) {
             markActivityResumed(activity)
             if (firstActivityResumedHandled.compareAndSet(false, true)) {
-                onFirstActivityResumed(activity)
+                onFirstActivityResumedCallbacks.forEach { it(activity) }
             }
         }
 
@@ -179,8 +179,8 @@ object MzgsHelper {
         onActivityCreated: (Activity) -> Unit = {},
         onActivityResumed: (Activity) -> Unit = {},
     ) {
-        onFirstActivityCreated = onActivityCreated
-        onFirstActivityResumed = onActivityResumed
+        onFirstActivityCreatedCallbacks += onActivityCreated
+        onFirstActivityResumedCallbacks += onActivityResumed
         if (!activityDetectRegistered) {
             application.registerActivityLifecycleCallbacks(activityDetectCallbacks)
             activityDetectRegistered = true
