@@ -59,11 +59,14 @@ object MzgsHelper {
     private var onFirstActivityResumed: (Activity) -> Unit = {}
     private var startedActivityCount = 0
     private var appWentToBackground = false
+    private var foregroundNotificationPending = false
     private var appLifecycleActivityCallbacksRegistered = false
     private var appLifecycleComponentCallbacksRegistered = false
     private var onGoBackground: (Activity) -> Unit = {}
     private var onGoForeground: (Activity) -> Unit = {}
     private var lastStartedActivityRef: WeakReference<Activity>? = null
+    private var lastResumedActivityRef: WeakReference<Activity>? = null
+    private var pendingForegroundActivityRef: WeakReference<Activity>? = null
     @Volatile
     var onFirstActivityCreatedListener: ((Activity) -> Unit)? = null
     private val defaultRestrictedCountries: List<String> = listOf(
@@ -90,12 +93,15 @@ object MzgsHelper {
         override fun onActivityStarted(activity: Activity) = Unit
 
         override fun onActivityResumed(activity: Activity) {
+            markActivityResumed(activity)
             if (firstActivityResumedHandled.compareAndSet(false, true)) {
                 onFirstActivityResumed(activity)
             }
         }
 
-        override fun onActivityPaused(activity: Activity) = Unit
+        override fun onActivityPaused(activity: Activity) {
+            clearActivityResumed(activity)
+        }
 
         override fun onActivityStopped(activity: Activity) = Unit
 
@@ -116,18 +122,36 @@ object MzgsHelper {
                     appWentToBackground = false
                 }
                 if (shouldNotify) {
+                    foregroundNotificationPending = true
+                    pendingForegroundActivityRef = WeakReference(activity)
+                }
+            }
+        }
+
+        override fun onActivityResumed(activity: Activity) {
+            markActivityResumed(activity)
+            if (foregroundNotificationPending) {
+                val pendingActivity = pendingForegroundActivityRef?.get()
+                if (pendingActivity == null || pendingActivity === activity) {
+                    foregroundNotificationPending = false
+                    pendingForegroundActivityRef = null
                     onGoForeground(activity)
                 }
             }
         }
 
-        override fun onActivityResumed(activity: Activity) = Unit
-
-        override fun onActivityPaused(activity: Activity) = Unit
+        override fun onActivityPaused(activity: Activity) {
+            clearActivityResumed(activity)
+        }
 
         override fun onActivityStopped(activity: Activity) {
             if (startedActivityCount > 0) {
                 startedActivityCount -= 1
+            }
+            val pendingActivity = pendingForegroundActivityRef?.get()
+            if (pendingActivity === activity) {
+                foregroundNotificationPending = false
+                pendingForegroundActivityRef = null
             }
         }
 
@@ -163,6 +187,16 @@ object MzgsHelper {
         }
     }
 
+    private fun markActivityResumed(activity: Activity) {
+        lastResumedActivityRef = WeakReference(activity)
+    }
+
+    private fun clearActivityResumed(activity: Activity) {
+        if (lastResumedActivityRef?.get() === activity) {
+            lastResumedActivityRef = null
+        }
+    }
+
     fun registerAppLifecycleCallbacks(
         application: Application,
         onGoBackground: (Activity) -> Unit = {},
@@ -178,6 +212,19 @@ object MzgsHelper {
             application.registerComponentCallbacks(appLifecycleComponentCallbacks)
             appLifecycleComponentCallbacksRegistered = true
         }
+    }
+
+    fun isActivityForeground(activity: Activity): Boolean {
+        if (activity.isFinishing || activity.isDestroyed) {
+            return false
+        }
+        if (!appLifecycleActivityCallbacksRegistered) {
+            return true
+        }
+        return startedActivityCount > 0 &&
+            !appWentToBackground &&
+            !foregroundNotificationPending &&
+            lastResumedActivityRef?.get() === activity
     }
 
 

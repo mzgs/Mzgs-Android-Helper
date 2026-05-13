@@ -599,6 +599,11 @@ object ApplovinMaxMediation {
             onAdClosed()
             return false
         }
+        if (!MzgsHelper.isActivityForeground(activity)) {
+            Log.w(TAG, "Activity is not foreground; skipping app open.")
+            onAdClosed()
+            return false
+        }
         if (!AppLovinSdk.getInstance(activity).isInitialized) {
             onAdClosed()
             return false

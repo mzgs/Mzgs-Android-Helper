@@ -1109,6 +1109,11 @@ object AdmobMediation {
             onAdClosed()
             return false
         }
+        if (!MzgsHelper.isActivityForeground(activity)) {
+            Log.w(TAG, "Activity is not foreground; skipping app open.")
+            onAdClosed()
+            return false
+        }
         val ad = appOpenAd
         if (refreshExpiredAppOpenAd(activity)) {
             FirebaseAnalyticsManager.logAdNotReady(
