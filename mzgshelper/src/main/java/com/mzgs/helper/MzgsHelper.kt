@@ -35,6 +35,7 @@ import java.lang.ref.WeakReference
 import java.net.URL
 import java.util.*
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.CopyOnWriteArrayList
 
 fun p(obj: Any) {
     Log.d("mzgslog", obj.toString())
@@ -69,7 +70,11 @@ object MzgsHelper {
         "UK", "US", "GB", "CN", "MX", "JP", "KR", "AR", "HK", "IN",
         "PK", "TR", "VN", "RU", "SG", "MO", "TW", "PY"
     )
+    private val allowedCountryRemoteListenerRegistered = AtomicBoolean(false)
     private var restrictedCountries: List<String> = defaultRestrictedCountries
+    private var fallbackRestrictedCountries: List<String> = defaultRestrictedCountries
+    @Volatile
+    private var allowedCountryContext: Context? = null
 
     var isAllowedCountry = true
     var IPCountry: String? = null
@@ -314,20 +319,32 @@ object MzgsHelper {
         defaultRestrictedCountries: List<String> = MzgsHelper.defaultRestrictedCountries,
     ) {
         if (debugAllow != null && isDebug(context)) {
+            allowedCountryContext = null
             isAllowedCountry = debugAllow
             Log.d("LibHelper", "Debug mode with debugAllow=$debugAllow, setting isAllowedCountry to $debugAllow")
             return
         }
-        restrictedCountries = defaultRestrictedCountries.map { it.uppercase(Locale.ROOT) }
+        val appContext = context.applicationContext
+        fallbackRestrictedCountries = defaultRestrictedCountries.map { it.uppercase(Locale.ROOT) }
+        restrictedCountries = fallbackRestrictedCountries
+        allowedCountryContext = appContext
+        if (allowedCountryRemoteListenerRegistered.compareAndSet(false, true)) {
+            Remote.addOnConfigAppliedListener {
+                allowedCountryContext?.let { countryContext ->
+                    setRestrictedCountriesFromRemoteConfig()
+                    setIsAllowedCountry(countryContext)
+                }
+            }
+        }
         setRestrictedCountriesFromRemoteConfig()
 
-        setIsAllowedCountry(context)
+        setIsAllowedCountry(appContext)
 
         if (!isAllowedCountry){
             return
         }
 
-        setIPCountry(context)
+        setIPCountry(appContext)
 
     }
 
@@ -378,7 +395,7 @@ object MzgsHelper {
      */
   private fun setRestrictedCountriesFromRemoteConfig() {
         try {
-            val remoteCountries = Remote.getStringArray("restricted_countries", restrictedCountries)
+            val remoteCountries = Remote.getStringArray("restricted_countries", fallbackRestrictedCountries)
             restrictedCountries = remoteCountries.map { it.uppercase(Locale.ROOT) }
             Log.d("LibHelper", "Restricted countries set from remote config: $restrictedCountries")
         } catch (e: Exception) {
@@ -519,6 +536,8 @@ object Remote {
     private var initDeferred: Deferred<Unit>? = null
     @Volatile
     private var initUrl: String? = null
+    private val configAppliedListeners = CopyOnWriteArrayList<() -> Unit>()
+    @Volatile
     private var app: JSONObject? = null
     private var applicationContext: Context? = null
     
@@ -535,6 +554,10 @@ object Remote {
     fun init(context: Context, url: String? = "https://raw.githubusercontent.com/mzgs/Android-Json-Data/refs/heads/master/android.json") {
         val appContext = context.applicationContext
         startRemoteConfigFetch(appContext, url, REMOTE_CONFIG_INIT_TIMEOUT_MS)
+    }
+
+    fun addOnConfigAppliedListener(listener: () -> Unit) {
+        configAppliedListeners.add(listener)
     }
 
     /**
@@ -605,6 +628,7 @@ object Remote {
                     val packageConfig = json.optJSONObject(getPackageName()) ?: JSONObject()
                     app = packageConfig
                     saveCachedRemoteConfig(packageConfig)
+                    notifyConfigApplied()
 
                     if (packageConfig.length() == 0) {
                         Log.i("Remote", "No config found for package, using defaults")
@@ -632,6 +656,16 @@ object Remote {
 
     private fun saveCachedRemoteConfig(config: JSONObject) {
         Pref.set(REMOTE_CONFIG_PREF_KEY, config.toString())
+    }
+
+    private fun notifyConfigApplied() {
+        configAppliedListeners.forEach { listener ->
+            try {
+                listener()
+            } catch (e: Exception) {
+                Log.e("Remote", "Remote config listener failed", e)
+            }
+        }
     }
 
 
