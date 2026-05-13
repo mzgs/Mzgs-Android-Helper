@@ -130,11 +130,11 @@ class App : Application() {
         MzgsHelper.registerFirstActivityCallbacks(
             application = this,
             onActivityResumed = { activity ->
-                // Call setCustomImage before showSplash if you want a custom splash image.
-                // SimpleSplashHelper.setCustomImage(R.drawable.cleaner)
+               
+                // SimpleSplashHelper.setCustomImage(R.drawable.splash)
                 SimpleSplashHelper.showSplash(activity)
 
-                MzgsHelper.showUmpConsent(activity, forceShowDebug = true) {
+                MzgsHelper.showUmpConsent(activity, forceShowDebug = false) {
                     AdmobMediation.initialize(this@App) {
                         AdmobMediation.loadAppOpenAd(activity)
                         AdmobMediation.loadInterstitial(activity)
