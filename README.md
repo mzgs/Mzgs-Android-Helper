@@ -127,7 +127,7 @@ class App : Application() {
             DEBUG = ApplovinMaxDebug(useEmptyIds = false),
         )
 
-        MzgsHelper.registerFirstActivityCallbacks(
+         MzgsHelper.registerFirstActivityCallbacks(
             application = this,
             onActivityResumed = { activity ->
                
@@ -139,10 +139,13 @@ class App : Application() {
                         AdmobMediation.loadAppOpenAd(activity)
                         AdmobMediation.loadInterstitial(activity)
                     }
-                    ApplovinMaxMediation.initialize(this@App)
+                    ApplovinMaxMediation.initialize(this@App){
+                        ApplovinMaxMediation.loadAppOpenAd(activity)
+                        ApplovinMaxMediation.loadInterstitial(activity)
+                    }
 
                     val splashDuration = if (MzgsHelper.isDebug(activity)) {
-                        9500
+                        500
                     } else {
                         Remote.getLong("splash_time", 12_000)
                     }
@@ -202,32 +205,33 @@ override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
 
-    lifecycleScope.launch {
-        val activity = this@MainActivity
+      lifecycleScope.launch {
+            val activity = this@MainActivity
 
-        MzgsHelper.initAllowedCountry(
-            context = activity,
-            debugAllow = false,
-            defaultRestrictedCountries = listOf(
-                "UK", "US", "GB", "CN", "MX", "JP", "KR", "AR", "HK", "IN",
-                "PK", "TR", "VN", "RU", "SG", "MO", "TW", "PY",
-            ),
-        )
+            MzgsHelper.initAllowedCountry(
+                context = activity,
+                debugAllow = true,
+                defaultRestrictedCountries = listOf(
+                    "UK", "US", "GB", "CN", "MX", "JP", "KR", "AR", "HK", "IN", "PK", "TR", "VN", "RU", "SG", "MO", "TW", "PY","BR",
+                ),
+            )
 
-        SimpleSplashHelper.setOnComplete {
-            FirebaseAnalyticsManager.logEvent("mzgs_splash_completed")
 
-            Ads.showSplashAds(activity) {
-                FirebaseAnalyticsManager.logEvent("mzgs_splash_completed_ads_closed")
-                isSplashComplete.value = true
+            SimpleSplashHelper.setOnComplete {
+                FirebaseAnalyticsManager.logEvent("mzgs_splash_completed")
 
-                ApplovinMaxMediation.setInitListener {
-                    ApplovinMaxMediation.loadInterstitial(activity)
-                    ApplovinMaxMediation.loadAppOpenAd(activity)
+                Ads.showSplashAds(activity) {
+                    FirebaseAnalyticsManager.logEvent("mzgs_splash_completed_ads_closed")
+
+                    isSplashComplete.value = true
+
+                    
+
+
                 }
             }
         }
-    }
+
 
     setContent {
         MzgsAndroidHelperTheme {
