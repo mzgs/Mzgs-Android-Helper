@@ -246,7 +246,9 @@ Ads.loadInterstitial(activity, networks = "applovin,admob")
 Ads.showInterstitial(
     activity,
     networks = "applovin,admob",
+    useAppOpenFallback = true,
 ) { adShowed ->
+    // When interstitials fail, app open is tried as a fallback.
     // adShowed is true only when an ad was actually shown and then closed.
 }
 
@@ -267,6 +269,8 @@ Ads.showRewarded(
 `onAdClosed(adShowed)`.
 If a cached interstitial, rewarded, or app open ad is selected but fails while showing, the helper
 tries the next configured network before calling `onAdClosed`.
+When `showInterstitial` is called with `useAppOpenFallback = true`, the helper tries app open ads
+with the same network order after all interstitial networks fail or cannot show.
 
 ### Interstitial with cycle (remote-configurable)
 
@@ -276,6 +280,7 @@ Ads.showInterstitialWithCycle(
     name = "interstitial_cycle_home",
     defaultValue = 3,
     networks = "applovin,admob",
+    useAppOpenFallback = true,
     onAdShowFailed = { network, errorMessage ->
         // Called if a loaded ad fails while showing.
     },

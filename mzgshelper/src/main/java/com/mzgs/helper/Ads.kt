@@ -56,13 +56,24 @@ object Ads {
     fun showInterstitial(
         activity: Activity,
         networks: String = "applovin,admob",
+        useAppOpenFallback: Boolean = false,
         onAdClosed: (adShowed: Boolean) -> Unit = {},
     ) {
         showInterstitialInternal(
             activity = activity,
             networks = networks,
             onAdShowFailed = { _, _ -> },
-            onAdClosed = onAdClosed,
+            onAdClosed = { interstitialShowed ->
+                if (!interstitialShowed && useAppOpenFallback) {
+                    showAppOpenAd(
+                        activity = activity,
+                        networks = networks,
+                        onAdClosed = onAdClosed,
+                    )
+                } else {
+                    onAdClosed(interstitialShowed)
+                }
+            },
         )
     }
 
@@ -71,6 +82,7 @@ object Ads {
         name: String,
         defaultValue: Int = 3,
         networks: String = "applovin,admob",
+        useAppOpenFallback: Boolean = false,
         onAdShowFailed: (network: String, errorMessage: String) -> Unit = { _, _ -> },
         onAdClosed: (adShowed: Boolean) -> Unit = {},
     ) {
@@ -87,7 +99,17 @@ object Ads {
                 activity = activity,
                 networks = networks,
                 onAdShowFailed = onAdShowFailed,
-                onAdClosed = onAdClosed,
+                onAdClosed = { interstitialShowed ->
+                    if (!interstitialShowed && useAppOpenFallback) {
+                        showAppOpenAd(
+                            activity = activity,
+                            networks = networks,
+                            onAdClosed = onAdClosed,
+                        )
+                    } else {
+                        onAdClosed(interstitialShowed)
+                    }
+                },
             )
             return
         }
