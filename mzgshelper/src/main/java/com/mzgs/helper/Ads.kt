@@ -82,7 +82,7 @@ object Ads {
         name: String,
         defaultValue: Int = 3,
         networks: String = "applovin,admob",
-        useAppOpenFallback: Boolean = false,
+        useAppOpenFallback: Boolean = true,
         onAdShowFailed: (network: String, errorMessage: String) -> Unit = { _, _ -> },
         onAdClosed: (adShowed: Boolean) -> Unit = {},
     ) {
