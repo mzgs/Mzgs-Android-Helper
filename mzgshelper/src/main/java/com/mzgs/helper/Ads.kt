@@ -16,6 +16,12 @@ object Ads {
     private val validNetworks = setOf("applovin", "admob")
 
     /**
+     * Overrides the default value used by interstitial APIs for app open fallback.
+     * Leave null to keep each method's existing default behavior.
+     */
+    var useAppOpenFallbackDefault: Boolean? = null
+
+    /**
      * Registers a callback that runs after both AdMob and AppLovin MAX initialization complete.
      * If both networks are already initialized, the callback is invoked immediately.
      */
@@ -56,7 +62,7 @@ object Ads {
     fun showInterstitial(
         activity: Activity,
         networks: String = "applovin,admob",
-        useAppOpenFallback: Boolean = false,
+        useAppOpenFallback: Boolean = useAppOpenFallbackDefault ?: false,
         onAdClosed: (adShowed: Boolean) -> Unit = {},
     ) {
         showInterstitialInternal(
@@ -82,7 +88,7 @@ object Ads {
         name: String,
         defaultValue: Int = 3,
         networks: String = "applovin,admob",
-        useAppOpenFallback: Boolean = true,
+        useAppOpenFallback: Boolean = useAppOpenFallbackDefault ?: true,
         onAdShowFailed: (network: String, errorMessage: String) -> Unit = { _, _ -> },
         onAdClosed: (adShowed: Boolean) -> Unit = {},
     ) {

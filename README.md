@@ -247,10 +247,12 @@ override fun onCreate(savedInstanceState: Bundle?) {
 // Fullscreen ads are cached. Load before show, ideally after SDK init completes.
 Ads.loadInterstitial(activity, networks = "applovin,admob")
 
+// Optional: set the default fallback behavior for interstitial APIs globally.
+Ads.useAppOpenFallbackDefault = true
+
 Ads.showInterstitial(
     activity,
     networks = "applovin,admob",
-    useAppOpenFallback = true,
 ) { adShowed ->
     // When interstitials fail, app open is tried as a fallback.
     // adShowed is true only when an ad was actually shown and then closed.
@@ -275,6 +277,8 @@ If a cached interstitial, rewarded, or app open ad is selected but fails while s
 tries the next configured network before calling `onAdClosed`.
 When `showInterstitial` is called with `useAppOpenFallback = true`, the helper tries app open ads
 with the same network order after all interstitial networks fail or cannot show.
+Set `Ads.useAppOpenFallbackDefault` to change the default for `showInterstitial` and
+`showInterstitialWithCycle`; pass `useAppOpenFallback` directly to override it for one call.
 
 ### Interstitial with cycle (remote-configurable)
 
