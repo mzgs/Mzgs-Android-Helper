@@ -17,9 +17,13 @@ object Ads {
 
     /**
      * Overrides the default value used by interstitial APIs for app open fallback.
-     * Leave null to keep each method's existing default behavior.
+     * Leave null to use Remote Config key "useAppOpenFallbackDefault" with false as fallback.
      */
     var useAppOpenFallbackDefault: Boolean? = null
+
+    private fun shouldUseAppOpenFallbackDefault(): Boolean {
+        return useAppOpenFallbackDefault ?: Remote.getBool("useAppOpenFallbackDefault", false)
+    }
 
     /**
      * Registers a callback that runs after both AdMob and AppLovin MAX initialization complete.
@@ -62,7 +66,7 @@ object Ads {
     fun showInterstitial(
         activity: Activity,
         networks: String = "applovin,admob",
-        useAppOpenFallback: Boolean = useAppOpenFallbackDefault ?: false,
+        useAppOpenFallback: Boolean = shouldUseAppOpenFallbackDefault(),
         onAdClosed: (adShowed: Boolean) -> Unit = {},
     ) {
         showInterstitialInternal(
@@ -88,7 +92,7 @@ object Ads {
         name: String,
         defaultValue: Int = 3,
         networks: String = "applovin,admob",
-        useAppOpenFallback: Boolean = useAppOpenFallbackDefault ?: true,
+        useAppOpenFallback: Boolean = shouldUseAppOpenFallbackDefault(),
         onAdShowFailed: (network: String, errorMessage: String) -> Unit = { _, _ -> },
         onAdClosed: (adShowed: Boolean) -> Unit = {},
     ) {
