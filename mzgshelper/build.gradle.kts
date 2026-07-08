@@ -56,7 +56,7 @@ android {
 
 dependencies {
     // AndroidX Core
-    implementation("androidx.core:core-ktx:1.19.0")
+    implementation("androidx.core:core-ktx:1.18.0")
     
     // Compose
     implementation(platform("androidx.compose:compose-bom:2026.06.01"))
