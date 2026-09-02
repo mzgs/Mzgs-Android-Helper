@@ -93,10 +93,12 @@ object Ads {
         defaultValue: Int = 3,
         networks: String = "applovin,admob",
         useAppOpenFallback: Boolean = shouldUseAppOpenFallbackDefault(),
+        startAfter: Int = 0,
         onAdShowFailed: (network: String, errorMessage: String) -> Unit = { _, _ -> },
         onAdClosed: (adShowed: Boolean) -> Unit = {},
     ) {
         val cycleValue = Remote.getInt(name, defaultValue)
+        val startAfterValue = Remote.getInt("${name}_start_after", startAfter)
         val currentCounter = ActionCounter.increaseGet(name)
 
         if (cycleValue <= 0) {
@@ -104,7 +106,10 @@ object Ads {
             return
         }
 
-        if (currentCounter % cycleValue == 0) {
+        if (
+            currentCounter > startAfterValue &&
+            (currentCounter - startAfterValue) % cycleValue == 0
+        ) {
             showInterstitialInternal(
                 activity = activity,
                 networks = networks,

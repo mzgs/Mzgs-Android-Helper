@@ -287,6 +287,7 @@ Ads.showInterstitialWithCycle(
     activity = activity,
     name = "interstitial_cycle_home",
     defaultValue = 3,
+    startAfter = 1,
     networks = "applovin,admob",
     useAppOpenFallback = true,
     onAdShowFailed = { network, errorMessage ->
@@ -296,6 +297,11 @@ Ads.showInterstitialWithCycle(
     // adShowed is true only when an ad was actually shown and then closed.
 }
 ```
+
+`startAfter` defaults to `0` and is the fallback for the Remote Config key
+`<name>_start_after`. It skips that many calls before cycle counting starts. For example, when
+`name = "interstitial_cycle_home"`, set `interstitial_cycle_home_start_after` to `1`; with a cycle
+value of `2`, the interstitial is shown on calls 3, 5, 7, and so on.
 
 ### Compose banners, MREC, and native ads
 
