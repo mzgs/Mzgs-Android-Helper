@@ -82,20 +82,60 @@ build_log_url="${JITPACK_BASE_URL}/${group_path}/${JITPACK_ARTIFACT}/${next_tag}
 build_status_url="${JITPACK_BASE_URL}/api/builds/${JITPACK_GROUP}/${JITPACK_ARTIFACT}/${next_tag}"
 
 echo "Triggering JitPack build for ${JITPACK_GROUP}:${JITPACK_ARTIFACT}:${next_tag}"
-echo "A new tag may temporarily return HTTP 404 while JitPack discovers it; using a 30-minute retry window."
-if ! curl \
-    --fail \
-    --location \
-    --silent \
-    --show-error \
-    --retry 60 \
-    --retry-all-errors \
-    --retry-delay 30 \
-    --retry-max-time 1800 \
-    --connect-timeout 30 \
-    --max-time 1800 \
-    --output /dev/null \
-    "${artifact_url}"; then
+echo "Waiting up to 30 minutes for the artifact. Build status: ${build_status_url}"
+deadline=$((SECONDS + 1800))
+build_ready=false
+status_pattern='"status"[[:space:]]*:[[:space:]]*"([^"]*)"'
+while ((SECONDS < deadline)); do
+    remaining=$((deadline - SECONDS))
+    curl_exit=0
+    # Inspect HTTP status ourselves: --fail prints alarming errors for pending 404s.
+    http_status=$(curl \
+        --location \
+        --silent \
+        --show-error \
+        --connect-timeout 30 \
+        --max-time "${remaining}" \
+        --write-out '%{http_code}' \
+        --output /dev/null \
+        "${artifact_url}") || curl_exit=$?
+
+    if ((curl_exit == 0)) && [[ "${http_status}" == "200" ]]; then
+        build_ready=true
+        break
+    fi
+    if [[ "${http_status}" == "401" || "${http_status}" == "403" ]]; then
+        echo "Error: JitPack denied access (HTTP ${http_status})." >&2
+        break
+    fi
+
+    remaining=$((deadline - SECONDS))
+    ((remaining > 0)) || break
+    status_timeout=$((remaining < 20 ? remaining : 20))
+    build_status=$(curl --fail --location --silent --connect-timeout 10 \
+        --max-time "${status_timeout}" "${build_status_url}") || build_status=""
+    status="unknown"
+    if [[ "${build_status}" =~ ${status_pattern} ]]; then
+        status="${BASH_REMATCH[1]}"
+    fi
+    case "${status}" in
+        Error|error|Failed|failed)
+            echo "Error: JitPack reports a failed build: ${build_status}" >&2
+            break
+            ;;
+        tagNotFound)
+            echo "Waiting: JitPack has not found tag ${next_tag} yet (HTTP ${http_status})."
+            ;;
+        *)
+            echo "Waiting: artifact unavailable (HTTP ${http_status}, curl ${curl_exit}, JitPack status: ${status})."
+            ;;
+    esac
+    remaining=$((deadline - SECONDS))
+    ((remaining > 0)) || break
+    sleep "$((remaining < 30 ? remaining : 30))"
+done
+
+if [[ "${build_ready}" != true ]]; then
     echo "Error: tag ${next_tag} is on ${REMOTE}, but JitPack has not served its artifact." >&2
     echo "Build status: ${build_status_url}" >&2
     curl --fail --location --silent --show-error --connect-timeout 10 --max-time 30 "${build_status_url}" >&2 || true
