@@ -80,7 +80,7 @@ dependencies {
     api("com.google.android.gms:play-services-ads:25.4.0")
 
     // AppLovin MAX Mediation Adapters
-    implementation("com.applovin:applovin-sdk:13.6.3")
+    implementation("com.applovin:applovin-sdk:13.6.4")
 
 
     // Testing

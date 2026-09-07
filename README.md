@@ -483,8 +483,10 @@ val isFeatureEnabled = Remote.getBool("new_feature", false)
 - AppLovin MAX Mediation adapters
 
  ```kotlin
-    implementation("com.applovin.mediation:google-adapter:24.9.0.0")
-    implementation("com.applovin.mediation:unityads-adapter:4.16.5.0")
-    implementation("com.applovin.mediation:fyber-adapter:8.4.2.0")
-    implementation("com.applovin.mediation:vungle-adapter:7.6.2.0")
+    implementation("com.applovin.mediation:google-adapter:25.4.0.0")
+    implementation("com.applovin.mediation:unityads-adapter:4.20.0.0")
+    implementation("com.applovin.mediation:fyber-adapter:8.4.7.0")
+    implementation("com.applovin.mediation:vungle-adapter:7.7.8.0")
+    implementation("com.applovin.mediation:chartboost-adapter:9.14.0.0")
+    implementation ("com.applovin.mediation:bytedance-adapter:8.3.0.3.0")
  ```
