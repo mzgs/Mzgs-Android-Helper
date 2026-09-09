@@ -49,7 +49,23 @@ dependencies {
 
 ## 🔧 Build Configuration
 
- 
+### R8 / ProGuard
+
+The library is published without minification so the consuming application can
+optimize it together with the rest of its code. Enable `isMinifyEnabled = true`
+and `isShrinkResources = true` in the application's release build and use
+`proguard-android-optimize.txt`.
+
+The helper's `consumer-rules.pro` intentionally adds no keep rules: helper code
+uses direct API calls, and ad SDKs/adapters supply their own consumer rules.
+Do not copy package-wide keep rules for `com.mzgs.helper`, Google Ads, or other
+SDKs into the application. Add only narrowly scoped rules when introducing a
+specific reflection or serialization requirement.
+
+These consumer-rule changes only reach JitPack consumers after publishing a new
+tag/commit and updating their dependency version. Existing `5.1` artifacts keep
+their old rules. Verify a minified consuming app and exercise consent, ad
+initialization, fullscreen ads, and Compose ad views before release.
 
 ### Android Manifest & Permissions
 
