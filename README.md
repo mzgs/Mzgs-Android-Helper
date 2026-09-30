@@ -506,3 +506,16 @@ val isFeatureEnabled = Remote.getBool("new_feature", false)
     implementation("com.applovin.mediation:chartboost-adapter:9.14.0.0")
     implementation ("com.applovin.mediation:bytedance-adapter:8.3.0.3.0")
  ```
+
+### Required Pangle resource keep file
+
+When using the ByteDance/Pangle adapter, the consuming app must create
+`app/src/main/res/raw/pangle_keep.xml`. Pangle resolves some resources by name,
+so release resource shrinking can otherwise remove them and crash
+`TTLandingPageActivity` with `String resource ID #0x0`.
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@layout/tt_*,@anim/tt_*,@drawable/tt_*,@string/tt_*,@string/landingpage_default_*,@string/privacy_default_*,@color/tt_*,@dimen/tt_*,@integer/tt_*,@style/tt_*,@attr/tt_*" />
+```
