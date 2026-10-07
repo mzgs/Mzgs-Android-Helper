@@ -519,15 +519,14 @@ val isFeatureEnabled = Remote.getBool("new_feature", false)
     implementation ("com.applovin.mediation:bytedance-adapter:8.3.0.3.0")
  ```
 
-### Required Pangle resource keep file
+### Pangle resource shrinking
 
-When using the ByteDance/Pangle adapter, the consuming app must create
-`app/src/main/res/raw/pangle_keep.xml`. Pangle resolves some resources by name,
-so release resource shrinking can otherwise remove them and crash
-`TTLandingPageActivity` with `String resource ID #0x0`.
+MzgsHelper includes Pangle resource keep rules in
+`mzgshelper/src/main/res/raw/com_mzgs_helper_pangle_keep.xml`. These rules ship in
+the library AAR and apply to the consuming app's resource shrinker, so apps using
+this version do not need to create their own `res/raw/pangle_keep.xml`.
 
-```xml
-<?xml version="1.0" encoding="utf-8"?>
-<resources xmlns:tools="http://schemas.android.com/tools"
-    tools:keep="@layout/tt_*,@anim/tt_*,@drawable/tt_*,@string/tt_*,@string/landingpage_default_*,@string/privacy_default_*,@color/tt_*,@dimen/tt_*,@integer/tt_*,@style/tt_*,@attr/tt_*" />
-```
+Pangle resolves some resources by name. The rules preserve matching resources
+when the ByteDance/Pangle adapter is present, preventing release resource
+shrinking from removing them and causing `TTLandingPageActivity` to crash with
+`String resource ID #0x0`. The adapter dependency must still be added by the app.
