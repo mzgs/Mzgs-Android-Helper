@@ -2,6 +2,7 @@ package com.mzgs.helper
 
 import android.Manifest
 import android.app.Activity
+import android.app.ActivityManager
 import android.app.Application
 import android.content.ComponentCallbacks2
 import android.content.Context
@@ -12,6 +13,8 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.telephony.TelephonyManager
 import android.util.Log
 
@@ -67,6 +70,8 @@ object MzgsHelper {
     private var lastStartedActivityRef: WeakReference<Activity>? = null
     private var lastResumedActivityRef: WeakReference<Activity>? = null
     private var pendingForegroundActivityRef: WeakReference<Activity>? = null
+    private val appOpenSuppression = AppOpenAdSuppression()
+    private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile
     var onFirstActivityCreatedListener: ((Activity) -> Unit)? = null
     private val defaultRestrictedCountries: List<String> = listOf(
@@ -145,6 +150,7 @@ object MzgsHelper {
         }
 
         override fun onActivityStopped(activity: Activity) {
+            if (hasExternalActivityOnTop(activity)) suppressAppOpenUntilResume(activity)
             if (startedActivityCount > 0) {
                 startedActivityCount -= 1
             }
@@ -189,6 +195,46 @@ object MzgsHelper {
 
     private fun markActivityResumed(activity: Activity) {
         lastResumedActivityRef = WeakReference(activity)
+        clearAppOpenSuppressionAfterResume(activity)
+    }
+
+    internal val isAppOpenAdSuppressed: Boolean
+        get() = appOpenSuppression.isSuppressed
+
+    internal fun armAppOpenAdReturn(activity: Activity) {
+        appOpenSuppression.armAdReturn(activity.taskId, activity.componentName.flattenToString())
+    }
+
+    internal fun cancelAppOpenAdReturn(activity: Activity) {
+        appOpenSuppression.cancelAdReturn(activity.taskId, activity.componentName.flattenToString())
+    }
+
+    internal fun suppressAppOpenUntilResume(activity: Activity) {
+        cancelAppOpenAdReturn(activity)
+        appOpenSuppression.suppress(activity.taskId, activity.componentName.flattenToString())
+        // Some SDKs dismiss after the host has already resumed.
+        if (lastResumedActivityRef?.get() === activity ||
+            (!appLifecycleActivityCallbacksRegistered && !activityDetectRegistered)) {
+            clearAppOpenSuppressionAfterResume(activity)
+        }
+    }
+
+    private fun clearAppOpenSuppressionAfterResume(activity: Activity) {
+        val generation = appOpenSuppression.resumed(activity.taskId, activity.componentName.flattenToString()) ?: return
+        // Keep the guard through activity-result delivery and all foreground callbacks.
+        mainHandler.post { appOpenSuppression.clear(generation) }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun hasExternalActivityOnTop(activity: Activity): Boolean = try {
+        val manager = activity.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        // ponytail: detects external screens in our task; separate-task pickers need explicit integration.
+        manager.appTasks.any { task ->
+            val info = task.taskInfo
+            info?.id == activity.taskId && info.topActivity?.packageName?.let { it != activity.packageName } == true
+        }
+    } catch (_: RuntimeException) {
+        false // A removed task or unavailable task information must not break the host app.
     }
 
     private fun clearActivityResumed(activity: Activity) {

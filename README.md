@@ -185,6 +185,18 @@ class App : Application() {
 }
 ```
 
+App-open ads are automatically suppressed when returning from an external activity
+in the app's task (including the standard document/media picker), and after an
+AdMob or AppLovin interstitial/rewarded ad closes. Suppression lasts through the
+host's resume and foreground callbacks; subsequent normal background/foreground
+transitions can show ads again. Both `Ads` and direct mediation app-open APIs honor
+this guard. Keep the existing lifecycle registration; no picker-call changes are
+needed for same-task pickers. Separate-task pickers cannot be detected this way.
+Failed ad displays still allow the existing app-open fallback.
+
+Consumers must update to a release containing this change; existing published
+library versions do not change automatically.
+
 ### Init listeners
 
 ```kotlin

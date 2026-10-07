@@ -469,8 +469,10 @@ object AdmobMediation {
         }
         interstitialAd = null
         interstitialLoadedAtMs = 0L
+        MzgsHelper.armAppOpenAdReturn(activity)
         ad.fullScreenContentCallback = object : FullScreenContentCallback() {
             override fun onAdDismissedFullScreenContent() {
+                MzgsHelper.suppressAppOpenUntilResume(activity)
                 onAdClosed()
                 requestInterstitialLoad(activity)
             }
@@ -484,6 +486,7 @@ object AdmobMediation {
             }
 
             override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+                MzgsHelper.cancelAppOpenAdReturn(activity)
                 onAdShowFailed(adError.message)
                 onAdClosed()
                 FirebaseAnalyticsManager.logAdFailedToShow(
@@ -1039,8 +1042,10 @@ object AdmobMediation {
         }
         rewardedAd = null
         rewardedLoadedAtMs = 0L
+        MzgsHelper.armAppOpenAdReturn(activity)
         ad.fullScreenContentCallback = object : FullScreenContentCallback() {
             override fun onAdDismissedFullScreenContent() {
+                MzgsHelper.suppressAppOpenUntilResume(activity)
                 onAdClosed()
                 requestRewardedLoad(activity)
             }
@@ -1054,6 +1059,7 @@ object AdmobMediation {
             }
 
             override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+                MzgsHelper.cancelAppOpenAdReturn(activity)
                 onAdShowFailed(adError.message)
                 onAdClosed()
                 FirebaseAnalyticsManager.logAdFailedToShow(
@@ -1100,6 +1106,10 @@ object AdmobMediation {
         onAdShowFailed: (errorMessage: String) -> Unit = {},
         onAdClosed: () -> Unit = {},
     ): Boolean {
+        if (MzgsHelper.isAppOpenAdSuppressed) {
+            onAdClosed()
+            return false
+        }
         if (!isInitialized) {
             Log.w(TAG, "MobileAds not initialized; skipping app open.")
             onAdClosed()

@@ -40,6 +40,7 @@ import com.applovin.sdk.AppLovinSdkInitializationConfiguration
 import com.google.android.gms.ads.AdSize
 import com.mzgs.helper.FirebaseAnalyticsManager
 import kotlinx.coroutines.delay
+import java.lang.ref.WeakReference
 import kotlin.math.roundToInt
 
 object ApplovinMaxMediation {
@@ -81,8 +82,10 @@ object ApplovinMaxMediation {
     private var appOpenRetryRunnable: Runnable? = null
 
     private var interstitialOnAdClosed: () -> Unit = {}
+    private var interstitialActivityRef: WeakReference<Activity>? = null
     private var interstitialOnAdShowFailed: (String) -> Unit = {}
     private var rewardedOnAdClosed: () -> Unit = {}
+    private var rewardedActivityRef: WeakReference<Activity>? = null
     private var rewardedOnAdShowFailed: (String) -> Unit = {}
     private var rewardedOnUserRewarded: (String, Int) -> Unit = { _, _ -> }
     private var appOpenOnAdClosedInternal: () -> Unit = {}
@@ -196,6 +199,8 @@ object ApplovinMaxMediation {
             return false
         }
         isFullscreenAdShowing = true
+        interstitialActivityRef = WeakReference(activity)
+        MzgsHelper.armAppOpenAdReturn(activity)
         interstitialOnAdShowFailed = onAdShowFailed
         interstitialOnAdClosed = onAdClosed
         ad.showAd(activity)
@@ -498,6 +503,8 @@ object ApplovinMaxMediation {
             return false
         }
         isFullscreenAdShowing = true
+        rewardedActivityRef = WeakReference(activity)
+        MzgsHelper.armAppOpenAdReturn(activity)
         rewardedOnAdClosed = onAdClosed
         rewardedOnAdShowFailed = onAdShowFailed
         rewardedOnUserRewarded = onRewarded
@@ -595,6 +602,10 @@ object ApplovinMaxMediation {
         onAdShowFailed: (errorMessage: String) -> Unit = {},
         onAdClosed: () -> Unit = {},
     ): Boolean {
+        if (MzgsHelper.isAppOpenAdSuppressed) {
+            onAdClosed()
+            return false
+        }
         if (isAppOpenShowing || activity.isFinishing || activity.isDestroyed) {
             onAdClosed()
             return false
@@ -769,6 +780,8 @@ object ApplovinMaxMediation {
                 }
 
                 override fun onAdDisplayFailed(ad: MaxAd, error: MaxError) {
+                    interstitialActivityRef?.get()?.let(MzgsHelper::cancelAppOpenAdReturn)
+                    interstitialActivityRef = null
                     isFullscreenAdShowing = false
                     interstitialLoadedAtMs = 0L
                     interstitialOnAdShowFailed(error.message)
@@ -785,6 +798,8 @@ object ApplovinMaxMediation {
                 }
 
                 override fun onAdHidden(ad: MaxAd) {
+                    interstitialActivityRef?.get()?.let(MzgsHelper::suppressAppOpenUntilResume)
+                    interstitialActivityRef = null
                     isFullscreenAdShowing = false
                     interstitialLoadedAtMs = 0L
                     interstitialOnAdShowFailed = {}
@@ -849,6 +864,8 @@ object ApplovinMaxMediation {
                 }
 
                 override fun onAdDisplayFailed(ad: MaxAd, error: MaxError) {
+                    rewardedActivityRef?.get()?.let(MzgsHelper::cancelAppOpenAdReturn)
+                    rewardedActivityRef = null
                     isFullscreenAdShowing = false
                     rewardedLoadedAtMs = 0L
                     rewardedOnAdShowFailed(error.message)
@@ -865,6 +882,8 @@ object ApplovinMaxMediation {
                 }
 
                 override fun onAdHidden(ad: MaxAd) {
+                    rewardedActivityRef?.get()?.let(MzgsHelper::suppressAppOpenUntilResume)
+                    rewardedActivityRef = null
                     isFullscreenAdShowing = false
                     rewardedLoadedAtMs = 0L
                     rewardedOnAdShowFailed = {}
