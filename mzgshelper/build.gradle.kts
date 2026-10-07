@@ -73,11 +73,11 @@ dependencies {
     implementation("com.google.android.ump:user-messaging-platform:4.0.0")
     
     // Firebase
-    implementation(platform("com.google.firebase:firebase-bom:34.15.0"))
+    implementation(platform("com.google.firebase:firebase-bom:34.19.0"))
     implementation("com.google.firebase:firebase-analytics")
     
     // AdMob (exposed to consuming modules)
-    api("com.google.android.gms:play-services-ads:25.4.0")
+    api("com.google.android.gms:play-services-ads:25.5.0")
 
     // AppLovin MAX Mediation Adapters
     implementation("com.applovin:applovin-sdk:13.6.4")
