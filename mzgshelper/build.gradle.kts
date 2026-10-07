@@ -1,7 +1,6 @@
 
 plugins {
     id("com.android.library")
-    id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("maven-publish")
 }
@@ -39,16 +38,8 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlin {
-        compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-        }
-    }
     buildFeatures {
         compose = true
-    }
-    composeOptions {
-         kotlinCompilerExtensionVersion = "1.5.15"
     }
 }
 
@@ -56,12 +47,22 @@ android {
 
 dependencies {
     // AndroidX Core
-    implementation("androidx.core:core-ktx:1.18.0")
+    implementation("androidx.core:core-ktx:1.19.1")
     
     // Compose
-    implementation(platform("androidx.compose:compose-bom:2026.06.01"))
+    implementation(platform("androidx.compose:compose-bom:2026.09.00"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.runtime:runtime")
+    implementation("com.google.android.ump:user-messaging-platform:4.0.0")
+
+    // Firebase
+    implementation(platform("com.google.firebase:firebase-bom:34.19.0"))
+    implementation("com.google.firebase:firebase-analytics")
+
+    // AdMob (exposed to consuming modules)
+    api("com.google.android.gms:play-services-ads:25.5.0")
+
+    // AppLovin MAX Mediation Adapters
     
 
     
@@ -70,16 +71,6 @@ dependencies {
     
     // Google Play Services
     implementation("com.google.android.play:review:2.0.2")
-    implementation("com.google.android.ump:user-messaging-platform:4.0.0")
-    
-    // Firebase
-    implementation(platform("com.google.firebase:firebase-bom:34.19.0"))
-    implementation("com.google.firebase:firebase-analytics")
-    
-    // AdMob (exposed to consuming modules)
-    api("com.google.android.gms:play-services-ads:25.5.0")
-
-    // AppLovin MAX Mediation Adapters
     implementation("com.applovin:applovin-sdk:13.6.4")
 
 

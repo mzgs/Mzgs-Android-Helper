@@ -14,14 +14,24 @@ Android helper library with utility tools and dual ad mediation (AdMob + AppLovi
 
 ## ✅ Requirements
 
-- minSdk 24, compileSdk 36
+- minSdk 24, compileSdk 37 or higher
 - Java 17 / Kotlin JVM target 17
 - Jetpack Compose enabled for banner/MREC/native composables
 
 
 ## 📦 Installation
 
-> No version catalogs are used; all dependency versions live in the Gradle files. The library targets `compileSdk 36` and `minSdk 24`.
+> No version catalogs are used; all dependency versions live in the Gradle files. The library builds with `compileSdk 37` and `minSdk 24`; consuming apps must also use `compileSdk 37` or higher.
+
+Building this repository requires Gradle 9.3.1 (provided by `./gradlew`), Android
+Gradle Plugin 9.1.1, JDK 17 or 21, and Android SDK 37. Set Android Studio's Gradle
+JDK or `JAVA_HOME` to that JDK; the bundled Javadoc generator fails on JDK 25.
+AGP supplies built-in Kotlin; the Kotlin compiler and Compose compiler plugin
+remain at 2.2.21.
+
+```sh
+./gradlew :mzgshelper:build :mzgshelper:publishToMavenLocal :app:assembleDebug
+```
 
 ### Using JitPack
 
