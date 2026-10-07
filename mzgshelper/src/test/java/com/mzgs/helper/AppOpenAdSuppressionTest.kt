@@ -4,6 +4,51 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class AppOpenAdSuppressionTest {
+    @Test fun explicitFlowsStayBlockedUntilCompletionAndThroughTheReturningResume() {
+        val suppression = AppOpenAdSuppression()
+        val owner = Any()
+        val permission = suppression.beginFlow(owner)
+        val consent = suppression.beginFlow(owner)
+        assertTrue(suppression.isSuppressed)
+        assertNull(suppression.resumed(1, "Editor")) // Resume alone cannot finish a dialog.
+
+        suppression.suppress(1, "Editor") // Existing picker/ad guards cannot release active flows.
+        val earlyClear = requireNotNull(suppression.resumed(1, "Editor"))
+        suppression.armAdReturn(1, "Editor")
+        suppression.cancelAdReturn(1, "Editor")
+        suppression.clear(earlyClear)
+        assertTrue(suppression.isSuppressed)
+
+        assertTrue(suppression.endFlow(permission, 1, "Editor"))
+        suppression.clear(requireNotNull(suppression.resumed(1, "Editor")))
+        assertFalse(suppression.endFlow(permission, 1, "Editor")) // Completion is idempotent.
+        assertTrue(suppression.isSuppressed) // Consent is still open.
+
+        assertTrue(suppression.endFlow(consent, 1, "Editor"))
+        assertNull(suppression.resumed(2, "Editor"))
+        assertNull(suppression.resumed(1, "OtherActivity"))
+        val returned = requireNotNull(suppression.resumed(1, "Editor"))
+        assertTrue(suppression.isSuppressed) // Foreground callbacks still skip the ad.
+        suppression.clear(returned)
+        assertFalse(suppression.isSuppressed)
+        assertNull(suppression.resumed(1, "Editor")) // Next normal Home return is eligible.
+
+        val failedLaunch = suppression.beginFlow(owner)
+        suppression.endFlow(failedLaunch, 1, "Editor")
+        suppression.clear(requireNotNull(suppression.resumed(1, "Editor")))
+        assertFalse(suppression.isSuppressed) // No lifecycle transition is required to recover.
+
+        val destroyedFlow = suppression.beginFlow(owner)
+        val otherOwner = Any()
+        val otherFlow = suppression.beginFlow(otherOwner)
+        suppression.cancelFlows(owner)
+        assertTrue(suppression.isSuppressed) // Another Activity's flow is still open.
+        assertFalse(suppression.endFlow(destroyedFlow, 1, "Editor"))
+        suppression.cancelFlows(otherOwner)
+        assertFalse(suppression.isSuppressed)
+        assertFalse(suppression.endFlow(otherFlow, 2, "OtherActivity"))
+    }
+
     @Test fun pickerAndAdReturnsStaySuppressedThroughResumeButNotTheNextHomeReturn() {
         val suppression = AppOpenAdSuppression()
         assertFalse(suppression.isSuppressed)

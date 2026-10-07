@@ -194,6 +194,43 @@ this guard. Keep the existing lifecycle registration; no picker-call changes are
 needed for same-task pickers. Separate-task pickers cannot be detected this way.
 Failed ad displays still allow the existing app-open fallback.
 
+UMP consent (`showUmpConsent`) and in-app review (`showInappRate`) also suppress
+app-open ads automatically while their UI is active and through the return.
+For permission requests, sign-in, billing, biometric authentication, or update
+flows launched by your app, call `beginAppOpenAdSuppression(activity)` before
+launching and invoke its returned function from the completion/cancellation
+callback, including failures. Both calls must run on the main thread. For example,
+inside your Activity:
+
+```kotlin
+private var endPermissionSuppression: (() -> Unit)? = null
+private val permissionLauncher = registerForActivityResult(
+    ActivityResultContracts.RequestMultiplePermissions()
+) { result ->
+    endPermissionSuppression?.invoke()
+    endPermissionSuppression = null
+    // Handle granted/denied permissions here.
+}
+
+fun requestAppPermissions(permissions: Array<String>) {
+    if (endPermissionSuppression != null) return
+    endPermissionSuppression = MzgsHelper.beginAppOpenAdSuppression(this)
+    try {
+        permissionLauncher.launch(permissions)
+    } catch (e: RuntimeException) {
+        endPermissionSuppression?.invoke()
+        endPermissionSuppression = null
+        throw e
+    }
+}
+```
+
+Import `androidx.activity.result.contract.ActivityResultContracts`. These explicit
+flows can overlap safely; completing one does not unblock another. Permission
+dialogs are not detected automatically, so wrap the actual request in the host
+app. Destroying the launching Activity releases its unfinished flows. Existing
+file-picker integration needs no changes.
+
 Consumers must update to a release containing this change; existing published
 library versions do not change automatically.
 

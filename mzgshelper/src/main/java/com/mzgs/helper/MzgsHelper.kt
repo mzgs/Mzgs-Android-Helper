@@ -20,6 +20,7 @@ import android.util.Log
 
 import android.widget.Toast
 import androidx.annotation.RequiresPermission
+import androidx.annotation.MainThread
 import com.google.android.ump.ConsentDebugSettings
 import com.google.android.ump.ConsentRequestParameters
 import com.google.android.ump.UserMessagingPlatform
@@ -112,7 +113,9 @@ object MzgsHelper {
 
         override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
 
-        override fun onActivityDestroyed(activity: Activity) = Unit
+        override fun onActivityDestroyed(activity: Activity) {
+            appOpenSuppression.cancelFlows(activity)
+        }
     }
 
     private val appLifecycleActivityCallbacks = object : Application.ActivityLifecycleCallbacks {
@@ -163,7 +166,9 @@ object MzgsHelper {
 
         override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
 
-        override fun onActivityDestroyed(activity: Activity) = Unit
+        override fun onActivityDestroyed(activity: Activity) {
+            appOpenSuppression.cancelFlows(activity)
+        }
     }
 
     private val appLifecycleComponentCallbacks = object : ComponentCallbacks2 {
@@ -201,6 +206,23 @@ object MzgsHelper {
     internal val isAppOpenAdSuppressed: Boolean
         get() = appOpenSuppression.isSuppressed
 
+    /**
+     * Blocks app-open ads during a permission, authentication, billing, or other UI flow.
+     * Call before launching; invoke the returned function on completion, cancellation, or
+     * launch failure, on the main thread. Overlapping flows are independent. The return
+     * through resume/foreground callbacks is also suppressed. Keep lifecycle callbacks registered.
+     * Destroying the launching Activity releases its unfinished flows.
+     */
+    @MainThread
+    fun beginAppOpenAdSuppression(activity: Activity): () -> Unit {
+        val token = appOpenSuppression.beginFlow(activity)
+        return {
+            if (appOpenSuppression.endFlow(token, activity.taskId, activity.componentName.flattenToString())) {
+                clearAppOpenSuppressionIfResumed(activity)
+            }
+        }
+    }
+
     internal fun armAppOpenAdReturn(activity: Activity) {
         appOpenSuppression.armAdReturn(activity.taskId, activity.componentName.flattenToString())
     }
@@ -212,6 +234,10 @@ object MzgsHelper {
     internal fun suppressAppOpenUntilResume(activity: Activity) {
         cancelAppOpenAdReturn(activity)
         appOpenSuppression.suppress(activity.taskId, activity.componentName.flattenToString())
+        clearAppOpenSuppressionIfResumed(activity)
+    }
+
+    private fun clearAppOpenSuppressionIfResumed(activity: Activity) {
         // Some SDKs dismiss after the host has already resumed.
         if (lastResumedActivityRef?.get() === activity ||
             (!appLifecycleActivityCallbacksRegistered && !activityDetectRegistered)) {
@@ -314,11 +340,18 @@ object MzgsHelper {
                     onComplete()
                     return@requestConsentInfoUpdate
                 }
-                UserMessagingPlatform.loadAndShowConsentFormIfRequired(activity) { formError ->
-                    if (formError != null) {
-                        Log.e(TAG, "UMP consent form error: ${formError.message}")
+                val endSuppression = beginAppOpenAdSuppression(activity)
+                try {
+                    UserMessagingPlatform.loadAndShowConsentFormIfRequired(activity) { formError ->
+                        endSuppression()
+                        if (formError != null) {
+                            Log.e(TAG, "UMP consent form error: ${formError.message}")
+                        }
+                        onComplete()
                     }
-                    onComplete()
+                } catch (e: RuntimeException) {
+                    endSuppression()
+                    throw e
                 }
             },
             { requestError ->
@@ -596,9 +629,16 @@ object MzgsHelper {
                 if (task.isSuccessful) {
                     val reviewInfo = task.result
                     
-                    val flow = manager.launchReviewFlow(activity, reviewInfo)
-                    flow.addOnCompleteListener { _ ->
-                        Log.d("LibHelper", "In-app review flow completed")
+                    val endSuppression = beginAppOpenAdSuppression(activity)
+                    try {
+                        val flow = manager.launchReviewFlow(activity, reviewInfo)
+                        flow.addOnCompleteListener { _ ->
+                            endSuppression()
+                            Log.d("LibHelper", "In-app review flow completed")
+                        }
+                    } catch (e: Exception) {
+                        endSuppression()
+                        Log.e("LibHelper", "Error showing in-app review dialog", e)
                     }
                 } else {
                     Log.e("LibHelper", "Error requesting in-app review: ${task.exception}")
